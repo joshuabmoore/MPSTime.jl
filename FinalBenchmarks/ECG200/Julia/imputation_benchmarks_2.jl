@@ -70,10 +70,8 @@ d = 10
 chi_max=20
 nsweeps = 5
 eta = 0.5
-
-########################################
 # limit number of concurrent tasks (save memory)
-num_tasks=7
+num_tasks=32
 #####################################
 
 opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
@@ -135,31 +133,46 @@ function train_and_impute()
         samps_per_class = [size(f.test_samples, 1) for f in fc]
         per_instance_window_scores_mps = []
         per_instance_window_scores_nn = []
-        for (i, s) in enumerate(samps_per_class)
+        for (i, num_samps) in enumerate(samps_per_class)
             println("Evaluating class $i instances...")
-            for inst in 1:s
-                # loop over percentage missing
-                per_pm_scores_mps = []
-                per_pm_scores_nn = []
-                for pm in 5:10:95
-                    # loop over iterations
-                    num_wins = length(window_idxs[pm])
-                    per_pm_iter_scores_mps = Vector{Float64}(undef, num_wins)
-                    per_pm_iter_scores_nn = Vector{Float64}(undef, num_wins)
-                    # thread this part if low d and chi? 
-                    for it in 1:num_wins
-                        interp_sites = window_idxs[pm][it]
-                        stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
-                            mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
-                        per_pm_iter_scores_mps[it] = stats[:MAE]
-                        per_pm_iter_scores_nn[it] = stats[:NN_MAE]
+            chunk_size = ceil(Int, num_samps / num_tasks)
+            data_chunks = Iterators.partition(1:num_samps, chunk_size) # partition your data into chunks that individual tasks will deal with
+
+            # loop over percentage missing
+            per_pm_scores_mps = []
+            per_pm_scores_nn = []
+            for pm in 5:10#:95
+                # loop over iterations
+                num_wins = length(window_idxs[pm])
+                per_pm_iter_scores_mps = Array{Float64}(undef, num_samps, num_wins)
+                per_pm_iter_scores_nn = Array{Float64}(undef, num_samps, num_wins)
+                # thread this part if low d and chi? 
+                for it in 1:3#num_wins
+                    interp_sites = window_idxs[pm][it]
+                    tasks = map(data_chunks) do chunk
+                        @spawn begin
+                            mps_chunk = Vector{Float64}(undef, length(chunk))
+                            nn_chunk = Vector{Float64}(undef, length(chunk))
+                            for (j, inst) in enumerate(chunk) 
+                                stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
+                                    mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
+                                mps_chunk[j] = stats[:MAE]
+                                nn_chunk[j] = stats[:NN_MAE]
+                            end
+                            return stats_chunk, nn_chunk
+                        end
                     end
-                    push!(per_pm_scores_mps, per_pm_iter_scores_mps)
-                    push!(per_pm_scores_nn, per_pm_iter_scores_nn)
+            
+                    output = hcat(fetch.(tasks)...)
+                    per_pm_iter_scores_mps[:, it] = output[:,1]
+                    per_pm_iter_scores_nn[:, it] = output[:,2]
                 end
-                push!(per_instance_window_scores_mps, per_pm_scores_mps)
-                push!(per_instance_window_scores_nn, per_pm_scores_nn)
+                push!(per_pm_scores_mps, per_pm_iter_scores_mps)
+                push!(per_pm_scores_nn, per_pm_iter_scores_nn)
             end
+            push!(per_instance_window_scores_mps, per_pm_scores_mps)
+            push!(per_instance_window_scores_nn, per_pm_scores_nn)
+            
         end
         push!(per_fold_mps, per_instance_window_scores_mps)
         push!(per_fold_nn, per_instance_window_scores_nn)
@@ -170,9 +183,9 @@ end
 # per fold, per instance, per percentage missing, per window
 per_fold_mps, per_fold_nn = train_and_impute()
 
-f = jldopen("FinalBenchmarks/ECG200/Julia/ecg_benchmark_trial.jld2", "r")
-per_fold_mps_compare = read(f, "per_fold_mps")
-per_fold_nn_compare = read(f, "per_fold_nn")
+# f = jldopen("FinalBenchmarks/ECG200/Julia/ecg_benchmark_trial.jld2", "r")
+# per_fold_mps_compare = read(f, "per_fold_mps")
+# per_fold_nn_compare = read(f, "per_fold_nn")
 
 # # mean across all instances for 5 % missingness
 # mean_per_fold_5pt_nn = [mean([per_fold_nn[f][inst][1][w] for inst in 1:100 for w in 1:15]) for f in 1:30]
