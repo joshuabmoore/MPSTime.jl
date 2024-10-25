@@ -4,6 +4,7 @@ include("../../../LogLoss/RealRealHighDimension.jl")
 include("../../../Interpolation/imputation.jl");
 using JLD2
 using DelimitedFiles
+using Plots
 
 # load the original ECG200 split
 dloc = "Data/ecg200/datasets/ecg200.jld2"
@@ -49,16 +50,16 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         Rdtype = Float64
 
         # training related stuff
-        verbosity = 0
+        verbosity = -10
         test_run = false
         track_cost = false
         encoding = :legendre_no_norm
         encode_classes_separately = false
         train_classes_separately = false
 
-        d = 10
-        chi_max=20
-        nsweeps = 5
+        d = 10 #10
+        chi_max=20 #20
+        nsweeps = 3 #5
         eta = 0.5
         opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
             bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
@@ -67,11 +68,11 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         opts_safe, _... = safe_options(opts, nothing, nothing)
 
         num_folds = length(fold_idxs)
-        dx = 1e-4
+        dx = 5e-3
         mode_range=(-1,1)
         xvals=collect(range(mode_range...; step=dx))
         mode_index=Index(opts_safe.d)
-        pms = [5]
+        pms = 5:10:95
         
         max_num_wins = maximum([length(window_idxs[pm]) for pm in pms])
         per_pm_each_window_scores_mps = Vector{Float64}(undef, max_num_wins)
@@ -79,54 +80,94 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
 
         # main loop
         fold_scores = Vector{FoldResults}(undef, num_folds)
-        for fold_idx in 0:0
-            fold_train_idxs = fold_idxs[fold_idx]["train"]
-            fold_test_idxs = fold_idxs[fold_idx]["test"]
-            X_train_fold = Xs[fold_train_idxs, :]
-            y_train_fold = ys[fold_train_idxs]
-            X_test_fold = Xs[fold_test_idxs, :]
-            y_test_fold = ys[fold_test_idxs]
+        for fold_idx in 0:(num_folds-1)
+            fold_time = @elapsed begin
+                fold_train_idxs = fold_idxs[fold_idx]["train"]
+                fold_test_idxs = fold_idxs[fold_idx]["test"]
+                X_train_fold = Xs[fold_train_idxs, :]
+                y_train_fold = ys[fold_train_idxs]
+                X_test_fold = Xs[fold_test_idxs, :]
+                y_test_fold = ys[fold_test_idxs]
 
-            W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
-            fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
-            
-            xvals_enc= [get_state(x, opts_safe, fc[1].enc_args) for x in xvals]
-            xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
+                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
+                fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
+                
+                xvals_enc= [get_state(x, opts_safe, fc[1].enc_args) for x in xvals]
+                xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
-            println("Finished training, beginning evaluation of imputed values...")
-            samps_per_class = [size(f.test_samples, 1) for f in fc]
-            all_instances = Vector{InstanceScores}()
-            for (i, s) in enumerate(samps_per_class)
-                # each class instances
-                @threads for inst in 1:s
-                    # loop over windows
-                    pm_scores = Dict{Int, WindowScores}()
-                    for pm in pms
-                        num_wins = length(window_idxs[pm])
-                        resize!(per_pm_each_window_scores_mps, num_wins)
-                        resize!(per_pm_each_window_scores_nn, num_wins)
-                        # loop over window iterations
-                        for it in 1:num_wins
-                            interp_sites = window_idxs[pm][it]
-                            stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=true, 
-                                NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
-                                n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 
-                                mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
-                            per_pm_each_window_scores_mps[it] = stats[:MAE]
-                            per_pm_each_window_scores_nn[it] = stats[:NN_MAE]
+                println("Finished training, beginning evaluation of imputed values...")
+                samps_per_class = [size(f.test_samples, 1) for f in fc]
+                all_instances = Vector{InstanceScores}()
+                for (i, s) in enumerate(samps_per_class)
+                    # each class instances
+                    for inst in 1:s
+                        println("Evaluating class $i, instance $inst")
+                        # loop over windows
+                        pm_scores = Dict{Int, WindowScores}()
+                        for pm in pms
+                            num_wins = length(window_idxs[pm])
+                            mps_scores = Vector{Float64}(undef, num_wins)
+                            nn_scores = Vector{Float64}(undef, num_wins)
+                            # loop over window iterations
+                            @threads for it in 1:num_wins
+                                interp_sites = window_idxs[pm][it]
+                                stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=true, 
+                                    NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
+                                    n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 
+                                    mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
+                                    mps_scores[it] = stats[:MAE]
+                                    nn_scores[it] = stats[:NN_MAE]
+                            end
+                            pm_scores[pm] = WindowScores(mps_scores, nn_scores)
                         end
-                        pm_scores[pm] = WindowScores(copy(per_pm_each_window_scores_mps), copy(per_pm_each_window_scores_nn))
+                        instance_scores = InstanceScores(pm_scores)
+                        push!(all_instances, instance_scores)
                     end
-                    instance_scores = InstanceScores(pm_scores)
-                    push!(all_instances, instance_scores)
                 end
+                fold_scores[fold_idx+1] = FoldResults(all_instances)
             end
-            fold_scores[fold_idx+1] = FoldResults(all_instances)
+            println("Fold $fold_idx took $fold_time seconds.")
         end
 
-        return fold_scores
+        return fold_scores, opts_safe
 end
 
-out = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
-mean_over_all_instances_mps = mean([mean(out[1].fold_scores[inst].pm_scores[5].mps_scores) for inst in 1:100])
-mean_over_all_instances_nn = mean([mean(out[1].fold_scores[inst].pm_scores[5].nn_scores) for inst in 1:100])
+results = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
+
+mps_results = Dict()
+nn_results = Dict()
+for pm in 5:10:95
+    per_pm_res_mps = Dict()
+    per_pm_res_nn = Dict()
+    for f in 1:30
+        per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:100]
+        per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:100]
+    end
+    mps_results[pm] = per_pm_res_mps
+    nn_results[pm] = per_pm_res_nn
+end
+mps_results
+nn_results
+
+jldopen("ecg_30_fold_imputation_results_mac3sweep.jld2", "w") do f
+    f["mps_results"] = mps_results
+    f["nn_results"] = nn_results
+end
+
+    #mps_results[pm] = 
+#t = [results[1].fold_scores[inst].pm_scores[5].mps_scores for inst in 1:100]
+
+
+# old_means_5pt_mps = mean([mean([mean(results[fold].fold_scores[inst].pm_scores[5].mps_scores) for inst in 1:100]) for fold in 1:30])
+# fold_std_err_5pt_mps = 1.96 * std([mean([mean(results[fold].fold_scores[inst].pm_scores[65].mps_scores) for inst in 1:100]) for fold in 1:30])/sqrt(30)
+
+# fold_means_5pt_nn = mean([mean([mean(results[fold].fold_scores[inst].pm_scores[5].nn_scores) for inst in 1:100]) for fold in 1:30])
+# fold_std_err_5pt_nn = 1.96 * std([mean([mean(results[fold].fold_scores[inst].pm_scores[5].nn_scores) for inst in 1:100]) for fold in 1:30])/sqrt(30)
+
+# mps_all_pm = [mean([mean([mean(results[fold].fold_scores[inst].pm_scores[pm].mps_scores) for inst in 1:100]) for fold in 1:30]) for pm in 5:10:95]
+# nn_all_pm = [mean([mean([mean(results[fold].fold_scores[inst].pm_scores[pm].nn_scores) for inst in 1:100]) for fold in 1:30]) for pm in 5:10:95]
+
+# groupedbar([mps_all_pm nn_all_pm],
+# yerr=[fold_std_err_5pt_mps fold_std_err_5pt_nn],
+# label=["MPS" "NN"]);
+# xflip!(true)
