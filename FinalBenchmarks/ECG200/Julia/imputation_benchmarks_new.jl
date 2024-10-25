@@ -75,8 +75,6 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         pms = 5:10:95
         
         max_num_wins = maximum([length(window_idxs[pm]) for pm in pms])
-        per_pm_each_window_scores_mps = Vector{Float64}(undef, max_num_wins)
-        per_pm_each_window_scores_nn = Vector{Float64}(undef, max_num_wins)
 
         # main loop
         fold_scores = Vector{FoldResults}(undef, num_folds)
@@ -149,17 +147,23 @@ end
 mps_results
 nn_results
 
-jldopen("ecg_30_fold_imputation_results_mac3sweep.jld2", "w") do f
-    f["mps_results"] = mps_results
-    f["nn_results"] = nn_results
-end
+# jldopen("ecg_30_fold_imputation_results_mac3sweep.jld2", "w") do f
+#     f["mps_results"] = mps_results
+#     f["nn_results"] = nn_results
+#     f["opts"] = opts_safe
+# end
+
+#[mps_results[5][1][inst] for inst in 1:100] # pm/fold/inst
+
+# mps_per_pm_30fold = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 5:10:95]
+
 
     #mps_results[pm] = 
 #t = [results[1].fold_scores[inst].pm_scores[5].mps_scores for inst in 1:100]
 
 
-# old_means_5pt_mps = mean([mean([mean(results[fold].fold_scores[inst].pm_scores[5].mps_scores) for inst in 1:100]) for fold in 1:30])
-# fold_std_err_5pt_mps = 1.96 * std([mean([mean(results[fold].fold_scores[inst].pm_scores[65].mps_scores) for inst in 1:100]) for fold in 1:30])/sqrt(30)
+#old_means_5pt_mps = mean([mean([mean(results[fold].fold_scores[inst].pm_scores[5].mps_scores) for inst in 1:100]) for fold in 1:30])
+#fold_std_err_5pt_mps = 1.96 * std([mean([mean(results[fold].fold_scores[inst].pm_scores[65].mps_scores) for inst in 1:100]) for fold in 1:30])/sqrt(30)
 
 # fold_means_5pt_nn = mean([mean([mean(results[fold].fold_scores[inst].pm_scores[5].nn_scores) for inst in 1:100]) for fold in 1:30])
 # fold_std_err_5pt_nn = 1.96 * std([mean([mean(results[fold].fold_scores[inst].pm_scores[5].nn_scores) for inst in 1:100]) for fold in 1:30])/sqrt(30)
