@@ -36,7 +36,7 @@ struct WindowScores
 end
 
 struct InstanceScores
-    pm_scores::Dict{Int, WindowScores}
+    pm_scores::Vector{WindowScores}
 end
 
 struct FoldResults 
@@ -59,7 +59,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
 
         d = 10 #10
         chi_max=20 #20
-        nsweeps = 3 #5
+        nsweeps = 5 #5
         eta = 0.5
         opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
             bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
@@ -73,8 +73,8 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         xvals=collect(range(mode_range...; step=dx))
         mode_index=Index(opts_safe.d)
         pms = 5:10:95
-        
-        max_num_wins = maximum([length(window_idxs[pm]) for pm in pms])
+        xvals_enc= [get_state(x, opts_safe) for x in xvals]
+        xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
         # main loop
         fold_scores = Vector{FoldResults}(undef, num_folds)
@@ -89,24 +89,22 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
 
                 W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
                 fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
-                
-                xvals_enc= [get_state(x, opts_safe, fc[1].enc_args) for x in xvals]
-                xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
                 println("Finished training, beginning evaluation of imputed values...")
                 samps_per_class = [size(f.test_samples, 1) for f in fc]
-                all_instances = Vector{InstanceScores}()
+                all_instances = Vector{Vector{InstanceScores}}(undef, 2)
                 for (i, s) in enumerate(samps_per_class)
                     # each class instances
+                    per_class_instances = Vector{InstanceScores}(undef, s)
                     for inst in 1:s
                         println("Evaluating class $i, instance $inst")
                         # loop over windows
-                        pm_scores = Dict{Int, WindowScores}()
-                        for pm in pms
+                        pm_scores = Vector{WindowScores}(undef, length(pms))
+                        for (ipm, pm) in enumerate(pms)
+                            # loop over window iterations
                             num_wins = length(window_idxs[pm])
                             mps_scores = Vector{Float64}(undef, num_wins)
                             nn_scores = Vector{Float64}(undef, num_wins)
-                            # loop over window iterations
                             @threads for it in 1:num_wins
                                 interp_sites = window_idxs[pm][it]
                                 stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=true, 
@@ -116,12 +114,15 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
                                     mps_scores[it] = stats[:MAE]
                                     nn_scores[it] = stats[:NN_MAE]
                             end
-                            pm_scores[pm] = WindowScores(mps_scores, nn_scores)
+                            pm_scores[ipm] = WindowScores(mps_scores, nn_scores)
                         end
-                        instance_scores = InstanceScores(pm_scores)
-                        push!(all_instances, instance_scores)
+                        #instance_scores = InstanceScores(pm_scores)
+                        per_class_instances[inst] = InstanceScores(pm_scores)
+                        #push!(all_instances, instance_scores)
                     end
+                    all_instances[i] = per_class_instances
                 end
+                all_instances = vcat(all_instances[1], all_instances[2])
                 fold_scores[fold_idx+1] = FoldResults(all_instances)
             end
             println("Fold $fold_idx took $fold_time seconds.")
@@ -130,11 +131,13 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         return fold_scores, opts_safe
 end
 
-results = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
+results, opts_safe = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
+
+#JLD2.@save "ecg_30_fold_imputation_results_mac5sweep.jld2" results opts_safe
 
 mps_results = Dict()
 nn_results = Dict()
-for pm in 5:10:95
+for pm in 1:10
     per_pm_res_mps = Dict()
     per_pm_res_nn = Dict()
     for f in 1:30
@@ -155,8 +158,11 @@ nn_results
 
 #[mps_results[5][1][inst] for inst in 1:100] # pm/fold/inst
 
-# mps_per_pm_30fold = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 5:10:95]
+mps_per_pm_30fold = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]
+nn_per_pm_30fold = [mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]
 
+mps_per_pm_30fold_std_err = 1.96 * [std([mean([mean(mps_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]/sqrt(30)
+nn_per_pm_30fold_std_err = 1.96 * [std([mean([mean(nn_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]/sqrt(30)
 
     #mps_results[pm] = 
 #t = [results[1].fold_scores[inst].pm_scores[5].mps_scores for inst in 1:100]
@@ -171,7 +177,7 @@ nn_results
 # mps_all_pm = [mean([mean([mean(results[fold].fold_scores[inst].pm_scores[pm].mps_scores) for inst in 1:100]) for fold in 1:30]) for pm in 5:10:95]
 # nn_all_pm = [mean([mean([mean(results[fold].fold_scores[inst].pm_scores[pm].nn_scores) for inst in 1:100]) for fold in 1:30]) for pm in 5:10:95]
 
-# groupedbar([mps_all_pm nn_all_pm],
-# yerr=[fold_std_err_5pt_mps fold_std_err_5pt_nn],
-# label=["MPS" "NN"]);
-# xflip!(true)
+groupedbar([mps_per_pm_30fold nn_per_pm_30fold],
+    yerr=[mps_per_pm_30fold_std_err nn_per_pm_30fold_std_err],
+    label=["MPS" "NN"]);
+xflip!(true)
