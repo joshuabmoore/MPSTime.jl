@@ -7,7 +7,7 @@ using DelimitedFiles
 using Plots
 
 # load the original ECG200 split
-dloc = "Data/ecg200/datasets/ecg200.jld2"
+dloc = "Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
 f = jldopen(dloc, "r")
     X_train = read(f, "X_train")
     y_train = read(f, "y_train")
@@ -20,12 +20,12 @@ Xs = vcat(X_train, X_test)
 ys = vcat(y_train, y_test)
 
 # load the resample indices
-rs_f = jldopen("FinalBenchmarks/ECG200/Julia/resample_folds_julia_idx.jld2", "r");
+rs_f = jldopen("FinalBenchmarks/ItalyPower/Julia/ipd_resample_folds_julia_idx.jld2", "r");
 rs_fold_idxs = read(rs_f, "rs_folds_julia");
 close(rs_f)
 
 # load the window indices
-windows_f = jldopen("FinalBenchmarks/ECG200/Julia/windows_julia_idx.jld2", "r");
+windows_f = jldopen("FinalBenchmarks/ItalyPower/Julia/ipd_windows_julia_idx.jld2", "r");
 window_idxs = read(windows_f, "windows_julia")
 close(windows_f)
 
@@ -72,13 +72,13 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         mode_range=(-1,1)
         xvals=collect(range(mode_range...; step=dx))
         mode_index=Index(opts_safe.d)
-        pms = 5:10:95
+        pms = 5:10:15
         xvals_enc= [get_state(x, opts_safe) for x in xvals]
         xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
         # main loop
         fold_scores = Vector{FoldResults}(undef, num_folds)
-        for fold_idx in 0:(num_folds-1)
+        for fold_idx in 0:0#(num_folds-1)
             fold_time = @elapsed begin
                 fold_train_idxs = fold_idxs[fold_idx]["train"]
                 fold_test_idxs = fold_idxs[fold_idx]["test"]
@@ -96,7 +96,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
                 for (i, s) in enumerate(samps_per_class)
                     # each class instances
                     per_class_instances = Vector{InstanceScores}(undef, s)
-                    for inst in 1:s
+                    @threads for inst in 1:s
                         println("Evaluating class $i, instance $inst")
                         # loop over windows
                         pm_scores = Vector{WindowScores}(undef, length(pms))
@@ -105,7 +105,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
                             num_wins = length(window_idxs[pm])
                             mps_scores = Vector{Float64}(undef, num_wins)
                             nn_scores = Vector{Float64}(undef, num_wins)
-                            @threads for it in 1:num_wins
+                            for it in 1:num_wins
                                 interp_sites = window_idxs[pm][it]
                                 stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=true, 
                                     NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
@@ -131,18 +131,19 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         return fold_scores, opts_safe
 end
 
-results, opts_safe = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
+@time results, opts_safe = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
 
 #JLD2.@save "ecg_30_fold_imputation_results_mac5sweep.jld2" results opts_safe
 
 mps_results = Dict()
 nn_results = Dict()
-for pm in 1:10
+for pm in 1:1
     per_pm_res_mps = Dict()
     per_pm_res_nn = Dict()
-    for f in 1:30
-        per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:100]
-        per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:100]
+    for f in 1:1
+        total_instances = length(results[f].fold_scores)
+        per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:1029]
+        per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:1029]
     end
     mps_results[pm] = per_pm_res_mps
     nn_results[pm] = per_pm_res_nn
@@ -157,7 +158,6 @@ nn_results
 # end
 
 #[mps_results[5][1][inst] for inst in 1:100] # pm/fold/inst
-
 mps_per_pm_30fold = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]
 nn_per_pm_30fold = [mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]
 
