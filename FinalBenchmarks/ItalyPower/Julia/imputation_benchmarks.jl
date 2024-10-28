@@ -133,17 +133,17 @@ end
 
 results, opts_safe = run_folds(Xs, ys, window_idxs, rs_fold_idxs)
 
-#JLD2.@save "ecg_30_fold_imputation_results_mac5sweep.jld2" results opts_safe
+JLD2.@save "ipd_30_fold_imputation_results_mac5sweep.jld2" results opts_safe
 
 mps_results = Dict()
 nn_results = Dict()
-for pm in 1:2
+for pm in 1:10
     per_pm_res_mps = Dict()
     per_pm_res_nn = Dict()
-    for f in 1:2
+    for f in 1:30
         total_instances = length(results[f].fold_scores)
-        per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:1029]
-        per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:1029]
+        per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:total_instances]
+        per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:total_instances]
     end
     mps_results[pm] = per_pm_res_mps
     nn_results[pm] = per_pm_res_nn
@@ -151,15 +151,14 @@ end
 mps_results
 nn_results
 
-[mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:1029]) for f in 1:2]) for pm in 1:2]
-[mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:1029]) for f in 1:2]) for pm in 1:2]
-0.15424061874977685
-0.15819822081807816
-# jldopen("ecg_30_fold_imputation_results_mac3sweep.jld2", "w") do f
-#     f["mps_results"] = mps_results
-#     f["nn_results"] = nn_results
-#     f["opts"] = opts_safe
-# end
+[mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:1029]) for f in 1:30]) for pm in 1:10]
+[mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:1029]) for f in 1:2]) for pm in 1:10]
+
+jldopen("ipd_30fold_imputation_results_mac5sweep.jld2", "w") do f
+    f["mps_results"] = mps_results
+    f["nn_results"] = nn_results
+    f["opts"] = opts_safe
+end
 
 #[mps_results[5][1][inst] for inst in 1:100] # pm/fold/inst
 mps_per_pm_30fold = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:100]) for f in 1:30]) for pm in 1:10]
