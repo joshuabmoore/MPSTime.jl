@@ -97,10 +97,10 @@ interp_sites = collect(5:20)
 instance_idx = 2 # 4
 invert_transform=true
 
-stats, p1_ns = any_impute_single_timeseries(fc, class, instance_idx, interp_sites, :directMode; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
+# stats, p1_ns = any_impute_single_timeseries(fc, class, instance_idx, interp_sites, :directMode; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
 
-fstyle = font("sans-serif", 23)
-plot(p1_ns..., xtickfont=fstyle,ytickfont=fstyle,guidefont=fstyle,titlefont=fstyle,bottom_margin=10mm, left_margin=10mm,xlabel="t")
+# fstyle = font("sans-serif", 23)
+# plot(p1_ns..., xtickfont=fstyle,ytickfont=fstyle,guidefont=fstyle,titlefont=fstyle,bottom_margin=10mm, left_margin=10mm,xlabel="t")
 
 # main loop -> train -> impute -> train ...
 function train_and_impute()
@@ -141,13 +141,13 @@ function train_and_impute()
             # loop over percentage missing
             per_pm_scores_mps = []
             per_pm_scores_nn = []
-            for pm in [5] #5:10:95
+            for pm in 5:10:95
                 # loop over iterations
                 num_wins = length(window_idxs[pm])
                 per_pm_iter_scores_mps = Array{Float64}(undef, num_samps, num_wins)
                 per_pm_iter_scores_nn = Array{Float64}(undef, num_samps, num_wins)
                 # thread this part if low d and chi? 
-                for it in 1:2#num_wins
+                for it in num_wins
                     @sync begin 
                         interp_sites = window_idxs[pm][it]
                         tasks = map(data_chunks) do chunk
