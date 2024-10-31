@@ -197,7 +197,7 @@ function get_median_from_rdm(
         s::Index, 
         opts::Options, 
         enc_args::AbstractVector;
-        get_wmad::Bool=false
+        get_wmad::Bool=true
     )
     # return the median and the weighted median absolute deviation as a measure of uncertainty 
 
@@ -231,7 +231,7 @@ function get_median_from_rdm(
         opts::Options, 
         enc_args::AbstractVector; 
         binary_thresh::Float64=1e-5, 
-        get_wmad::Bool=false, 
+        get_wmad::Bool=true, 
         dx::Float64=1e-3
     )
     # return the median and the weighted median absolute deviation as a measure of uncertainty 

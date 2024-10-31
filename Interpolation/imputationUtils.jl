@@ -821,7 +821,7 @@ function any_impute_directMedian(
         mode_index=Index(opts.d),
         xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
         xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
-        wmad::Bool=false
+        wmad::Bool=true
     )
 
     if isempty(imputation_sites)
@@ -833,7 +833,7 @@ function any_impute_directMedian(
     total_num_sites = length(mps)
     num_imputation_sites = length(imputation_sites)
     x_samps = Vector{Float64}(undef, total_num_sites) # store imputed samples
-    x_wmads = Vector{Float64}(undef, total_num_sites)
+    x_wmads = zeros(Float64, total_num_sites)#Vector{Float64}(undef, total_num_sites)
     original_mps_length = length(mps)
 
     last_impute_idx = 0 
