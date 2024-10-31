@@ -758,14 +758,18 @@ function any_impute_single_timeseries_noplots(
 
 
     if invert_transform && !(method == :nearestNeighbour)
-        ts = invert_test_transform(ts, oob_rescales, norms; opts=fcast.opts)
-
-        target = target_ts_raw
-
         if !isnothing(pred_err )
+            pred_err .+=  ts # remove the time-series, leaving the unscaled uncertainty
+
+            ts = invert_test_transform(ts, oob_rescales, norms; opts=fcast.opts)
             pred_err = invert_test_transform(pred_err, oob_rescales, norms; opts=fcast.opts)
-            # pred_err .-=  ts # remove the time-series, leaving the unscaled uncertainty
+
+            pred_err .-=  ts # remove the time-series, leaving the unscaled uncertainty
+        else
+            ts = invert_test_transform(ts, oob_rescales, norms; opts=fcast.opts)
+
         end
+        target = target_ts_raw
 
     else
         target = target_timeseries_full

@@ -1,4 +1,4 @@
 using Pkg
 
-Pkg.instantiate()
 Pkg.resolve()
+Pkg.instantiate()

@@ -50,7 +50,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         Rdtype = Float64
 
         # training related stuff
-        verbosity = -10
+        verbosity = 5
         test_run = false
         track_cost = false
         encoding = :legendre_no_norm
@@ -64,7 +64,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
         opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
             bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
             encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
-            exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0)
+            exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=10)
         opts_safe, _... = safe_options(opts, nothing, nothing)
 
         num_folds = length(fold_idxs)
@@ -105,7 +105,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
                             num_wins = length(window_idxs[pm])
                             mps_scores = Vector{Float64}(undef, num_wins)
                             nn_scores = Vector{Float64}(undef, num_wins)
-                            @threads for it in 1:num_wins
+                            for it in 1:num_wins
                                 interp_sites = window_idxs[pm][it]
                                 stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=true, 
                                     NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 

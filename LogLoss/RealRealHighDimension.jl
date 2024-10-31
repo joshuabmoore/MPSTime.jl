@@ -206,12 +206,10 @@ end
 
 function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeseriesSet;
     iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
-    BT = copy(BT_init)
-    # @show isassigned(BT)
+    BT = copy(BT_init) # perhaps not necessary?
     for i in 1:iters
         # get the gradient
         loss, grad = loss_grad(tsep, BT, LE, RE, ETSs, lid, rid)
-        #zygote_gradient_per_batch(bt_old, LE, RE, pss, lid, rid)
         # update the bond tensor   
         
         # @show isassigned(Array(grad, inds(grad)))
@@ -220,7 +218,7 @@ function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid
 
         # BT .-= eta .* (grad / norm(grad))
 
-        # just sidestep itensor completely for this one
+        # just sidestep itensor completely for this one?
         #@fastmath map!((x,y)-> x - eta * y / norm(grad), tensor(BT).storage.data, tensor(BT).storage.data,tensor(grad).storage.data )
         @. BT -= eta * $/(grad, $norm(grad)) #TODO investigate the absolutely bizarre behaviour that happens here with bigfloats if the arithmetic order is changed
         if verbosity >=1 && track_cost
