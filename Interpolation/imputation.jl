@@ -682,6 +682,7 @@ function any_impute_single_timeseries_noplots(
 
     mps = fcast.mps
     target_ts_raw = fcast.test_samples[which_sample, :]
+    target_timeseries= deepcopy(target_ts_raw)
 
     # transform the data
     # perform the scaling
@@ -689,8 +690,7 @@ function any_impute_single_timeseries_noplots(
     X_train_scaled, norms = transform_train_data(X_train; opts=fcast.opts)
     target_timeseries_full, oob_rescales_full = transform_test_data(target_ts_raw, norms; opts=fcast.opts)
 
-    target_timeseries= copy(target_ts_raw)
-    target_timeseries[which_sites] .= 0.5 # make it impossible for the unknown region to be used, even accidentally
+    target_timeseries[which_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=fcast.opts)
 
     pred_err = nothing
