@@ -579,10 +579,10 @@ function any_impute_median(
 
         if plot_fits 
             if length(ts) == 1
-                p1 = plot!(mse_ts[1], label="Nearest Train Data", c=:red, lw=2, alpha=0.7, ls=:dot)
+                p1 = plot!(mse_ts[1], label="Nearest Train Data", c=:orange, lw=2, alpha=0.7, ls=:dot)
             else
                 for (i,t) in enumerate(mse_ts)
-                    p1 = plot!(t, label="Nearest Train Data $i", c=:red,lw=2, alpha=0.7, ls=:dot)
+                    p1 = plot!(t, label="Nearest Train Data $i", c=:orange,lw=2, alpha=0.7, ls=:dot)
                 end
 
             end
