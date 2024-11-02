@@ -1,7 +1,7 @@
 include("../../LogLoss/RealRealHighDimension.jl")
 include("../../Interpolation/imputation.jl");
 using JLD2
-dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_kepler/c0/sample1212.jld2"
+dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/imputation/c6_impute_large.jld2"
 f = jldopen(dloc, "r")
     X_train = read(f, "X_train")
     y_train = read(f, "y_train")
@@ -20,10 +20,10 @@ encode_classes_separately = false
 train_classes_separately = false
 
 d = 10
-chi_max = 40
+chi_max = 50
 
-opts=MPSOptions(; nsweeps=3, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
-    bbopt=:TSGO, track_cost=track_cost, eta=0.05, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
+opts=MPSOptions(; nsweeps=5, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
+    bbopt=:TSGO, track_cost=track_cost, eta=1.0, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
     encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
     exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4)
 opts_safe, _... = safe_options(opts, nothing, nothing)
@@ -37,24 +37,25 @@ xvals=collect(range(mode_range...; step=dx))
 mode_index=Index(opts_safe.d)
 xvals_enc= [get_state(x, opts_safe) for x in xvals]
 xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
-interp_sites = collect(25:75)
-stats, p1_ns = any_impute_single_timeseries(fc, 0, 1, interp_sites, :directMedian; 
-        invert_transform=true, 
-           NN_baseline=true, X_train=X_train, y_train=y_train, wmad=true, 
-            n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
-            mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
-plot(p1_ns...)
-# stats, p2_ns = any_impute_median(fc, 0, 14, interp_sites; 
-#     NN_baseline=true, X_train=X_train,
-#     y_train=y_train, 
-#     n_baselines=1, plot_fits=true);
-# p = plot(p2_ns, xtickfont=fstyle,
-#     ytickfont=fstyle,
-#     guidefont=fstyle,
-#     titlefont=fstyle,
-#     bottom_margin=10mm, 
-#     left_margin=10mm,
-#     xlabel="t")
+interp_sites = collect(102:135) # 11 - 42
+# stats, p1_ns = any_impute_single_timeseries(fc, 0, 1, interp_sites, :directMedian; 
+#         invert_transform=true, 
+#            NN_baseline=true, X_train=X_train, y_train=y_train, wmad=true, 
+#             n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
+#             mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
+# plot(p1_ns...)
+stats, p2_ns = any_impute_median(fc, 0, 2, interp_sites; 
+    NN_baseline=true, X_train=X_train,
+    y_train=y_train, 
+    n_baselines=1, plot_fits=true)
+p = plot(p2_ns, xtickfont=fstyle,
+    ytickfont=fstyle,
+    guidefont=fstyle,
+    titlefont=fstyle,
+    bottom_margin=10mm, 
+    left_margin=10mm,
+    xlabel="t")
+#savefig("c0_samp21_impute_gt.svg")
 # range = model_encoding(opts.encoding).range
 
 # X_train_scaled = transform_data(X_train; range=range, minmax_output=opts.minmax)
