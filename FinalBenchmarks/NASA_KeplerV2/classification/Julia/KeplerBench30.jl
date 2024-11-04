@@ -36,8 +36,8 @@ yhat = MLJ.predict(mach, X_test)
 
 # set the hyperparameter search ranges
 r_eta = 1.0
-r_d = MLJ.range(mps, :d, values=[3, 4, 5])
-r_chi = MLJ.range(mps, :chi_max, values=[10, 20, 30])
+r_d = MLJ.range(mps, :d, values=[4, 5])
+r_chi = MLJ.range(mps, :chi_max, values=[20, 30])
 # setup the search algorithm
 swarm = AdaptiveParticleSwarm(rng=MersenneTwister(0))
 self_tuning_mps = TunedModel(
