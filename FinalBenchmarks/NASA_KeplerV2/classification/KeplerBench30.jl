@@ -5,8 +5,8 @@ using StableRNGs
 using JLD2
 using Tables 
 
-dloc = "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/classification/KeplerBinaryOrigUnbal.jld2";
-w = 1:50 # SET WINDOW SIZE
+dloc = "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/classification/KeplerBinaryOrigBal.jld2";
+w = 1:100 # SET WINDOW SIZE
 f = jldopen(dloc, "r")
     X_train_f = read(f, "X_train")[:, w]
     y_train_f = read(f, "y_train")
@@ -23,7 +23,7 @@ Xs = MLJ.table([X_train_f; X_test_f])
 ys = coerce([y_train_f; y_test_f], OrderedFactor)
 
 chi_max = 30 #30
-nsweeps = 10 # 2
+nsweeps = 2 # 2
 d = 4 # 4
 eta = 1.0
 init_rng = 4567 # 4567
@@ -35,9 +35,9 @@ yhat = MLJ.predict(mach, X_test)
 @show MLJ.accuracy(yhat, y_test)
 
 # set the hyperparameter search ranges
-r_eta = 0.1
-r_d = MLJ.range(mps, :d, values=[3, 4, 5, 6])
-r_chi = MLJ.range(mps, :chi_max, values=[20, 30, 40])
+r_eta = 1.0
+r_d = MLJ.range(mps, :d, values=[3, 4, 5])
+r_chi = MLJ.range(mps, :chi_max, values=[10, 20, 30])
 # setup the search algorithm
 swarm = AdaptiveParticleSwarm(rng=MersenneTwister(0))
 self_tuning_mps = TunedModel(
@@ -46,7 +46,7 @@ self_tuning_mps = TunedModel(
         tuning=swarm,
         range=[r_chi, r_d],
         measure=MLJ.misclassification_rate,
-        n=12,
+        n=10,
         acceleration=CPUThreads()
     );
 # make the splits
@@ -62,7 +62,7 @@ splits = [
 
 per_fold_accs = zeros(Float64, length(splits))
 best_models = Vector{Any}(undef, length(splits))
-for i in eachindex(splits)
+for i in 1:30
 
     train_idxs = splits[i][1]
     X_train_fold = MLJ.table(Tables.matrix(Xs)[train_idxs, :])
@@ -71,27 +71,34 @@ for i in eachindex(splits)
     X_test_fold = MLJ.table(Tables.matrix(Xs)[test_idxs, :])
     y_test_fold = ys[test_idxs]
     mach = machine(self_tuning_mps, X_train_fold, y_train_fold)
+    #mach = MLJ.machine(mps, X_train_fold, y_train_fold)
     MLJ.fit!(mach)
     best = report(mach).best_model
     mach_best = machine(best, X_train_fold, y_train_fold)
     MLJ.fit!(mach_best)
-    yhat = MLJ.predict(mach_best, X_test_fold)
-    acc = MLJ.accuracy(yhta, y_test_fold)
+    yhat = MLJ.predict(mach, X_test_fold)
+    acc = MLJ.accuracy(yhat, y_test_fold)
     per_fold_accs[i] = acc
     best_models[i] = mach_best
     println("Fold $i, Acc: $acc")
 end
 
+jldopen("KeplerBench30_mps_results_opt.jld2", "w") do f
+    f["accs"] = per_fold_accs
+    f["models"] = best_models
+    f["split_idxs"] = splits
+end
 
-mach = machine(self_tuning_mps, X_train_fold, y_train_fold)
-MLJ.fit!(mach)
-best = report(mach).best_model
-mach_best = machine(best, X_train_fold, y_train_fold)
-MLJ.fit!(mach_best)
-yhat = MLJ.predict(mach_best, X_test_fold)
-acc = MLJ.accuracy(yhat, y_test_fold)
-# mach = machine(mps, X_train, y_train )
+
+# mach = machine(self_tuning_mps, X_train_fold, y_train_fold)
 # MLJ.fit!(mach)
-# yhat = MLJ.predict(mach, X_test)
-# acc = MLJ.accuracy(yhat, y_test)
-# #bal_acc = MLJ.balanced_accuracy(yhat, y_test)
+# best = report(mach).best_model
+# mach_best = machine(best, X_train_fold, y_train_fold)
+# MLJ.fit!(mach_best)
+# yhat = MLJ.predict(mach_best, X_test_fold)
+# acc = MLJ.accuracy(yhat, y_test_fold)
+# # mach = machine(mps, X_train, y_train )
+# # MLJ.fit!(mach)
+# # yhat = MLJ.predict(mach, X_test)
+# # acc = MLJ.accuracy(yhat, y_test)
+# # #bal_acc = MLJ.balanced_accuracy(yhat, y_test)
