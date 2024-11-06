@@ -1,7 +1,7 @@
 include("../../LogLoss/RealRealHighDimension.jl")
 include("../../Interpolation/imputation.jl");
 using JLD2
-dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/imputation/c6_impute_final.jld2"
+dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/c2_subset.jld2"
 f = jldopen(dloc, "r")
     X_train = read(f, "X_train")
     y_train = read(f, "y_train")
@@ -19,13 +19,13 @@ encoding = :legendre_no_norm
 encode_classes_separately = false
 train_classes_separately = false
 
-d = 15
-chi_max = 100
+d = 10
+chi_max = 80
 
 opts=MPSOptions(; nsweeps=3, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
-    bbopt=:TSGO, track_cost=track_cost, eta=0.5, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
+    bbopt=:TSGO, track_cost=track_cost, eta=1.0, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
     encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
-    exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0)
+    exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4)
 opts_safe, _... = safe_options(opts, nothing, nothing)
 
 W, info, train_states, test_states = fitMPS(X_train, y_train, X_test, y_test; chi_init=4, opts=opts, test_run=false)
@@ -37,14 +37,14 @@ xvals=collect(range(mode_range...; step=dx))
 mode_index=Index(opts_safe.d)
 xvals_enc= [get_state(x, opts_safe) for x in xvals]
 xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
-interp_sites = collect(25:50) # 11 - 42
+interp_sites = collect(11:42) # 11 - 42
 # stats, p1_ns = any_impute_single_timeseries(fc, 0, 45, interp_sites, :directMedian; 
 #         invert_transform=true, 
 #            NN_baseline=true, X_train=X_train, y_train=y_train, wmad=true, 
 #             n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
 #             mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
 # plot(p1_ns...)
-stats, p2_ns = any_impute_median(fc, 0, 90, interp_sites; 
+stats, p2_ns = any_impute_median(fc, 0, 10, interp_sites; 
     NN_baseline=true, X_train=X_train,
     y_train=y_train, 
     n_baselines=1, plot_fits=true)

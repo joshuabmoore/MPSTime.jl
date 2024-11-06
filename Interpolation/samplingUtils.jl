@@ -220,7 +220,7 @@ function get_median_from_rdm(
     wmad_x = 0
     if get_wmad
         # get the weighted median abs deviation
-        wmad_x = median(abs.(xvals .- median_x), pweights(probs))
+        wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
     end
     return (median_x, median_s, wmad_x)
 

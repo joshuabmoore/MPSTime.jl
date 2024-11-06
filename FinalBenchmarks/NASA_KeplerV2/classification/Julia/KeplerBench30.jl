@@ -1,4 +1,4 @@
-include("../../../MLJIntegration/MLJ_integration.jl");
+include("../../../../MLJIntegration/MLJ_integration.jl");
 using MLJParticleSwarmOptimization
 using MLJ
 using StableRNGs
@@ -23,11 +23,11 @@ Xs = MLJ.table([X_train_f; X_test_f])
 ys = coerce([y_train_f; y_test_f], OrderedFactor)
 
 chi_max = 30 #30
-nsweeps = 2 # 2
-d = 4 # 4
+nsweeps = 3 # 2
+d = 6 # 4
 eta = 1.0
 init_rng = 4567 # 4567
-mps = MPSClassifier(nsweeps=nsweeps, chi_max=chi_max, eta=eta, d=d, encoding=:Legendre_No_Norm, 
+mps = MPSClassifier(nsweeps=nsweeps, chi_max=chi_max, eta=eta, d=d, encoding=:Fourier, 
     exit_early=false, init_rng=init_rng);
 mach = MLJ.machine(mps, X_train, y_train)
 MLJ.fit!(mach)
@@ -35,9 +35,9 @@ yhat = MLJ.predict(mach, X_test)
 @show MLJ.accuracy(yhat, y_test)
 
 # set the hyperparameter search ranges
-r_eta = 1.0
-r_d = MLJ.range(mps, :d, values=[4, 5])
-r_chi = MLJ.range(mps, :chi_max, values=[20, 30])
+r_eta = MLJ.range(mps, :eta, values=[1.0, 0.5, 0.1])
+r_d = MLJ.range(mps, :d, values=[4, 5, 6])
+r_chi = MLJ.range(mps, :chi_max, values=[15, 20, 25, 30])
 # setup the search algorithm
 swarm = AdaptiveParticleSwarm(rng=MersenneTwister(0))
 self_tuning_mps = TunedModel(
@@ -46,9 +46,11 @@ self_tuning_mps = TunedModel(
         tuning=swarm,
         range=[r_chi, r_d],
         measure=MLJ.misclassification_rate,
-        n=10,
+        n=12,
         acceleration=CPUThreads()
     );
+mach = machine(self_tuning_mps, X_train, y_train)
+MLJ.fit!(mach)
 # make the splits
 train_ratio = length(y_train)/length(ys)
 num_resamps = 29
@@ -70,20 +72,20 @@ for i in 1:30
     test_idxs = splits[i][2]
     X_test_fold = MLJ.table(Tables.matrix(Xs)[test_idxs, :])
     y_test_fold = ys[test_idxs]
-    mach = machine(self_tuning_mps, X_train_fold, y_train_fold)
-    #mach = MLJ.machine(mps, X_train_fold, y_train_fold)
+    #mach = machine(self_tuning_mps, X_train_fold, y_train_fold)
+    mach = MLJ.machine(mps, X_train_fold, y_train_fold)
     MLJ.fit!(mach)
-    best = report(mach).best_model
-    mach_best = machine(best, X_train_fold, y_train_fold)
-    MLJ.fit!(mach_best)
+    #best = report(mach).best_model
+    #mach_best = machine(best, X_train_fold, y_train_fold)
+    #MLJ.fit!(mach_best)
     yhat = MLJ.predict(mach, X_test_fold)
     acc = MLJ.accuracy(yhat, y_test_fold)
     per_fold_accs[i] = acc
-    best_models[i] = mach_best
+    best_models[i] = mach
     println("Fold $i, Acc: $acc")
 end
 
-jldopen("KeplerBench30_mps_results_opt.jld2", "w") do f
+jldopen("KeplerBench30_mps_results_no_opt_fourier.jld2", "w") do f
     f["accs"] = per_fold_accs
     f["models"] = best_models
     f["split_idxs"] = splits
