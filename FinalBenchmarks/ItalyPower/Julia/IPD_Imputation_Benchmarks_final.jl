@@ -142,10 +142,10 @@ results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:29)
 mps_results = Dict()
 nn_results = Dict()
 
-for pm in 1:1
+for pm in 1:10
     per_pm_res_mps = Dict()
     per_pm_res_nn = Dict()
-    for f in 1:10
+    for f in 1:30
         total_instances = length(results[f].fold_scores)
         per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:total_instances]
         per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:total_instances]
@@ -156,5 +156,8 @@ end
 mps_results
 nn_results
 
-[mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:1029]) for f in 1:10]) for pm in 1:1]
-[mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:1029]) for f in 1:10]) for pm in 1:1]
+JLD2.@save "IPD_ImputationFinalResults_30Fold.jld2" mps_results nn_results opts_safe
+
+
+mpsres = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:1029]) for f in 1:30]) for pm in 1:10]
+nnres = [mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:1029]) for f in 1:30]) for pm in 1:10]
