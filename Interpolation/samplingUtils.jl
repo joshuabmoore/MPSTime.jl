@@ -158,21 +158,62 @@ function get_cdf(
 
 end
 
-function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args; atol=1e-5)
-    """Sample an x value, and its corresponding state,
-    ϕ(x) from a conditional density matrix using inverse 
-    transform sampling."""
+# function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args; atol=1e-5)
+#     """Sample an x value, and its corresponding state,
+#     ϕ(x) from a conditional density matrix using inverse 
+#     transform sampling."""
+#     Z = get_normalisation_constant(rdm, opts, enc_args)
+#     # sample a uniform random value from U(0,1)
+#     u = rand()
+#     # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
+#     cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
+#     sampled_x = find_zero(cdf_wrapper, opts.encoding.range; atol=atol)
+#     # map sampled x_k back to a state
+#     sampled_state = get_state(sampled_x, opts, enc_args)
+
+#     return sampled_x, sampled_state
+
+# end
+
+function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args;
+        threshold::Union{Float64, Symbol}=2.5, max_trials::Int=10, atol=1e-5)
+    """Sample from the conditional distribution defined by the rdm, but 
+    reject samples if they exceed a predetermined threshold which is set
+    by the weighted median absolute deviation (WMAD).
+    - threshold is the multiplier for WMAD as threshold i.e., threshold*WMAD 
+    - atol is abs tolerance for the root finder
+    - max trials is the maximum number of rejections
+    """
     Z = get_normalisation_constant(rdm, opts, enc_args)
-    # sample a uniform random value from U(0,1)
-    u = rand()
-    # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
-    cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
-    sampled_x = find_zero(cdf_wrapper, opts.encoding.range; atol=atol)
+    # sample without rejection if threshold is none
+    sampled_x = 0
+    if threshold == :none
+        u = rand()
+        #cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
+        sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, enc_args) - u, opts.encoding.range; atol=atol)
+        #sampled_x = find_zero(cdf_wrapper, opts.encoding.range; atol=atol)
+    else
+        # now determine the median and wmad - don't need high precision here, just a general ballpark
+        median_x, _, wmad_x = get_median_from_rdm(rdm, opts, enc_args; binary_thresh=1e-2, dx=0.01)
+        sampled_x = 0
+        rejections = 0 # rejected :(
+        for i in 1:max_trials
+            u = rand() # sample a random value from ~ U(0, 1)
+            # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
+            # cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
+            # sampled_x = find_zero(cdf_wrapper, opts.encoding.range; atol=atol)
+            sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, enc_args) - u, opts.encoding.range; atol=atol)
+            # choose whether to accept or reject
+            if abs(sampled_x - median_x) < threshold*wmad_x
+                break 
+            end
+            rejections += 1
+        end
+        @show rejections
+    end
     # map sampled x_k back to a state
     sampled_state = get_state(sampled_x, opts, enc_args)
-
-    return sampled_x, sampled_state
-
+    return sampled_x, sampled_state    
 end
 
 function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args::AbstractVector,

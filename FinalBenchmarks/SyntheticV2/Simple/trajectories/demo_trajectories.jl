@@ -2,7 +2,7 @@ include("../../../../LogLoss/RealRealHighDimension.jl")
 include("../../../../Interpolation/imputation.jl");
 using JLD2
 using ProgressMeter
-dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/syntheticV2/simple/datasets/eta_01_m_3_tau_20.jld2"
+dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/ecg200/datasets/ecg200.jld2"
 f = jldopen(dloc, "r")
     X_train = read(f, "X_train")
     y_train = zeros(Int64, size(X_train, 1))
@@ -17,8 +17,8 @@ encoding = :legendre_no_norm
 encode_classes_separately = false
 train_classes_separately = false
 
-d = 12
-chi_max = 50
+d = 15
+chi_max = 80
 
 opts=MPSOptions(; nsweeps=3, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
     bbopt=:TSGO, track_cost=track_cost, eta=1.0, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
@@ -30,10 +30,10 @@ W, info, train_states, test_states = fitMPS(X_train, y_train, X_test, y_test; ch
 fstyle=font("sans-serif", 23)
 fc = load_forecasting_info_variables(W, X_train, y_train, X_test, y_test, opts_safe; verbosity=0)
 
-n_traj = 15_000
-trajectories = zeros(Float64, n_traj, 100)
+n_traj = 100
+trajectories = zeros(Float64, n_traj, size(X_train,2))
 @showprogress for t in 1:n_traj
-    trajectories[t, :] = any_impute_ITS(fc, 0, 1, collect(25:75); X_train=X_train, y_train=y_train)
+    trajectories[t, :] = any_impute_ITS(fc, 0, 1, collect(50:96); X_train=X_train, y_train=y_train, rejection_threshold=2.0)
 end
 
 function filter_trajectories_by_probas(trajectories::AbstractMatrix{<:Real}, fc::Vector{forecastable}, 
@@ -47,7 +47,7 @@ function filter_trajectories_by_probas(trajectories::AbstractMatrix{<:Real}, fc:
     @threads for traj in 1:num_traj
         traj_pstate = MPS([itensor(fc[1].opts.encoding.encode(t, fc[1].opts.d, fc[1].enc_args...), sites[i]) for (i,t) in enumerate(X_traj_scaled[traj, :])])
         accum = ITensor(1)
-        for i in 1:100
+        for i in 1:size(X_traj_scaled, 2)
             accum *= traj_pstate[i] * fc[1].mps[i]
         end
         log_proba = log.(abs2.(accum))
@@ -60,20 +60,24 @@ function filter_trajectories_by_probas(trajectories::AbstractMatrix{<:Real}, fc:
     return trajectories_sorted, probas[sorted_probas_idxs]
 end
 
+_, probas_train = filter_trajectories_by_probas(X_train, fc, X_train)
+_, probas_test = filter_trajectories_by_probas(X_test, fc, X_train)
 sorted_trajectories, probas = filter_trajectories_by_probas(trajectories, fc, X_train)
 max_diffs = maximum(diff(sorted_trajectories, dims=2), dims=2)[:]
-clean_idxs = findall(x -> x .< 1.0, max_diffs)
-unclean_idxs = findall(x -> x .> 1.0, max_diffs)
+clean_idxs = findall(x -> x .< 1.5, max_diffs)
+unclean_idxs = findall(x -> x .> 1.5, max_diffs)
 histogram(probas[clean_idxs], label="Non-Spiky", alpaha=0.3);
 histogram!(probas[unclean_idxs], label="Spiky", alpha=0.3)
 
 # create animation
 pal = palette(:tab10);
-p = plot(xlabel="t", ylabel="x", xlims=(0, 100), ylims=(-1, 5), grid=:none);
+p = plot(xlabel="t", ylabel="x", xlims=(0, 96), grid=:none);
 anim = @animate for i in 1:100
-    plot(sorted_trajectories[unclean_idxs[i], :], label="", 
-        c=pal[1], title="Trajectory: $i", ylims=(-1, 5),  dpi = 150, xlabel="t", ylabel="x", grid=:none, lw=2)
-    p = vline!([24], lw=3, ls=:dot, c=pal[2], label="");
-    p = vline!([76], lw=3, ls=:dot, c=pal[2], label="");
+    plot(sorted_trajectories[i, :], label="", 
+        c=pal[1], title="5.0*WMAD, Trajectory: $i", ylims=(-2.5, 3.5), dpi = 150, xlabel="t", ylabel="x", grid=:none, lw=2, alpha=1.0)
+    #p = vline!([49], lw=3, ls=:dot, c=pal[2], label="");
+    # p = vline!([36], lw=3, ls=:dot, c=pal[2], label="");
+    # p = vline!([74], lw=3, ls=:dot, c=pal[2], label="");
+    # p = vline!([100], lw=3, ls=:dot, c=pal[2], label="");
 end;
-gif(anim, "simple_noisy_sinusoid_spiky.gif", fps = 10)
+# gif(anim, "ecg_50_96_5_wmad.gif", fps = 10)

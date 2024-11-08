@@ -1128,7 +1128,8 @@ function any_impute_ITS_single(
     timeseries::AbstractVector{<:Number},
     timeseries_enc::MPS, 
     imputation_sites::Vector{Int};
-    atol=1e-5)
+    atol=1e-5,
+    rejection_threshold::Union{Float64, Symbol}=1.0)
 
     if isempty(imputation_sites)
         throw(ArgumentError("Interpolation sites cannot be empty!"))
@@ -1193,7 +1194,7 @@ function any_impute_ITS_single(
             x_prev = nothing
         end
         # sample a value/state from the conditional probability distribution using ITS
-        sx, ss = get_sample_from_rdm(matrix(rdm), opts, enc_args; atol=atol)
+        sx, ss = get_sample_from_rdm(matrix(rdm), opts, enc_args; atol=atol, threshold=rejection_threshold)
         
         x_samps[imputation_sites[i]] = sx
         if ii != num_imputation_sites

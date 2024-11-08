@@ -63,6 +63,15 @@ function instance_to_dataset(ts::Vector, window_size::Int; stride::Int=window_si
     return X_train_mat, y_train, X_test_mat, y_test
 end
 
+function get_class_instances(dset::Vector{KeplerInstance}, class::Int)
+    """Return a vector of instances pertaining to a single class"""
+    class_labels_all = [i.class for i in dset]
+    idxs = findall(x -> x .== class, class_labels_all)
+    println("Found $(length(idxs)) instances in class $class.")
+    class_instances = [dset[i] for i in idxs];
+    return class_instances
+end
+
 function sample_instances(dset::Vector{KeplerInstance}, class::Int, num_instances::Int)
     """Randomly sample instances from a given class"""
     class_labels = [i.class for i in dset]
@@ -83,7 +92,7 @@ function sampled_instances_to_joint_dataset(dset::Vector{KeplerInstance}, class:
     X_test = []
     y_test = []
     for i in sampled_idxs
-        X_tr, y_tr, X_te, y_te = instance_to_dataset(dset[i].ts, 100; keep_artefact=true)
+        X_tr, y_tr, X_te, y_te = instance_to_dataset(dset[i].ts, 100; keep_artefact=false)
         push!(X_train, X_tr)
         push!(X_test, X_te)
         push!(y_train, y_tr)
@@ -92,9 +101,43 @@ function sampled_instances_to_joint_dataset(dset::Vector{KeplerInstance}, class:
     return vcat(X_train...), vcat(y_train...), vcat(X_test...), vcat(y_test...)
 end
 
-dset = create_instances("Data/NASA_KeplerV2/datasets/KeplerLightCurveOrig.jld2")
+function instances_to_joint_dataset(dset::Vector{KeplerInstance})
+    """Place all of the sampled instances into a single dataset for unsupervised learning"""
+    X_train = []
+    y_train= []
+    X_test = []
+    y_test = []
+    for i in eachindex(dset)
+        X_tr, y_tr, X_te, y_te = instance_to_dataset(dset[i].ts, 100; keep_artefact=false, test_size=1)
+        push!(X_train, X_tr)
+        push!(X_test, X_te)
+        push!(y_train, y_tr)
+        push!(y_test, y_te)
+    end
+    return vcat(X_train...), vcat(y_train...), vcat(X_test...), vcat(y_test...)
+end
 
-# Random.seed!(42)
-# c0_subset = sample_instances(dset, 0, 10)
-X_train, y_train, X_test, y_test = sampled_instances_to_joint_dataset(dset, 2, 10)
-JLD2.@save "c2_subset.jld2" X_train y_train X_test y_test
+function find_impute_region(ts::Vector{Float64})
+    """Finds the imputation sites for real-world artefacts"""
+    flat_range = detect_flat_regions(ts)
+    if length(flat_range) == 0
+        @warn "No artefacts detected."
+    else
+        return vcat(flat_range[1]-1, flat_range) # append previous site
+    end
+    return nothing
+end
+
+c6_instances = get_class_instances(dset, 6)
+
+X_train, y_train, X_test, y_test = instances_to_joint_dataset(c6_instances)
+
+
+JLD2.@save "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/imputation/c6.jld2" X_train y_train X_test y_test
+
+# dset = create_instances("Data/NASA_KeplerV2/datasets/KeplerLightCurveOrig.jld2")
+
+# # Random.seed!(42)
+# # c0_subset = sample_instances(dset, 0, 10)
+# X_train, y_train, X_test, y_test = sampled_instances_to_joint_dataset(dset, 2, 10)
+# JLD2.@save "c2_subset.jld2" X_train y_train X_test y_test
