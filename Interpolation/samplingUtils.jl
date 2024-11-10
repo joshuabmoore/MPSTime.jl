@@ -209,7 +209,7 @@ function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args;
             end
             rejections += 1
         end
-        @show rejections
+        #@show rejections
     end
     # map sampled x_k back to a state
     sampled_state = get_state(sampled_x, opts, enc_args)

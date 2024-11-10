@@ -1,7 +1,7 @@
 include("../../LogLoss/RealRealHighDimension.jl")
 include("../../Interpolation/imputation.jl");
 using JLD2
-dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/imputation/c6.jld2"
+dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/imputation/kepler_c0c6split.jld2"
 f = jldopen(dloc, "r")
     X_train = read(f, "X_train")
     y_train = read(f, "y_train")
@@ -19,10 +19,10 @@ encoding = :Legendre_No_Norm
 encode_classes_separately = false
 train_classes_separately = false
 
-d = 10
-chi_max = 100
+d = 18
+chi_max = 80
 
-opts=MPSOptions(; nsweeps=4, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
+opts=MPSOptions(; nsweeps=1, chi_max=chi_max,  update_iters=1, verbosity=verbosity, loss_grad=:KLD,
     bbopt=:TSGO, track_cost=track_cost, eta=1.0, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
     encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
     exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4)
@@ -47,7 +47,7 @@ interp_sites = collect(25:56)
 # traj = any_impute_ITS(fc, 0, 2, interp_sites; X_train=X_train)
 # plot(traj)
 
-stats, p2_ns = any_impute_median(fc, 0, 12, interp_sites; 
+stats, p2_ns = any_impute_median(fc, 0, 2, interp_sites; 
     NN_baseline=true, X_train=X_train,
     y_train=y_train, 
     n_baselines=1, plot_fits=true)
