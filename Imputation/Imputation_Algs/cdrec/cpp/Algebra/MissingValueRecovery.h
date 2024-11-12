@@ -67,7 +67,7 @@ class MissingValueRecovery
     // Algorithm
     //
   private:
-    void interpolate();
+    void impute();
     
     void determineReduction();
     

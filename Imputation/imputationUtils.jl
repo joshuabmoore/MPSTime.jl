@@ -428,7 +428,7 @@ function any_impute_trajectory(
         timeseries::Vector{Float64},
         imputation_sites::Vector{Int},
     )
-    """Interpolate mps sites without respecting time ordering, i.e., 
+    """impute mps sites without respecting time ordering, i.e., 
     condition on all known values first, then impute remaining sites one-by-one.
     Use inverse transform sampling to get a single trajectory."""
     mps = deepcopy(class_mps)
@@ -620,7 +620,7 @@ function any_impute_directMean(
         timeseries::Vector{Float64},
         imputation_sites::Vector{Int}
     )
-    """Interpolate mps sites without respecting time ordering, i.e., 
+    """impute mps sites without respecting time ordering, i.e., 
     condition on all known values first, then impute remaining sites one-by-one.
     
     Use direct mean/variance"""
@@ -792,7 +792,7 @@ end
 
 # end
 """
-Interpolate missing data points using the median of the conditional distribution (single site rdm ρ).
+impute missing data points using the median of the conditional distribution (single site rdm ρ).
 
 # Arguments
 - `class_mps::MPS`: 
@@ -934,7 +934,7 @@ function any_impute_directMode(
         max_jump::Union{Number,Nothing}=0.5
     )
 
-    """Interpolate mps sites without respecting time ordering, i.e., 
+    """impute mps sites without respecting time ordering, i.e., 
     condition on all known values first, then impute remaining sites one-by-one.
     Use direct mode."""
     if isempty(imputation_sites)

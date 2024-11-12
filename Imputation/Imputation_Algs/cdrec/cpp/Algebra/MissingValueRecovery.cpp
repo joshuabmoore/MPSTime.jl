@@ -140,7 +140,7 @@ uint64_t MissingValueRecovery::performRecovery(bool determineReduction /*= false
         totalMBSize += mblock.blockSize;
     }
     
-    interpolate();
+    impute();
     
     uint64_t iter = 0;
     double delta = 99.0;
@@ -344,7 +344,7 @@ uint64_t MissingValueRecovery::performRecovery(bool determineReduction /*= false
     return iter - 1;
 }
 
-void MissingValueRecovery::interpolate()
+void MissingValueRecovery::impute()
 {
     // init missing blocks
     for (auto mblock : missingBlocks)

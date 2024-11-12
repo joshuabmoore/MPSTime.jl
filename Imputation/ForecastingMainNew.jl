@@ -166,7 +166,7 @@ function load_forecasting_info(
     
 end
 
-function forward_interpolate_single_timeseries_sampling(
+function forward_impute_single_timeseries_sampling(
         fcastable::Vector{forecastable},
         which_class::Int, 
         which_sample::Int, 
@@ -189,11 +189,11 @@ function forward_interpolate_single_timeseries_sampling(
     trajectories = Matrix{Float64}(undef, num_shots, length(target_timeseries_full))
     if fcast.opts.encoding.istimedependent
         @threads for i in 1:num_shots
-            trajectories[i, :] = forward_interpolate_trajectory_time_dependent(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
+            trajectories[i, :] = forward_impute_trajectory_time_dependent(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
         end
     else
         @threads for i in 1:num_shots
-            trajectories[i, :] = forward_interpolate_trajectory(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
+            trajectories[i, :] = forward_impute_trajectory(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
         end
     end
     # extract summary statistics 
@@ -222,7 +222,7 @@ function forward_interpolate_single_timeseries_sampling(
 
 end
 
-function forward_interpolate_single_timeseries_directMean(
+function forward_impute_single_timeseries_directMean(
         fcastable::Vector{forecastable}, 
         which_class::Int, 
         which_sample::Int, 
@@ -231,7 +231,7 @@ function forward_interpolate_single_timeseries_directMean(
         get_metrics::Bool=true, 
         print_metric_table::Bool=true
     )
-    """Forward interpolate (forecast) using the direct mean."""
+    """Forward impute (forecast) using the direct mean."""
 
     fcast = fcastable[(which_class+1)]
     mps = fcast.mps
@@ -243,11 +243,11 @@ function forward_interpolate_single_timeseries_directMean(
     forecast_sites = (conditioning_sites[end] + 1):length(mps)
     # handle both time dependent and time independent encodings
     if fcast.opts.encoding.istimedependent
-        mean_ts, std_ts = forward_interpolate_directMean_time_dependent(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
+        mean_ts, std_ts = forward_impute_directMean_time_dependent(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
         title = "Sample $which_sample, Class $which_class, $horizon Site Forecast,\nd = $d_mps, χ = $chi_mps, aux_dim = $(opts.aux_basis_dim)
             $enc_name encoding, Expectation"
     else
-        mean_ts, std_ts = forward_interpolate_directMean(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
+        mean_ts, std_ts = forward_impute_directMean(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
         title = "Sample $which_sample, Class $which_class, $horizon Site Forecast,\nd = $d_mps, χ = $chi_mps,\n$enc_name encoding, Expectation"
     end
 
@@ -269,7 +269,7 @@ function forward_interpolate_single_timeseries_directMean(
     return metric_outputs
 end
 
-function forward_interpolate_single_timeseries_directMode(
+function forward_impute_single_timeseries_directMode(
         fcastable::Vector{forecastable}, 
         which_class::Int, 
         which_sample::Int,
@@ -278,7 +278,7 @@ function forward_interpolate_single_timeseries_directMode(
         get_metrics::Bool=true,
         print_metric_table::Bool=true 
     )
-    """Forward interpolate (forecast) using the direct mode"""
+    """Forward impute (forecast) using the direct mode"""
 
     fcast = fcastable[(which_class+1)]
     mps = fcast.mps
@@ -290,12 +290,12 @@ function forward_interpolate_single_timeseries_directMode(
     forecast_sites = (conditioning_sites[end] + 1):length(mps)
     # handle both time dependent and time independent encodings
     if fcast.opts.encoding.istimedependent
-        mode_ts = forward_interpolate_directMode_time_dependent(mps, target_timeseries_full[conditioning_sites], 
+        mode_ts = forward_impute_directMode_time_dependent(mps, target_timeseries_full[conditioning_sites], 
             first(forecast_sites), fcast.opts, fcast.enc_args)
         title = "Sample $which_sample, Class $which_class, $horizon Site Forecast,\nd = $d_mps, χ = $chi_mps, aux_dim=$(opts.aux_basis_dim) 
             $enc_name encoding, Mode"
     else
-        mode_ts = forward_interpolate_directMode(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
+        mode_ts = forward_impute_directMode(mps, target_timeseries_full[conditioning_sites], first(forecast_sites), fcast.opts, fcast.enc_args)
         title = "Sample $which_sample, Class $which_class, $horizon Site Forecast,\nd = $d_mps, χ = $chi_mps,\n$enc_name encoding, Mode"
     end
 
@@ -319,7 +319,7 @@ function forward_interpolate_single_timeseries_directMode(
 
 end
 
-function forward_interpolate_single_timeseries(
+function forward_impute_single_timeseries(
         fcastable::Vector{forecastable}, 
         which_class::Int, 
         which_sample::Int, 
@@ -331,13 +331,13 @@ function forward_interpolate_single_timeseries(
     )
 
     if method == :directMean 
-        metric_outputs = forward_interpolate_single_timeseries_directMean(fcastable, which_class, which_sample,
+        metric_outputs = forward_impute_single_timeseries_directMean(fcastable, which_class, which_sample,
             horizon; plot_forecast=plot_forecast, get_metrics=get_metrics, print_metric_table=print_metric_table)
     elseif method == :directMode
-        metric_outputs = forward_interpolate_single_timeseries_directMode(fcastable, which_class, which_sample,
+        metric_outputs = forward_impute_single_timeseries_directMode(fcastable, which_class, which_sample,
         horizon; plot_forecast=plot_forecast, get_metrics=get_metrics, print_metric_table=print_metric_table)
     elseif method == :inverseTform
-        metric_outputs = forward_interpolate_single_timeseries_sampling(fcastable, which_class, which_sample, horizon;
+        metric_outputs = forward_impute_single_timeseries_sampling(fcastable, which_class, which_sample, horizon;
             num_shots=2000, plot_forecast=plot_forecast, get_metrics=get_metrics, print_metric_table=print_metric_table)
     else
         error("Invalid method. Choose either :directMean (Mean/Std), :directMode, or :inverseTform (inv. transform sampling).")
@@ -348,7 +348,7 @@ end
 
 
 
-function NN_interpolate(fcastables::AbstractVector{forecastable},
+function NN_impute(fcastables::AbstractVector{forecastable},
         which_class::Integer, 
         which_sample::Integer, 
         which_sites::AbstractVector{<:Integer}; 
@@ -392,7 +392,7 @@ function NN_interpolate(fcastables::AbstractVector{forecastable},
 
 end
 
-function any_interpolate_single_timeseries_sampling(
+function any_impute_single_timeseries_sampling(
         fcastable::Vector{forecastable},
         which_class::Int, 
         which_sample::Int, 
@@ -410,12 +410,12 @@ function any_interpolate_single_timeseries_sampling(
     trajectories = Matrix{Float64}(undef, num_shots, length(target_timeseries_full))
     if fcast.opts.encoding.istimedependent
         @threads for i in 1:num_shots
-            trajectories[i, :] = any_interpolate_trajectory_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
+            trajectories[i, :] = any_impute_trajectory_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
         end
     else
         # time independent encoding
         @threads for i in 1:num_shots
-            trajectories[i, :] = any_interpolate_trajectory(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
+            trajectories[i, :] = any_impute_trajectory(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
         end
     end
 
@@ -429,7 +429,7 @@ function any_interpolate_single_timeseries_sampling(
     end
 
     p = plot(mean_trajectory, ribbon=std_trajectory, xlabel="time", ylabel="x", 
-        label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
+        label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
         size=(800, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
     title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
@@ -440,7 +440,7 @@ function any_interpolate_single_timeseries_sampling(
 
 end
 
-function any_interpolate_single_timeseries_directMode(fcastable::Vector{forecastable},
+function any_impute_single_timeseries_directMode(fcastable::Vector{forecastable},
         which_class::Int, 
         which_sample::Int, 
         which_sites::Vector{Int}; 
@@ -456,9 +456,9 @@ function any_interpolate_single_timeseries_directMode(fcastable::Vector{forecast
     target_timeseries_full = fcast.test_samples[which_sample, :]
 
     if fcast.opts.encoding.istimedependent
-        mode_ts = any_interpolate_directMode_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
+        mode_ts = any_impute_directMode_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
     else
-        mode_ts = any_interpolate_directMode(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
+        mode_ts = any_impute_directMode(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
     end
 
     if get_metrics
@@ -467,7 +467,7 @@ function any_interpolate_single_timeseries_directMode(fcastable::Vector{forecast
     end
 
     p1 = plot(mode_ts, xlabel="time", ylabel="x", 
-        label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:bottomleft,
+        label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:bottomleft,
         size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     p1 = plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
 
@@ -475,7 +475,7 @@ function any_interpolate_single_timeseries_directMode(fcastable::Vector{forecast
 
 end
 
-function any_interpolate_single_timeseries_directMean(fcastable::Vector{forecastable},
+function any_impute_single_timeseries_directMean(fcastable::Vector{forecastable},
         which_class::Int, 
         which_sample::Int, 
         which_sites::Vector{Int}; 
@@ -491,9 +491,9 @@ function any_interpolate_single_timeseries_directMean(fcastable::Vector{forecast
     target_timeseries_full = fcast.test_samples[which_sample, :]
 
     if fcast.opts.encoding.istimedependent
-        mean_ts, std_ts = any_interpolate_directMean_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
+        mean_ts, std_ts = any_impute_directMean_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
     else
-        mean_ts, std_ts = any_interpolate_directMean(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
+        mean_ts, std_ts = any_impute_directMean(mps, fcast.opts, fcast.enc_args, target_timeseries_full, which_sites)
     end
 
     if get_metrics
@@ -502,7 +502,7 @@ function any_interpolate_single_timeseries_directMean(fcastable::Vector{forecast
     end
 
     p1 = plot(mean_ts, ribbon=std_ts, xlabel="time", ylabel="x", 
-        label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
+        label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
         size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     p1 = plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
     p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
@@ -513,10 +513,10 @@ function any_interpolate_single_timeseries_directMean(fcastable::Vector{forecast
 
 end
 """
-Interpolate using the median of the conditional pdf.\n
+impute using the median of the conditional pdf.\n
 Uses the (weighted) median absolute deviation to quantify uncertainty. 
 """
-function any_interpolate_median(
+function any_impute_median(
         fcastable::Vector{forecastable},
         which_class::Int,
         which_sample::Int,
@@ -583,7 +583,7 @@ function any_interpolate_median(
         sites = siteinds(mps)
 
         states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries_full)])
-        ts, wms = any_interpolate_directMedian(mps, fcast.opts, fcast.enc_args, target_timeseries_full, states, which_sites; wmad=wmad)
+        ts, wms = any_impute_directMedian(mps, fcast.opts, fcast.enc_args, target_timeseries_full, states, which_sites; wmad=wmad)
         wms .+= ts # add uncertainty onto time series 
     end
 
@@ -623,7 +623,7 @@ function any_interpolate_median(
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm, c=:black)
 
         p1 = plot!(ground_truth, label="Ground truth", c=:black, lw=2, alpha=0.3)
-        p1 = plot!(interp_series, label="MPS Interpolated", lw=2, alpha=0.8, c=:red, ribbon=interp_uncertainties,
+        p1 = plot!(interp_series, label="MPS imputed", lw=2, alpha=0.8, c=:red, ribbon=interp_uncertainties,
             fillalpha=0.15)
         p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding, \nMedian" * (wmad ? ", +/- WMAD" : "")
@@ -644,7 +644,7 @@ function any_interpolate_median(
     end
 
     if NN_baseline
-        mse_ts = NN_interpolate(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines)
+        mse_ts = NN_impute(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines)
 
         mse_ts_bounded = mse_ts
         if !invert_transform
@@ -685,7 +685,7 @@ function any_interpolate_median(
     
 end
 
-function any_interpolate_ITS(
+function any_impute_ITS(
     fcastable::Vector{forecastable},
     which_class::Int,
     which_sample::Int,
@@ -753,7 +753,7 @@ function any_interpolate_ITS(
         sites = siteinds(mps)
 
         states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries_full)])
-        ts = any_interpolate_ITS_single(mps, fcast.opts, fcast.enc_args, target_timeseries_full, states, which_sites; atol=atol)
+        ts = any_impute_ITS_single(mps, fcast.opts, fcast.enc_args, target_timeseries_full, states, which_sites; atol=atol)
     end
 
     if invert_transform
@@ -783,7 +783,7 @@ function any_interpolate_ITS(
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm, c=:black)
 
         p1 = plot!(ground_truth, label="Ground truth", c=:black, lw=2, alpha=0.3)
-        p1 = plot!(interp_series, label="MPS Interpolated", lw=2, alpha=0.8, c=:red)
+        p1 = plot!(interp_series, label="MPS imputed", lw=2, alpha=0.8, c=:red)
         p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding, \nTrajectory" * (wmad ? ", +/- WMAD" : "")
         )
@@ -803,7 +803,7 @@ function any_interpolate_ITS(
     end
 
     if NN_baseline
-        mse_ts = NN_interpolate(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines)
+        mse_ts = NN_impute(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines)
 
         mse_ts_bounded = mse_ts
         if !invert_transform
@@ -845,7 +845,7 @@ function any_interpolate_ITS(
 end
 
 
-function any_interpolate_single_timeseries(
+function any_impute_single_timeseries(
         fcastable::Vector{forecastable},
         which_class::Int, 
         which_sample::Int, 
@@ -892,9 +892,9 @@ function any_interpolate_single_timeseries(
     pred_err = nothing
     if method == :directMean        
         if fcast.opts.encoding.istimedependent
-            ts, pred_err = any_interpolate_directMean_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites)
+            ts, pred_err = any_impute_directMean_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites)
         else
-            ts, pred_err = any_interpolate_directMean(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites)
+            ts, pred_err = any_impute_directMean(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites)
         end
     elseif method == :directMedian
         if fcast.opts.encoding.istimedependent
@@ -903,18 +903,18 @@ function any_interpolate_single_timeseries(
             sites = siteinds(mps)
 
             states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts, pred_err = any_interpolate_directMedian(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index)
+            ts, pred_err = any_impute_directMedian(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index)
         end
     elseif method == :directMode
         if fcast.opts.encoding.istimedependent
             # xvals_enc = [get_state(x, opts) for x in x_vals]
 
-            ts = any_interpolate_directMode_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites)
+            ts = any_impute_directMode_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites)
         else
             sites = siteinds(mps)
             
             states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts = any_interpolate_directMode(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, max_jump=max_jump)
+            ts = any_impute_directMode(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, max_jump=max_jump)
         end
     elseif method == :MeanMode
         if fcast.opts.encoding.istimedependent
@@ -924,10 +924,10 @@ function any_interpolate_single_timeseries(
             sites = siteinds(mps)
             
             states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts = any_interpolate_MeanMode(fcast.mps, fcast.opts, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, max_jump=max_jump)
+            ts = any_impute_MeanMode(fcast.mps, fcast.opts, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, max_jump=max_jump)
         end
     elseif method ==:nearestNeighbour
-        ts = NN_interpolate(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=1)[1]
+        ts = NN_impute(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=1)[1]
 
 
         if !invert_transform
@@ -945,7 +945,7 @@ function any_interpolate_single_timeseries(
 
     if plot_fits
         p1 = plot(ts, ribbon=pred_err, xlabel="time", ylabel="x", 
-            label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
+            label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm
         )
         target = invert_transform ? target_ts_raw : target_timeseries_full
@@ -972,7 +972,7 @@ function any_interpolate_single_timeseries(
     end
 
     if NN_baseline
-        mse_ts::Vector{Any} = NN_interpolate(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines)
+        mse_ts::Vector{Any} = NN_impute(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines)
 
         mse_ts_bounded = mse_ts
         if !invert_transform
@@ -1028,7 +1028,7 @@ function forecast_all(
         test_samples = fc.test_samples
         class_scores = Vector{Any}(undef, size(test_samples, 1))
         @threads for i in 1:size(test_samples, 1)
-            sample_results = forward_interpolate_single_timeseries(fcastable, (class_idx-1), i, horizon, method; 
+            sample_results = forward_impute_single_timeseries(fcastable, (class_idx-1), i, horizon, method; 
                 plot_forecast=false, get_metrics=true, print_metric_table=false)
             if verbose
                 println("[$i] Sample $metric: $(sample_results[metric])")

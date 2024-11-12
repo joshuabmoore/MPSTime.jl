@@ -426,7 +426,7 @@ function any_impute_single_timeseries_sampling(
     end
 
     p = plot(mean_trajectory, ribbon=std_trajectory, xlabel="time", ylabel="x", 
-        label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
+        label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
         size=(800, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
     title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
@@ -464,7 +464,7 @@ function any_impute_single_timeseries_directMode(fcastable::Vector{forecastable}
     end
 
     p1 = plot(mode_ts, xlabel="time", ylabel="x", 
-        label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:bottomleft,
+        label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:bottomleft,
         size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     p1 = plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
 
@@ -499,7 +499,7 @@ function any_impute_single_timeseries_directMean(fcastable::Vector{forecastable}
     end
 
     p1 = plot(mean_ts, ribbon=std_ts, xlabel="time", ylabel="x", 
-        label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
+        label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
         size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     p1 = plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
     p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
@@ -510,7 +510,7 @@ function any_impute_single_timeseries_directMean(fcastable::Vector{forecastable}
 
 end
 """
-Interpolate using the median of the conditional pdf.\n
+impute using the median of the conditional pdf.\n
 Uses the (weighted) median absolute deviation to quantify uncertainty. 
 """
 function any_impute_median(
@@ -554,7 +554,7 @@ function any_impute_median(
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm, c=:black)
 
         p1 = plot!(ground_truth, label="Ground truth", c=:black, lw=2, alpha=0.3)
-        p1 = plot!(interp_series, label="MPS Interpolated", lw=2, alpha=0.8, c=:red, ribbon=interp_uncertainties,
+        p1 = plot!(interp_series, label="MPS imputed", lw=2, alpha=0.8, c=:red, ribbon=interp_uncertainties,
             fillalpha=0.15)
         p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding, \nMedian" * (wmad ? ", +/- WMAD" : "")
@@ -642,7 +642,7 @@ function any_impute_ITS(
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm, c=:black)
 
         p1 = plot!(ground_truth, label="Ground truth", c=:black, lw=2, alpha=0.3)
-        p1 = plot!(interp_series, label="MPS Interpolated", lw=2, alpha=0.8, c=:red)
+        p1 = plot!(interp_series, label="MPS imputed", lw=2, alpha=0.8, c=:red)
         p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding, \nTrajectory" * (wmad ? ", +/- WMAD" : "")
         )
@@ -806,7 +806,7 @@ function any_impute_single_timeseries(
 
     if plot_fits
         p1 = plot(ts, ribbon=pred_err, xlabel="time", ylabel="x", 
-            label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
+            label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm
         )
 

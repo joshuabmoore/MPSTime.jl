@@ -38,15 +38,15 @@ xvals=collect(range(mode_range...; step=dx))
 mode_index=Index(opts_safe.d)
 xvals_enc= [get_state(x, opts_safe) for x in xvals]
 xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
-interp_sites = collect(25:75)
-# stats, p1_ns = any_impute_single_timeseries(fc, 0, 1, interp_sites, :directMedian; 
+impute_sites = collect(25:75)
+# stats, p1_ns = any_impute_single_timeseries(fc, 0, 1, impute_sites, :directMedian; 
 #         invert_transform=true, 
 #            NN_baseline=true, X_train=X_train, y_train=y_train, wmad=true, 
 #             n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
 #             mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
-stats, p1_ns = any_impute_median(fc, 0, 123, interp_sites; invert_transform=true, 
+stats, p1_ns = any_impute_median(fc, 0, 123, impute_sites; invert_transform=true, 
            NN_baseline=true, X_train=X_train, y_train=y_train,n_baselines=1, plot_fits=true)
 plot(p1_ns,
     xtickfont=fstyle, ytickfont=fstyle, titlefont=fstyle,
-    guidefont=fstyle, title="$(floor(length(interp_sites)/96 * 100))%",
+    guidefont=fstyle, title="$(floor(length(impute_sites)/96 * 100))%",
     bottom_margin=10mm, left_margin=10mm)

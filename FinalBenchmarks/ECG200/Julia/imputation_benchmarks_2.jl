@@ -93,11 +93,11 @@ xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
 max_jump=0.5
 class = 0
-interp_sites = collect(5:20)
+impute_sites = collect(5:20)
 instance_idx = 2 # 4
 invert_transform=true
 
-# stats, p1_ns = any_impute_single_timeseries(fc, class, instance_idx, interp_sites, :directMode; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
+# stats, p1_ns = any_impute_single_timeseries(fc, class, instance_idx, impute_sites, :directMode; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
 
 # fstyle = font("sans-serif", 23)
 # plot(p1_ns..., xtickfont=fstyle,ytickfont=fstyle,guidefont=fstyle,titlefont=fstyle,bottom_margin=10mm, left_margin=10mm,xlabel="t")
@@ -127,7 +127,7 @@ function train_and_impute()
         mode_index=Index(opts_test.d)
         xvals_enc= [get_state(x, opts_test, fc[1].enc_args) for x in xvals]
         xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
-        #interp_sites = collect(20:30)
+        #impute_sites = collect(20:30)
         # compute over entire dataset
         # loop over each class
         samps_per_class = [size(f.test_samples, 1) for f in fc]
@@ -149,13 +149,13 @@ function train_and_impute()
                 # thread this part if low d and chi? 
                 for it in num_wins
                     @sync begin 
-                        interp_sites = window_idxs[pm][it]
+                        impute_sites = window_idxs[pm][it]
                         tasks = map(data_chunks) do chunk
                             @spawn begin
                                 mps_chunk = Vector{Float64}(undef, length(chunk))
                                 nn_chunk = Vector{Float64}(undef, length(chunk))
                                 for (j, inst) in enumerate(chunk) 
-                                    stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
+                                    stats, _ = any_impute_single_timeseries(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
                                         mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
                                     mps_chunk[j] = stats[:MAE]
                                     nn_chunk[j] = stats[:NN_MAE]

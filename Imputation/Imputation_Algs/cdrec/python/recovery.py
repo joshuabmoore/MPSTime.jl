@@ -30,7 +30,7 @@ def centroid_recovery(matrix, truncation = 0, maxIterations = 100, threshold = 1
         print("[Centroid Recovery] The algorithm will run, but will return an unchanged matrix.")
     
     # initiate missing values
-    matrix = interpolate(matrix, miss_mask)
+    matrix = impute(matrix, miss_mask)
     
     # init persistent values
     SV = default_SV(n, truncation)
@@ -67,9 +67,9 @@ def centroid_recovery(matrix, truncation = 0, maxIterations = 100, threshold = 1
 
 
 # simple linear interpolation function
-# interpolates segments which are marked as NaN
+# imputes segments which are marked as NaN
 # if the segments start (or ends) at the start (or end) of the column - uses 1NN instead
-def interpolate(matrix, mask):
+def impute(matrix, mask):
     n = len(matrix)
     m = len(matrix[0])
     

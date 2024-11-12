@@ -9,7 +9,7 @@ mutable struct forecastable
     enc_args::Vector{Any}
 end
 
-function forward_interpolate_trajectory(
+function forward_impute_trajectory(
         class_mps::MPS, 
         known_values::Vector{Float64},
         forecast_start_site::Int, 
@@ -49,7 +49,7 @@ function forward_interpolate_trajectory(
         A = A_new
         x_samps[i] = xk
     end
-    # interpolate the remaining sites by sampling from the condititonal rdm, sequentially
+    # impute the remaining sites by sampling from the condititonal rdm, sequentially
     # mps should still be in canonical form with ortho centre at first interp. site
     for i in forecast_start_site:length(mps)
         # get the rdm at site i
@@ -78,7 +78,7 @@ function forward_interpolate_trajectory(
 
 end
 
-function forward_interpolate_trajectory_time_dependent(
+function forward_impute_trajectory_time_dependent(
         class_mps::MPS, 
         known_values::Vector{Float64},
         forecast_start_site::Int, 
@@ -115,7 +115,7 @@ function forward_interpolate_trajectory_time_dependent(
         A = A_new
         x_samps[i] = xk
     end
-    # interpolate the remaining sites by sampling from the condititonal rdm, sequentially
+    # impute the remaining sites by sampling from the condititonal rdm, sequentially
     # mps should still be in canonical form with ortho centre at first interp. site
     for i in forecast_start_site:length(mps)
         # get the rdm at site i
@@ -144,7 +144,7 @@ function forward_interpolate_trajectory_time_dependent(
 
 end
 
-function forward_interpolate_directMean(
+function forward_impute_directMean(
         class_mps::MPS, 
         known_values::Vector{Float64},
         forecast_start_site::Int, 
@@ -184,7 +184,7 @@ function forward_interpolate_directMean(
         x_samps[i] = xk
         x_stds[i] = 0.0
     end
-    # interpolate the remaining sites by sampling from the condititonal rdm, sequentially
+    # impute the remaining sites by sampling from the condititonal rdm, sequentially
     # mps should still be in canonical form with ortho centre at first interp. site
     for i in forecast_start_site:length(mps)
         # get the rdm at site i
@@ -214,7 +214,7 @@ function forward_interpolate_directMean(
 
 end
 
-function forward_interpolate_directMean_time_dependent(
+function forward_impute_directMean_time_dependent(
         class_mps::MPS, 
         known_values::Vector{Float64},
         forecast_start_site::Int, 
@@ -253,7 +253,7 @@ function forward_interpolate_directMean_time_dependent(
         x_samps[i] = xk
         x_stds[i] = 0.0
     end
-    # interpolate the remaining sites by sampling from the condititonal rdm, sequentially
+    # impute the remaining sites by sampling from the condititonal rdm, sequentially
     # mps should still be in canonical form with ortho centre at first interp. site
     for i in forecast_start_site:length(mps)
         # get the rdm at site i
@@ -283,7 +283,7 @@ function forward_interpolate_directMean_time_dependent(
 
 end
 
-function forward_interpolate_directMode(
+function forward_impute_directMode(
         class_mps::MPS, 
         known_values::Vector{Float64},
         forecast_start_site::Int, 
@@ -322,7 +322,7 @@ function forward_interpolate_directMode(
         x_samps[i] = xk
    
     end
-    # interpolate the remaining sites by sampling from the condititonal rdm, sequentially
+    # impute the remaining sites by sampling from the condititonal rdm, sequentially
     # mps should still be in canonical form with ortho centre at first interp. site
     for i in forecast_start_site:length(mps)
         # get the rdm at site i
@@ -353,7 +353,7 @@ function forward_interpolate_directMode(
 
 end
 
-function forward_interpolate_directMode_time_dependent(
+function forward_impute_directMode_time_dependent(
         class_mps::MPS, 
         known_values::Vector{Float64},
         forecast_start_site::Int, 
@@ -390,7 +390,7 @@ function forward_interpolate_directMode_time_dependent(
         x_samps[i] = xk
    
     end
-    # interpolate the remaining sites by sampling from the condititonal rdm, sequentially
+    # impute the remaining sites by sampling from the condititonal rdm, sequentially
     # mps should still be in canonical form with ortho centre at first interp. site
     for i in forecast_start_site:length(mps)
         # get the rdm at site i
@@ -421,15 +421,15 @@ function forward_interpolate_directMode_time_dependent(
 
 end
 
-function any_interpolate_trajectory(
+function any_impute_trajectory(
         class_mps::MPS, 
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64},
         imputation_sites::Vector{Int},
     )
-    """Interpolate mps sites without respecting time ordering, i.e., 
-    condition on all known values first, then interpolate remaining sites one-by-one.
+    """impute mps sites without respecting time ordering, i.e., 
+    condition on all known values first, then impute remaining sites one-by-one.
     Use inverse transform sampling to get a single trajectory."""
     mps = deepcopy(class_mps)
     s = siteinds(mps)
@@ -518,7 +518,7 @@ function any_interpolate_trajectory(
 
 end
 
-function any_interpolate_trajectory_time_dependent(
+function any_impute_trajectory_time_dependent(
         class_mps::MPS, 
         opts::Options, 
         enc_args::AbstractVector,
@@ -613,15 +613,15 @@ function any_interpolate_trajectory_time_dependent(
 
 end
 
-function any_interpolate_directMean(
+function any_impute_directMean(
         class_mps::MPS, 
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64},
         imputation_sites::Vector{Int}
     )
-    """Interpolate mps sites without respecting time ordering, i.e., 
-    condition on all known values first, then interpolate remaining sites one-by-one.
+    """impute mps sites without respecting time ordering, i.e., 
+    condition on all known values first, then impute remaining sites one-by-one.
     
     Use direct mean/variance"""
     mps = deepcopy(class_mps)
@@ -701,7 +701,7 @@ function any_interpolate_directMean(
     return x_samps, x_stds
 end
 
-function any_interpolate_directMean_time_dependent(
+function any_impute_directMean_time_dependent(
         class_mps::MPS, 
         opts::Options, 
         enc_args::AbstractVector,
@@ -786,29 +786,29 @@ function any_interpolate_directMean_time_dependent(
 end
 
 
-# function any_interpolate_directMode(class_mps::MPS, opts::Options, timeseries::Vector{Float64},
+# function any_impute_directMode(class_mps::MPS, opts::Options, timeseries::Vector{Float64},
 #     imputation_sites::Vector{Int})
-#     return any_interpolate_directMode(class_mps, opts, timeseries_enc, imputation_sites)
+#     return any_impute_directMode(class_mps, opts, timeseries_enc, imputation_sites)
 
 # end
 """
-Interpolate missing data points using the median of the conditional distribution (single site rdm ρ).
+impute missing data points using the median of the conditional distribution (single site rdm ρ).
 
 # Arguments
 - `class_mps::MPS`: 
 - `opts::Options`: MPS parameters.
-- `timeseries::AbstractVector{<:Number}`: The input time series data that will be interpolated.
+- `timeseries::AbstractVector{<:Number}`: The input time series data that will be imputed.
 - `timeseries_enc::MPS`: The encoded version of the time series represented as a product state. 
 - `imputation_sites::Vector{Int}`: Indices in the time series where imputation is to be performed.
 - `wmad::Bool`: Whether to compute the weighted median absolute deviation (WMAD) during imputation (default is `false`).
 
 # Returns
 A tuple containing:
-- `median_values::Vector{Float64}`: The interpolated median values at the specified imputation sites.
+- `median_values::Vector{Float64}`: The imputed median values at the specified imputation sites.
 - `wmad_value::Union{Nothing, Float64}`: The weighted median absolute deviation if `wmad` is true; otherwise, `nothing`.
 
 """
-function any_interpolate_directMedian(
+function any_impute_directMedian(
         class_mps::MPS,
         opts::Options,
         enc_args::AbstractVector,
@@ -832,7 +832,7 @@ function any_interpolate_directMedian(
     known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     total_num_sites = length(mps)
     num_imputation_sites = length(imputation_sites)
-    x_samps = Vector{Float64}(undef, total_num_sites) # store interpolated samples
+    x_samps = Vector{Float64}(undef, total_num_sites) # store imputed samples
     x_wmads = Vector{Float64}(undef, total_num_sites)
     original_mps_length = length(mps)
 
@@ -854,7 +854,7 @@ function any_interpolate_directMedian(
             # make projective measurement by contracting with the site
             Am = A * dag(known_state_as_ITensor)
             if site_loc == total_num_sites
-                A_new = mps[last_interp_idx] * Am # will IndexError if there are no sites to interpolate
+                A_new = mps[last_interp_idx] * Am # will IndexError if there are no sites to impute
             else
                 A_new = mps[(site_loc+1)] * Am
             end
@@ -877,7 +877,7 @@ function any_interpolate_directMedian(
         end
     end
 
-    # collapse the mps to just the interpolated sites
+    # collapse the mps to just the imputed sites
     mps_el = [tens for tens in mps if ndims(tens) > 0]
     mps = MPS(mps_el)
     s = siteinds(mps)
@@ -918,7 +918,7 @@ function any_interpolate_directMedian(
     return (x_samps, x_wmads)
 end
 
-function any_interpolate_directMode(
+function any_impute_directMode(
         class_mps::MPS, 
         opts::Options, 
         enc_args::AbstractVector,
@@ -934,8 +934,8 @@ function any_interpolate_directMode(
         max_jump::Union{Number,Nothing}=0.5
     )
 
-    """Interpolate mps sites without respecting time ordering, i.e., 
-    condition on all known values first, then interpolate remaining sites one-by-one.
+    """impute mps sites without respecting time ordering, i.e., 
+    condition on all known values first, then impute remaining sites one-by-one.
     Use direct mode."""
     if isempty(imputation_sites)
         throw(ArgumentError("imputation_sites can't be empty!")) 
@@ -966,7 +966,7 @@ function any_interpolate_directMode(
             # make projective measurement by contracting with the site
             Am = A * dag(known_state_as_ITensor)
             if site_loc == total_num_sites
-                A_new = mps[last_interp_idx] * Am # will IndexError if there are no sites to interpolate
+                A_new = mps[last_interp_idx] * Am # will IndexError if there are no sites to impute
             else
                 A_new = mps[(site_loc+1)] * Am
             end
@@ -989,7 +989,7 @@ function any_interpolate_directMode(
         end
     end
 
-    # collapse the mps to just the interpolated sites
+    # collapse the mps to just the imputed sites
     mps_el = Vector{ITensor}(undef, num_imputation_sites)
     i = 1
     for tens in mps
@@ -1034,7 +1034,7 @@ function any_interpolate_directMode(
     return x_samps
 end
 
-function any_interpolate_directMode_time_dependent(
+function any_impute_directMode_time_dependent(
         class_mps::MPS, 
         opts::Options, 
         enc_args::AbstractVector,
@@ -1121,7 +1121,7 @@ end
 """
 Impute a SINGLE trajectory using inverse transform sampling (ITS).\n
 """
-function any_interpolate_ITS_single(
+function any_impute_ITS_single(
     class_mps::MPS, 
     opts::Options, 
     enc_args::AbstractVector,
@@ -1156,7 +1156,7 @@ function any_interpolate_ITS_single(
             Am = A * dag(known_state_as_ITensor)
             if site_loc == total_num_sites
                 # check if at the last site
-                A_new = mps[last_interp_idx] * Am # will IndexError if there are no sites to interpolate
+                A_new = mps[last_interp_idx] * Am # will IndexError if there are no sites to impute
             else
                 # absorb into next site
                 A_new = mps[(site_loc+1)] * Am
@@ -1174,7 +1174,7 @@ function any_interpolate_ITS_single(
         end
     end
 
-    # collapse the mps to just the interpolated sites
+    # collapse the mps to just the imputed sites
     mps_el = [tens for tens in mps if ndims(tens) > 0]
     mps = MPS(mps_el)
     s = siteinds(mps)

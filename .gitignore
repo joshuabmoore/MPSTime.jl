@@ -4,7 +4,7 @@ BinarisedMPS/plot_training.ipynb
 *.DS_Store
 
 LogLoss/benchmarking/*/data/*.jld2
-Imputation/Interp_benchmarks/midpoint_benchmarks/ecg_1*.jld2
+Imputation/impute_benchmarks/midpoint_benchmarks/ecg_1*.jld2
 statprof/*
 **/statprof/*
 **/statprof*/*

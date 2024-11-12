@@ -106,8 +106,8 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
                             mps_scores = Vector{Float64}(undef, num_wins)
                             nn_scores = Vector{Float64}(undef, num_wins)
                             for it in 1:num_wins
-                                interp_sites = window_idxs[pm][it]
-                                stats, _ = any_impute_single_timeseries(fc, (i-1), inst, interp_sites, :directMedian; invert_transform=true, 
+                                impute_sites = window_idxs[pm][it]
+                                stats, _ = any_impute_single_timeseries(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=true, 
                                     NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
                                     n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 
                                     mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)

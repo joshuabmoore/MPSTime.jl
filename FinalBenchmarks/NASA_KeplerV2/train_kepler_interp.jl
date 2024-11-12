@@ -37,17 +37,17 @@ xvals=collect(range(mode_range...; step=dx))
 mode_index=Index(opts_safe.d)
 xvals_enc= [get_state(x, opts_safe, fc[1].enc_args) for x in xvals]
 xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
-interp_sites = collect(25:56)
-# stats, p1_ns = any_impute_single_timeseries(fc, 0, 45, interp_sites, :directMedian; 
+impute_sites = collect(25:56)
+# stats, p1_ns = any_impute_single_timeseries(fc, 0, 45, impute_sites, :directMedian; 
 #         invert_transform=true, 
 #            NN_baseline=true, X_train=X_train, y_train=y_train, wmad=true, 
 #             n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
 #             mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
 # plot(p1_ns...)
-# traj = any_impute_ITS(fc, 0, 2, interp_sites; X_train=X_train)
+# traj = any_impute_ITS(fc, 0, 2, impute_sites; X_train=X_train)
 # plot(traj)
 
-stats, p2_ns = any_impute_median(fc, 0, 2, interp_sites; 
+stats, p2_ns = any_impute_median(fc, 0, 2, impute_sites; 
     NN_baseline=true, X_train=X_train,
     y_train=y_train, 
     n_baselines=1, plot_fits=true)

@@ -50,7 +50,7 @@ function Xrec = centroid_recovery(matrix, varargin)% var = truncation(0), maxIte
     end
     
     % initiate missing values
-    matrix = interpolate(matrix);
+    matrix = impute(matrix);
     
     % init persistent values
     SV = default_SV(n, truncation);
@@ -82,9 +82,9 @@ end
 
 
 % simple linear interpolation function
-% interpolates segments which are marked as NaN
+% imputes segments which are marked as NaN
 % if the segments start (or ends) at the start (or end) of the column - uses 1NN instead
-function matrix_ret = interpolate(matrix)
+function matrix_ret = impute(matrix)
     [n, m] = size(matrix);
     
     for j = 1:m
