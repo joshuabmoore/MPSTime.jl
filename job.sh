@@ -10,3 +10,5 @@ julia --project=. --threads=auto instantiate.jl # ensure libraries according to 
 julia --project=. --threads=auto --heap-size-hint=160G FinalBenchmarks/ECG200/Julia/imputation_benchmarks_new_SL.jl   # run your program, note the heap size limit
 
 exit
+
+# qsub -I -l select=1:ncpus=16:mpiprocs=2:ompthreads=1:mem=120GB -l walltime=60:00:00
