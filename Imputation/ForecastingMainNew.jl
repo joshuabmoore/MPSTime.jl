@@ -2,7 +2,7 @@
 include("../LogLoss/RealRealHighDimension.jl");
 include("./forecastMetrics.jl");
 include("./samplingUtilsNew.jl");
-include("./interpolationUtils.jl");
+include("./imputationUtils.jl");
 
 using JLD2
 using StatsPlots, StatsBase, Plots.PlotMeasures
@@ -432,7 +432,7 @@ function any_interpolate_single_timeseries_sampling(
         label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
         size=(800, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
-    title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Interpolation, 
+    title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
         d = $d_mps, χ = $chi_mps, $enc_name encoding, 
         $num_shots-shot mean")
 
@@ -505,7 +505,7 @@ function any_interpolate_single_timeseries_directMean(fcastable::Vector{forecast
         label="MPS Interpolated", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
         size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
     p1 = plot!(target_timeseries_full, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
-    p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Interpolation, 
+    p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
         d = $d_mps, χ = $chi_mps, $enc_name encoding, 
         Expectation")
 
@@ -533,7 +533,7 @@ function any_interpolate_median(
         print_metric_table::Bool=false
     )
 
-    # setup interpolation variables
+    # setup imputation variables
     fcast = fcastable[(which_class+1)]
     mps = fcast.mps
     chi_mps = maxlinkdim(mps)
@@ -625,7 +625,7 @@ function any_interpolate_median(
         p1 = plot!(ground_truth, label="Ground truth", c=:black, lw=2, alpha=0.3)
         p1 = plot!(interp_series, label="MPS Interpolated", lw=2, alpha=0.8, c=:red, ribbon=interp_uncertainties,
             fillalpha=0.15)
-        p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Interpolation, 
+        p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding, \nMedian" * (wmad ? ", +/- WMAD" : "")
         )
         p1 = [p1] # for type stability
@@ -702,7 +702,7 @@ function any_interpolate_ITS(
     print_metric_table::Bool=false,
     atol::Float64=1e-5)
 
-    # setup interpolation variables
+    # setup imputation variables
     fcast = fcastable[(which_class+1)]
     mps = fcast.mps
     chi_mps = maxlinkdim(mps)
@@ -784,7 +784,7 @@ function any_interpolate_ITS(
 
         p1 = plot!(ground_truth, label="Ground truth", c=:black, lw=2, alpha=0.3)
         p1 = plot!(interp_series, label="MPS Interpolated", lw=2, alpha=0.8, c=:red)
-        p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Interpolation, 
+        p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding, \nTrajectory" * (wmad ? ", +/- WMAD" : "")
         )
         p1 = [p1] # for type stability
@@ -869,7 +869,7 @@ function any_interpolate_single_timeseries(
         max_jump::Union{Number, Nothing}=nothing,
     )
 
-    # setup interpolation variables
+    # setup imputation variables
     fcast = fcastable[(which_class+1)]
     X_test = vcat([fc.test_samples for fc in fcastable]...)
 
@@ -951,7 +951,7 @@ function any_interpolate_single_timeseries(
         target = invert_transform ? target_ts_raw : target_timeseries_full
 
         p1 = plot!(target, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
-        p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Interpolation, 
+        p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
             d = $d_mps, χ = $chi_mps, $enc_name encoding"
         )
         p1 = [p1] # for type stability

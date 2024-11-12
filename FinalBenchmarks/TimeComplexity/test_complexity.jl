@@ -10,7 +10,7 @@ using StatsBase
 import CurveFit
 
 savepath = "FinalBenchmarks/TimeComplexity/";
-# make function to generate synthetic data to train on (for interpolation?)
+# make function to generate synthetic data to train on (for imputation?)
 # takes in the target training set size
 function GenerateSimpleTrendySine(T::Int = 100; eta::Float64 = 0.1, m::Float64 = 3.0,
         phi::Float64 = 0.0, tau::Float64 = 20.0)

@@ -1,5 +1,5 @@
 include("../../../MLJIntegration/MLJ_integration.jl")
-include("../../../MLJIntegration/interpolation_hyperopt_hack.jl")
+include("../../../MLJIntegration/imputation_hyperopt_hack.jl")
 using MLJParticleSwarmOptimization
 using Tables
 using JLD2
@@ -99,7 +99,7 @@ for i in eachindex(splits)
     y_test_fold = ys[test_idxs]
 
     if train_interp
-        heuristic = InterpolationMeasureHack(MMI.matrix(X_train_fold), Int.(int(y_train_fold)) .-1, interp_sites, max_samps)
+        heuristic = ImputationMeasureHack(MMI.matrix(X_train_fold), Int.(int(y_train_fold)) .-1, interp_sites, max_samps)
     else
         heuristic = MLJTuning.NaiveSelection()
     end

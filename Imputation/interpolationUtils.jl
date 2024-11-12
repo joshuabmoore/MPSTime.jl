@@ -426,14 +426,14 @@ function any_interpolate_trajectory(
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64},
-        interpolation_sites::Vector{Int},
+        imputation_sites::Vector{Int},
     )
     """Interpolate mps sites without respecting time ordering, i.e., 
     condition on all known values first, then interpolate remaining sites one-by-one.
     Use inverse transform sampling to get a single trajectory."""
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     x_samps = Vector{Float64}(undef, length(mps))
     original_mps_length = length(mps)
 
@@ -487,7 +487,7 @@ function any_interpolate_trajectory(
             mps = new_mps
         end
     end
-    # sample from the remaining mps which contains unmeasured (interpolation) sites. 
+    # sample from the remaining mps which contains unmeasured (imputation) sites. 
     if !isapprox(norm(mps), 1.0)
         error("MPS is not normalised after conditioning: $(norm(mps))")
     end
@@ -500,7 +500,7 @@ function any_interpolate_trajectory(
         # same as for regular forecsting/sampling
         rdm = prime(A, s[i]) * dag(A)
         sampled_x, sampled_state = get_sample_from_rdm(matrix(rdm), opts, enc_args)
-        x_samps[interpolation_sites[count]] = sampled_x
+        x_samps[imputation_sites[count]] = sampled_x
         if i != length(mps)
             sampled_state_as_ITensor = ITensor(sampled_state, s[i])
             proba_state = get_conditional_probability(sampled_x, matrix(rdm), opts, enc_args)
@@ -523,12 +523,12 @@ function any_interpolate_trajectory_time_dependent(
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64}, 
-        interpolation_sites::Vector{Int}
+        imputation_sites::Vector{Int}
     )
 
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     x_samps = Vector{Float64}(undef, length(mps))
     original_mps_length = length(mps)
 
@@ -582,7 +582,7 @@ function any_interpolate_trajectory_time_dependent(
             mps = new_mps
         end
     end
-    # sample from the remaining mps which contains unmeasured (interpolation) sites. 
+    # sample from the remaining mps which contains unmeasured (imputation) sites. 
     if !isapprox(norm(mps), 1.0)
         error("MPS is not normalised after conditioning: $(norm(mps))")
     end
@@ -595,7 +595,7 @@ function any_interpolate_trajectory_time_dependent(
         # same as for regular forecsting/sampling
         rdm = prime(A, s[i]) * dag(A)
         sampled_x, sampled_state = get_sample_from_rdm(matrix(rdm), opts, enc_args, i)
-        x_samps[interpolation_sites[count]] = sampled_x
+        x_samps[imputation_sites[count]] = sampled_x
         if i != length(mps)
             sampled_state_as_ITensor = ITensor(sampled_state, s[i])
             proba_state = get_conditional_probability(sampled_x, matrix(rdm), opts, enc_args, i)
@@ -618,7 +618,7 @@ function any_interpolate_directMean(
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64},
-        interpolation_sites::Vector{Int}
+        imputation_sites::Vector{Int}
     )
     """Interpolate mps sites without respecting time ordering, i.e., 
     condition on all known values first, then interpolate remaining sites one-by-one.
@@ -626,7 +626,7 @@ function any_interpolate_directMean(
     Use direct mean/variance"""
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     x_samps = Vector{Float64}(undef, length(mps))
     x_stds = Vector{Float64}(undef, length(mps))
     original_mps_length = length(mps)
@@ -686,8 +686,8 @@ function any_interpolate_directMean(
     for i in eachindex(mps)
         rdm = prime(A, s[i]) * dag(A)
         ex, stdx, es = get_cpdf_mean_std(matrix(rdm), opts, enc_args)
-        x_samps[interpolation_sites[count]] = ex
-        x_stds[interpolation_sites[count]] = stdx
+        x_samps[imputation_sites[count]] = ex
+        x_stds[imputation_sites[count]] = stdx
         if i != length(mps)
             sampled_state_as_ITensor = ITensor(es, s[i])
             proba_state = get_conditional_probability(ex, matrix(rdm), opts, enc_args)
@@ -706,11 +706,11 @@ function any_interpolate_directMean_time_dependent(
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64}, 
-        interpolation_sites::Vector{Int}
+        imputation_sites::Vector{Int}
         )
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     x_samps = Vector{Float64}(undef, length(mps))
     x_stds = Vector{Float64}(undef, length(mps))
     original_mps_length = length(mps)
@@ -770,8 +770,8 @@ function any_interpolate_directMean_time_dependent(
     for i in eachindex(mps)
         rdm = prime(A, s[i]) * dag(A)
         ex, stdx, es = get_cpdf_mean_std(matrix(rdm), opts, enc_args, i)
-        x_samps[interpolation_sites[count]] = ex
-        x_stds[interpolation_sites[count]] = stdx
+        x_samps[imputation_sites[count]] = ex
+        x_stds[imputation_sites[count]] = stdx
         if i != length(mps)
             sampled_state_as_ITensor = ITensor(es, s[i])
             proba_state = get_conditional_probability(ex, matrix(rdm), opts, enc_args, i)
@@ -787,8 +787,8 @@ end
 
 
 # function any_interpolate_directMode(class_mps::MPS, opts::Options, timeseries::Vector{Float64},
-#     interpolation_sites::Vector{Int})
-#     return any_interpolate_directMode(class_mps, opts, timeseries_enc, interpolation_sites)
+#     imputation_sites::Vector{Int})
+#     return any_interpolate_directMode(class_mps, opts, timeseries_enc, imputation_sites)
 
 # end
 """
@@ -799,12 +799,12 @@ Interpolate missing data points using the median of the conditional distribution
 - `opts::Options`: MPS parameters.
 - `timeseries::AbstractVector{<:Number}`: The input time series data that will be interpolated.
 - `timeseries_enc::MPS`: The encoded version of the time series represented as a product state. 
-- `interpolation_sites::Vector{Int}`: Indices in the time series where interpolation is to be performed.
-- `wmad::Bool`: Whether to compute the weighted median absolute deviation (WMAD) during interpolation (default is `false`).
+- `imputation_sites::Vector{Int}`: Indices in the time series where imputation is to be performed.
+- `wmad::Bool`: Whether to compute the weighted median absolute deviation (WMAD) during imputation (default is `false`).
 
 # Returns
 A tuple containing:
-- `median_values::Vector{Float64}`: The interpolated median values at the specified interpolation sites.
+- `median_values::Vector{Float64}`: The interpolated median values at the specified imputation sites.
 - `wmad_value::Union{Nothing, Float64}`: The weighted median absolute deviation if `wmad` is true; otherwise, `nothing`.
 
 """
@@ -814,7 +814,7 @@ function any_interpolate_directMedian(
         enc_args::AbstractVector,
         timeseries::AbstractVector{<:Number},
         timeseries_enc::MPS,
-        interpolation_sites::Vector{Int};
+        imputation_sites::Vector{Int};
         mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
         dx::Float64=1E-4, 
         xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
@@ -824,14 +824,14 @@ function any_interpolate_directMedian(
         wmad::Bool=false
     )
 
-    if isempty(interpolation_sites)
-        throw(ArgumentError("interpolation_sites can't be empty!")) 
+    if isempty(imputation_sites)
+        throw(ArgumentError("imputation_sites can't be empty!")) 
     end
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     total_num_sites = length(mps)
-    num_interpolation_sites = length(interpolation_sites)
+    num_imputation_sites = length(imputation_sites)
     x_samps = Vector{Float64}(undef, total_num_sites) # store interpolated samples
     x_wmads = Vector{Float64}(undef, total_num_sites)
     original_mps_length = length(mps)
@@ -884,16 +884,16 @@ function any_interpolate_directMedian(
 
     inds = eachindex(mps)
     # inds = reverse(inds)
-    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks interpolations of non adjacent sites, fix
+    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non adjacent sites, fix
     A = mps[first(inds)]
     for (ii,i) in enumerate(inds)
         rdm = prime(A, s[i]) * dag(A)
         # get previous ind
-        if isassigned(x_samps, interpolation_sites[i] - 1) # isassigned can handle out of bounds indices
-            x_prev = x_samps[interpolation_sites[i] - 1]
+        if isassigned(x_samps, imputation_sites[i] - 1) # isassigned can handle out of bounds indices
+            x_prev = x_samps[imputation_sites[i] - 1]
 
-        elseif isassigned(x_samps, interpolation_sites[i]+1)
-            x_prev = x_samps[interpolation_sites[i]+1]
+        elseif isassigned(x_samps, imputation_sites[i]+1)
+            x_prev = x_samps[imputation_sites[i]+1]
 
         else
             x_prev = nothing
@@ -901,10 +901,10 @@ function any_interpolate_directMedian(
 
         # mx, ms, mad = get_median_from_rdm(matrix(rdm), opts, enc_args; binary_thresh=dx, get_wmad=wmad) # dx = 0.001 by default
         mx, ms, mad = get_median_from_rdm(rdm, xvals, xvals_enc, s[i], opts, enc_args; get_wmad=wmad)
-        x_samps[interpolation_sites[i]] = mx
-        x_wmads[interpolation_sites[i]] = mad
+        x_samps[imputation_sites[i]] = mx
+        x_wmads[imputation_sites[i]] = mad
        
-        if ii != num_interpolation_sites
+        if ii != num_imputation_sites
             # sampled_state_as_ITensor = itensor(ms, s[i])
             ms = itensor(ms, s[i])
             #proba_state = get_conditional_probability(ms, rdm)
@@ -924,7 +924,7 @@ function any_interpolate_directMode(
         enc_args::AbstractVector,
         timeseries::AbstractVector{<:Number}, 
         timeseries_enc::MPS,
-        interpolation_sites::Vector{Int}; 
+        imputation_sites::Vector{Int}; 
         mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
         dx::Float64=1E-4, 
         xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
@@ -937,14 +937,14 @@ function any_interpolate_directMode(
     """Interpolate mps sites without respecting time ordering, i.e., 
     condition on all known values first, then interpolate remaining sites one-by-one.
     Use direct mode."""
-    if isempty(interpolation_sites)
-        throw(ArgumentError("interpolation_sites can't be empty!")) 
+    if isempty(imputation_sites)
+        throw(ArgumentError("imputation_sites can't be empty!")) 
     end
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     total_num_sites = length(mps)
-    num_interpolation_sites = length(interpolation_sites)
+    num_imputation_sites = length(imputation_sites)
     x_samps = Vector{Float64}(undef, total_num_sites)
     original_mps_length = length(mps)
 
@@ -990,7 +990,7 @@ function any_interpolate_directMode(
     end
 
     # collapse the mps to just the interpolated sites
-    mps_el = Vector{ITensor}(undef, num_interpolation_sites)
+    mps_el = Vector{ITensor}(undef, num_imputation_sites)
     i = 1
     for tens in mps
         if ndims(tens) > 0
@@ -1003,16 +1003,16 @@ function any_interpolate_directMode(
 
     inds = eachindex(mps)
     # inds = reverse(inds)
-    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks interpolations of non adjacent sites, fix
+    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non adjacent sites, fix
     A = mps[first(inds)]
     for (ii,i) in enumerate(inds)
         rdm = prime(A, s[i]) * dag(A)
         # get previous ind
-        if isassigned(x_samps, interpolation_sites[i] - 1) # isassigned can handle out of bounds indices
-            x_prev = x_samps[interpolation_sites[i] - 1]
+        if isassigned(x_samps, imputation_sites[i] - 1) # isassigned can handle out of bounds indices
+            x_prev = x_samps[imputation_sites[i] - 1]
 
-        elseif isassigned(x_samps, interpolation_sites[i]+1)
-            x_prev = x_samps[interpolation_sites[i]+1]
+        elseif isassigned(x_samps, imputation_sites[i]+1)
+            x_prev = x_samps[imputation_sites[i]+1]
 
         else
             x_prev = nothing
@@ -1020,9 +1020,9 @@ function any_interpolate_directMode(
 
         mx, ms = get_cpdf_mode(rdm, xvals, xvals_enc, s[i], opts, enc_args, x_prev, max_jump)
 
-        x_samps[interpolation_sites[i]] = mx
+        x_samps[imputation_sites[i]] = mx
        
-        if ii != num_interpolation_sites
+        if ii != num_imputation_sites
             # sampled_state_as_ITensor = itensor(ms, s[i])
             proba_state = get_conditional_probability(ms, rdm)
             Am = A * dag(ms)
@@ -1039,12 +1039,12 @@ function any_interpolate_directMode_time_dependent(
         opts::Options, 
         enc_args::AbstractVector,
         timeseries::Vector{Float64}, 
-        interpolation_sites::Vector{Int}
+        imputation_sites::Vector{Int}
     )
 
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), interpolation_sites)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     x_samps = Vector{Float64}(undef, length(mps))
     original_mps_length = length(mps)
 
@@ -1103,7 +1103,7 @@ function any_interpolate_directMode_time_dependent(
     for i in eachindex(mps)
         rdm = prime(A, s[i]) * dag(A)
         mx, ms = get_cpdf_mode(matrix(rdm), opts, enc_args, i)
-        x_samps[interpolation_sites[count]] = mx
+        x_samps[imputation_sites[count]] = mx
        
         if i != length(mps)
             sampled_state_as_ITensor = ITensor(ms, s[i])
@@ -1127,18 +1127,18 @@ function any_interpolate_ITS_single(
     enc_args::AbstractVector,
     timeseries::AbstractVector{<:Number},
     timeseries_enc::MPS, 
-    interpolation_sites::Vector{Int};
+    imputation_sites::Vector{Int};
     atol=1e-5)
 
-    if isempty(interpolation_sites)
-        throw(ArgumentError("Interpolation sites cannot be empty!"))
+    if isempty(imputation_sites)
+        throw(ArgumentError("Imputation sites cannot be empty!"))
     end
 
     mps = deepcopy(class_mps)
     s = siteinds(mps)
     total_num_sites = length(mps)
-    known_sites = setdiff(collect(1:total_num_sites), interpolation_sites)
-    num_interpolation_sites = length(interpolation_sites)
+    known_sites = setdiff(collect(1:total_num_sites), imputation_sites)
+    num_imputation_sites = length(imputation_sites)
     x_samps = similar(timeseries, Float64)
     original_mps_length = length(mps)
     
@@ -1185,18 +1185,18 @@ function any_interpolate_ITS_single(
     for (ii,i) in enumerate(inds)
         rdm = prime(A, s[i]) * dag(A)
         # get prev ind
-        if isassigned(x_samps, interpolation_sites[i] - 1)
-            x_prev = x_samps[interpolation_sites[i] - 1]
-        elseif isassigned(x_samps, interpolation_sites[i]+1)
-            x_prev = x_samps[interpolation_sites[i]+1]
+        if isassigned(x_samps, imputation_sites[i] - 1)
+            x_prev = x_samps[imputation_sites[i] - 1]
+        elseif isassigned(x_samps, imputation_sites[i]+1)
+            x_prev = x_samps[imputation_sites[i]+1]
         else
             x_prev = nothing
         end
         # sample a value/state from the conditional probability distribution using ITS
         sx, ss = get_sample_from_rdm(matrix(rdm), opts, enc_args; atol=atol)
         
-        x_samps[interpolation_sites[i]] = sx
-        if ii != num_interpolation_sites
+        x_samps[imputation_sites[i]] = sx
+        if ii != num_imputation_sites
             ss = itensor(ss, s[i])
             proba_state = get_conditional_probability(ss, rdm)
             Am = A * dag(ss)

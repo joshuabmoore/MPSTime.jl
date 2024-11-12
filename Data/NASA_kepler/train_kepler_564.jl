@@ -3,7 +3,7 @@ include("KeplerDataProcessor.jl")
 using JLD2
 
 #TODO figure out what josh actually did
-# all_kepler = load_dataset("Interpolation/paper/NASA_kepler/datasets/KeplerLightCurves.jld2"); 
+# all_kepler = load_dataset("Imputation/paper/NASA_kepler/datasets/KeplerLightCurves.jld2"); 
 # w = 100
 # overlap_fraction = 0.0
 # discard = [18, 19, 33, 39] ####WHAT#### ?? THe same as 1212

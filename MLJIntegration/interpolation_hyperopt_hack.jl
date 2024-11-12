@@ -1,4 +1,4 @@
-include("../Interpolation/imputation.jl")
+include("../Imputation/imputation.jl")
 import MLJTuning 
 import ProgressMeter
 
@@ -19,7 +19,7 @@ function revise_history!(Xs_train::Matrix, ys_train::Vector, interp_sites::Vecto
     means = Vector{Float64}(undef, length(history))
 
     if !(history[1].evaluation isa PerformanceEvaluation)
-        error("compact_history must be set to false to use the interpolation_hyperopt hack!")
+        error("compact_history must be set to false to use the imputation_hyperopt hack!")
     end
 
     for (hi, h) in enumerate(history)
@@ -93,14 +93,14 @@ function revise_history!(Xs_train::Matrix, ys_train::Vector, interp_sites::Vecto
 end
 
 
-# struct InterpolationMeasureHack <: MLJTuning.SelectionHeuristic
+# struct ImputationMeasureHack <: MLJTuning.SelectionHeuristic
 #     # f::Function # goodness of fit measure, for example MAE
 #     Xs_train::Matrix # timeseries are rows!
 #     ys_train::Vector{<:Integer}
 #     interp_sites::Vector{<:Integer}
 #     max_ts_per_class::Integer
 
-#     function InterpolationMeasureHack(Xs_train::Matrix, ys_train::Vector, interp_sites::Vector, max_ts_per_class::Integer)
+#     function ImputationMeasureHack(Xs_train::Matrix, ys_train::Vector, interp_sites::Vector, max_ts_per_class::Integer)
 #         if maximum(interp_sites) > size(Xs_train, 2) || minimum(interp_sites) < 1
 #             error("Trying to interpolate a site not in the timeseries!")
 #         end
@@ -108,10 +108,10 @@ end
 #     end
 # end
 
-# InterpolationMeasureHack(Xs_train::Matrix, ys_train::Vector, interp_sites::Vector) = InterpolationMeasureHack(Xs_train, ys_train, interp_sites, 0)
+# ImputationMeasureHack(Xs_train::Matrix, ys_train::Vector, interp_sites::Vector) = ImputationMeasureHack(Xs_train, ys_train, interp_sites, 0)
 
 
-# function MLJTuning.losses(heuristic::InterpolationMeasureHack, history)
+# function MLJTuning.losses(heuristic::ImputationMeasureHack, history)
 #     n_maes = length(history) * length(history[1].evaluation.fitted_params_per_fold)
 #     # p = ProgressMeter.Progress(n_maes,
 #     #     dt = 0,
@@ -126,7 +126,7 @@ end
 #     means = Vector{Float64}(undef, length(history))
 
 #     if !(history[1].evaluation isa PerformanceEvaluation)
-#         error("compact_history must be set to false to use the interpolation_hyperopt hack!")
+#         error("compact_history must be set to false to use the imputation_hyperopt hack!")
 #     end
 
 #     for (hi, h) in enumerate(history)
@@ -194,7 +194,7 @@ end
 #     return means
 # end
 
-# function MLJTuning.best(heuristic::InterpolationMeasureHack, history)
+# function MLJTuning.best(heuristic::ImputationMeasureHack, history)
 #     measurements = MLJTuning.losses(heuristic, history)
 #     best_index = argmin(measurements)
 #     return history[best_index]
@@ -202,4 +202,4 @@ end
 
 # 
 # any method that supports naiive selection will support this if used with an MPSClassifier
-# MLJTuning.supports_heuristic(any, ::InterpolationMeasureHack) = MLJTuning.supports_heuristic(any, MLJTuning.NaiveSelection())
+# MLJTuning.supports_heuristic(any, ::ImputationMeasureHack) = MLJTuning.supports_heuristic(any, MLJTuning.NaiveSelection())

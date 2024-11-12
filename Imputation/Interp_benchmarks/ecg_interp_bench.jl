@@ -82,7 +82,7 @@ end
 
 idstr = "ecg_"*prod(map(x-> string(x) * "_", n_midpoints))[1:end-1] *".jld2"
 
-path = "Interpolation/Interp_benchmarks/midpoint_benchmarks/" * idstr
+path = "Imputation/Interp_benchmarks/midpoint_benchmarks/" * idstr
 
 jldopen(path, "w") do f
     f["n_midpoints"] = n_midpoints

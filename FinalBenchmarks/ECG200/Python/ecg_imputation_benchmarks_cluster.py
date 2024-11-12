@@ -8,7 +8,7 @@ from pypots.utils.random import set_random_seed
 from pypots.utils.metrics import calc_mae
 import pickle
 import sys
-sys.path.append("Interpolation/Imputation_Algs")
+sys.path.append("Imputation/Imputation_Algs")
 from cdrec.python.recovery import centroid_recovery as CDrec
 set_random_seed(1234)
 # check that GPU acceleration is enabled

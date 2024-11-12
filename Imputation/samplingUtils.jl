@@ -564,7 +564,7 @@ function get_cpdf_mode(
             end
         end
         if mode_idx == 0
-            @warn("No valid guess withing max_jump of the previous interpolation point. Increase max_jump")
+            @warn("No valid guess withing max_jump of the previous imputation point. Increase max_jump")
             mode_idx = perm[1]
         end
     end

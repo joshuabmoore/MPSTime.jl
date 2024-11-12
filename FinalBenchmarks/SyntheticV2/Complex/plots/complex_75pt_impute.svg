@@ -71,7 +71,7 @@
 <text style="fill:#000000; fill-opacity:1; font-family:Century Gothic,CenturyGothic,AppleGothic,sans-serif; font-size:134px; text-anchor:middle;" transform="rotate(-90, 109.906, 1017.44)" x="109.906" y="1017.44">x</text>
 </g>
 <g clip-path="url(#clip590)">
-<text style="fill:#000000; fill-opacity:1; font-family:Century Gothic,CenturyGothic,AppleGothic,sans-serif; font-size:134px; text-anchor:start;" transform="rotate(0, 458.272, 162.502)" x="458.272" y="162.502">Sample 1, Class 0, 75-site Interpolation, </text>
+<text style="fill:#000000; fill-opacity:1; font-family:Century Gothic,CenturyGothic,AppleGothic,sans-serif; font-size:134px; text-anchor:start;" transform="rotate(0, 458.272, 162.502)" x="458.272" y="162.502">Sample 1, Class 0, 75-site Imputation, </text>
 </g>
 <g clip-path="url(#clip590)">
 <text style="fill:#000000; fill-opacity:1; font-family:Century Gothic,CenturyGothic,AppleGothic,sans-serif; font-size:134px; text-anchor:start;" transform="rotate(0, -5.22887, 303.754)" x="-5.22887" y="303.754">            d = 20, χ = 150, Legendre_No_Norm encoding, </text>

@@ -1,7 +1,7 @@
 
 
 include("../../../LogLoss/RealRealHighDimension.jl")
-include("../../../Interpolation/imputation.jl");
+include("../../../Imputation/imputation.jl");
 using JLD2
 using DataFrames
 using StatProfilerHTML
@@ -96,14 +96,14 @@ println("Running $num_tasks Tasks")
 
     end
 end
-# svpath = "Interpolation/Interp_benchmarks/SL_ecg200_fitpersite.jld2"
+# svpath = "Imputation/Interp_benchmarks/SL_ecg200_fitpersite.jld2"
 # f = jldopen(svpath, "w")
 #     write(f, "fc", fc)
 #     write(f, "stats", stats)
 #     write(f, "nendpoints", nendpoints)
 # close(f)
 
-# svpath = "Interpolation/Interp_benchmarks/SL_ecg200_fitpersite_nomps.jld2"
+# svpath = "Imputation/Interp_benchmarks/SL_ecg200_fitpersite_nomps.jld2"
 # f = jldopen(svpath, "w")
 #     write(f, "stats", stats)
 #     write(f, "nendpoints", nendpoints)

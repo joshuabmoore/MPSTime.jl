@@ -1132,7 +1132,7 @@ function any_impute_ITS_single(
     rejection_threshold::Union{Float64, Symbol}=1.0)
 
     if isempty(imputation_sites)
-        throw(ArgumentError("Interpolation sites cannot be empty!"))
+        throw(ArgumentError("Imputation sites cannot be empty!"))
     end
 
     mps = deepcopy(class_mps)

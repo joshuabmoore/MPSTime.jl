@@ -1,5 +1,5 @@
 include("../../LogLoss/RealRealHighDimension.jl")
-include("../../Interpolation/imputation.jl");
+include("../../Imputation/imputation.jl");
 using JLD2
 dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/NASA_KeplerV2/datasets/imputation/kepler_c0c6split.jld2"
 f = jldopen(dloc, "r")

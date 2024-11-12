@@ -210,7 +210,7 @@ accs_per_model = [i.accs_per_model for i in results]
 models_all = [i.models for i in results]
 
 
-jldopen("FinalBenchmarks/Interpolation/ItalyPower/ItalyPowerBench_Interp.jld2", "w") do f
+jldopen("FinalBenchmarks/Imputation/ItalyPower/ItalyPowerBench_Interp.jld2", "w") do f
     f["accs"] = accs
     f["per_fold_accs"] = per_fold_accs
     f["per_fold_best_model"] = per_fold_best_model
