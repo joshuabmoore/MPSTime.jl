@@ -9,120 +9,98 @@ mutable struct forecastable
     enc_args::Vector{Any}
 end
 
-function precondition(args)
+function precondition(
+        class_mps::MPS,
+        opts::Options,
+        timeseries::AbstractVector{<:Number},
+        timeseries_enc::MPS,
+        imputation_sites::AbstractVector{Int};
+        mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
+        dx::Float64=1E-4, 
+        xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
+        mode_index=Index(opts.d),
+        xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
+        xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
+    )
     mps = deepcopy(class_mps)
     s = siteinds(mps)
     known_sites = setdiff(collect(1:length(mps)), imputation_sites)
     total_num_sites = length(mps)
-    num_imputation_sites = length(imputation_sites)
     x_samps = Vector{Float64}(undef, total_num_sites) # store imputed samples
-    x_wmads = zeros(Float64, total_num_sites)#Vector{Float64}(undef, total_num_sites)
     original_mps_length = length(mps)
 
-    last_impute_idx = 0 
+    mps_conditioned = Vector{Itensor}(undef, length(imputation_sites))
+
+    mps_cond_idx = 1
     # condition the mps on the known values
-    for i in 1:original_mps_length
+    i = 1
+    while i <= original_mps_length
+        conditioned = false
         if i in known_sites
-            # condition the mps at the known site
-            site_loc = findsite(mps, s[i]) # use the original indices
-            known_x = timeseries[i]
-            x_samps[i] = known_x
-            
-            # pretty sure calling orthogonalize is a massive computational bottleneck
-            #orthogonalize!(mps, site_loc)
-            A = mps[site_loc]
-            # get the reduced density matrix
-            # rdm = prime(A, s[i]) * dag(A)
-            known_state_as_ITensor = timeseries_enc[i]
-            # make projective measurement by contracting with the site
-            Am = A * dag(known_state_as_ITensor)
-            if site_loc == total_num_sites
-                A_new = mps[last_impute_idx] * Am # will IndexError if there are no sites to impute
-            else
-                A_new = mps[(site_loc+1)] * Am
+            conditioned = true
+            it = ITensor(1)
+            while i in known_sites
+                # save the x we know
+                known_x = timeseries[i]
+                x_samps[i] = known_x
+ 
+                # make projective measurement by contracting with the site
+                it *= (class_mps[i] * dag(timeseries_enc[i]))
+                i += 1
             end
-            # proba_state = get_conditional_probability(known_x, matrix(rdm), opts) # state' * rdm * state
-            # A_new *= 1/sqrt(proba_state)
-            normalize!(A_new)
-
-            # if !isapprox(norm(A_new), 1.0)
-            #     error("Site not normalised")
-            # end
-            
-            mps[site_loc] = ITensor(1)
-            if site_loc == total_num_sites
-                mps[last_impute_idx] = A_new 
-            else
-                mps[site_loc + 1] = A_new
-            end
+            mps_conditioned[mps_cond_idx] = normalize!(it * class_mps[i])
         else
-            last_impute_idx = i
+            mps_conditioned[mps_cond_idx] = deepcopy(class_mps[i])
         end
+
+        mps_cond_idx += 1
+        i += 1
     end
-
-    # collapse the mps to just the imputed sites
-    mps_el = [tens for tens in mps if ndims(tens) > 0]
-    mps = MPS(mps_el)
-    s = siteinds(mps)
-
-    inds = eachindex(mps)
-    # inds = reverse(inds)
+    return x_samps, MPS(mps_conditioned)
 
 end
 
-function impute_at(args)
-    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non adjacent sites, fix
+function impute_at(
+        mps::MPS,
+        x_samps::AbstractVector{Float64},
+        method::Function,
+        opts::Options,
+        enc_args::AbstractVector,
+        imputation_sites::Vector{Int};
+        mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
+        dx::Float64=1E-4, 
+        xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
+        mode_index=Index(opts.d),
+        xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
+        xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
+        kwargs...
+    )
+    inds = eachindex(mps)
+    s = siteinds(mps)
+    errs = zeros(Float64, total_num_sites)#Vector{Float64}(undef, total_num_sites)
+
+    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non sequential sites, fix
     A = mps[first(inds)]
     for (ii,i) in enumerate(inds)
-        rdm = prime(A, s[i]) * dag(A)
-        # get previous ind
-        if isassigned(x_samps, imputation_sites[i] - 1) # isassigned can handle out of bounds indices
-            x_prev = x_samps[imputation_sites[i] - 1]
+        imp_idx = imputation_sites[i]
+        site_ind = s[imp_idx]
+        rdm = prime(A, site_ind) * dag(A)
 
-        elseif isassigned(x_samps, imputation_sites[i]+1)
-            x_prev = x_samps[imputation_sites[i]+1]
-
-        else
-            x_prev = nothing
-        end
-
-        # mx, ms, mad = get_median_from_rdm(matrix(rdm), opts, enc_args; binary_thresh=dx, get_wmad=wmad) # dx = 0.001 by default
-        mx, ms, mad = get_median_from_rdm(rdm, xvals, xvals_enc, s[i], opts, enc_args; get_wmad=wmad)
-        x_samps[imputation_sites[i]] = mx
-        x_wmads[imputation_sites[i]] = mad
+        mx, ms, errs = method(rdm, xvals, xvals_enc, site_ind, opts, enc_args; kwargs...)
+        x_samps[imp_idx] = mx
+        errs[imp_idx] = err
        
+        # recondition the MPS based on the prediction
         if ii != num_imputation_sites
-            # sampled_state_as_ITensor = itensor(ms, s[i])
-            ms = itensor(ms, s[i])
-            #proba_state = get_conditional_probability(ms, rdm)
+            ms = itensor(ms, site_ind)
             Am = A * dag(ms)
             A_new = mps[inds[ii+1]] * Am
-            normalize!(A_new)
-            #A_new *= 1/sqrt(proba_state)
-            A = A_new
+            
+            A .= normalize!(A_new)
         end
     end 
     return (x_samps, x_wmads)
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 function forward_impute_trajectory(
