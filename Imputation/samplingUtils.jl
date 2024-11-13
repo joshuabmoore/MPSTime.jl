@@ -242,17 +242,19 @@ function get_median_from_rdm(
     )
     # return the median and the weighted median absolute deviation as a measure of uncertainty 
 
-    Z = get_normalisation_constant(s, rdm, opts, enc_args)
     lower, upper = opts.encoding.range
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = (1/Z) * get_conditional_probability(itensor(state, s), rdm)
+        prob = get_conditional_probability(itensor(state, s), rdm)
         probs[index] = prob
     end
 
     cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
-
+    Z = cdf[end]
+    cdf /= Z
+    probs /= Z
+    
     median_arg = argmin(@. abs(cdf - 0.5))
 
     median_x = samp_xs[median_arg]

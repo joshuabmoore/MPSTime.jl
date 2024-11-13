@@ -192,22 +192,6 @@ end
 ################################################################################################### KLD loss
 
 
-# function KLD_iter(BT_c::ITensor, LEP::PCacheCol, REP::PCacheCol,
-#     product_state::PState, lid::Int, rid::Int) 
-#     """Computes the complex valued logarithmic loss function derived from KL divergence and its gradient"""
-    
-#     # it is assumed that BT has no label index, so yhat is a rank 0 tensor
-#     yhat, phi_tilde = yhat_phitilde(BT_c, LEP, REP, product_state, lid, rid)
-
-#     f_ln = yhat[1]
-#     loss = -log(abs2(f_ln))
-
-#     # construct the gradient - return dC/dB
-#     gradient = -conj(phi_tilde / f_ln) 
-
-#     return [loss, gradient]
-
-# end
 
 function KLD_iter!( phit_scaled::Tensor, BT_c::Tensor, LEP::PCacheCol, REP::PCacheCol,
     product_state::PState, lid::Int, rid::Int) 

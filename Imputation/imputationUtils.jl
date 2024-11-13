@@ -1,3 +1,7 @@
+import Base.*
+contractTensor = ITensors._contract
+*(t1::Tensor, t2::Tensor) = contractTensor(t1, t2)
+
 include("./samplingUtils.jl");
 
 
@@ -30,6 +34,22 @@ function condition_until_next!(
     end
 
     return i, it
+end
+
+
+
+function allocate_mem(dtype, j, sites, links, num_imputation_sites)
+    if j == 1 
+        inds = (sites[j], links[j])
+    elseif j == num_imputation_sites
+        inds = (sites[j], links[j-1])
+    else
+        inds = (sites[j], links[j-1], links[j])
+    end
+
+    dims = ITensors.dim.(inds)
+    return ITensor(dtype, zeros(dtype, dims), inds)
+    
 end
 
 
@@ -88,6 +108,64 @@ function precondition(
     end
     return x_samps, MPS(mps_conditioned)
 
+end
+
+
+function impute_at2!(
+    mps::MPS,
+    x_samps::AbstractVector{Float64},
+    method::Function,
+    opts::Options,
+    enc_args::AbstractVector,
+    imputation_sites::Vector{Int};
+    mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
+    dx::Float64=1E-4, 
+    xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
+    mode_index=Index(opts.d),
+    xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
+    xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
+    kwargs...
+)
+inds = 1:length(mps)
+
+orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non sequential sites, fix
+
+
+s = siteinds(mps)
+lds = linkdims(mps)
+lis = linkinds(mps)
+errs = zeros(Float64, length(x_samps))#Vector{Float64}(undef, total_known_sites)
+total_impute_sites = length(imputation_sites)
+
+
+A = Array{opts.dtype}(undef, (opts.d, maximum(linkdims(mps))))
+ld = lds[1]
+A[:,1:ld] .= array(mps[first(inds)])
+
+rdm = Array{opts.dtype}(undef, (opts.d, opts.d))
+
+for (ii,i) in enumerate(inds)
+    imp_idx = imputation_sites[i]
+    site_ind = s[i]
+    ld = (i == total_impute_sites) ? 1 : lds[i]
+
+
+    rdm .= @views A[:,1:ld] * A[:, 1:ld]'
+
+    mx, ms, err = method(itensor(rdm, (site_ind', site_ind)), xvals, xvals_enc, site_ind, opts, enc_args; kwargs...)
+    x_samps[imp_idx] = mx
+    errs[imp_idx] = err
+   
+    # recondition the MPS based on the prediction
+    if ii != total_impute_sites
+        ld2 = (i == total_impute_sites - 1) ? 1 : lds[i+1]
+        @view(A[:, 1:ld2]) .= array(normalize!(mps[i + 1] * (dag(itensor(ms, site_ind); allow_alias=true) * itensor(A[:,1:ld], (s[i], lis[i])))))
+        # A = normalize!(mps[inds[ii+1]] * Am)
+        
+        # A .= normalize!(A_new)
+    end
+end 
+return (x_samps, errs)
 end
 
 function impute_at!(
@@ -167,7 +245,7 @@ function any_impute_directMedianOpt(
         xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
         get_wmad::Bool=true
     )
-
+    
     x_samps, mps_conditioned = precondition(
         class_mps,
         opts, 
