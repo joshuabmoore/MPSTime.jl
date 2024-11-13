@@ -709,6 +709,16 @@ function any_impute_single_timeseries_noplots(
             states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
             ts, pred_err = any_impute_directMedian(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, kwargs...)
         end
+
+    elseif method == :directMedianOpt
+        if fcast.opts.encoding.istimedependent
+            error("Time dependent option not yet implemented!")
+        else
+            sites = siteinds(mps)
+
+            states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
+            ts, pred_err = any_impute_directMedianOpt(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, kwargs...)
+        end
     elseif method == :directMode
         if fcast.opts.encoding.istimedependent
             # xvals_enc = [get_state(x, opts) for x in x_vals]

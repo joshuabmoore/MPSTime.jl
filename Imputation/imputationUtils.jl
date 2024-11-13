@@ -9,6 +9,31 @@ mutable struct forecastable
     enc_args::Vector{Any}
 end
 
+function condition_until_next!(
+        i::Int,
+        it::ITensor,
+        x_samps::AbstractVector{Float64},
+        known_sites::AbstractVector{Int},
+        class_mps::MPS,
+        timeseries::AbstractVector{<:Number},
+        timeseries_enc::MPS
+    )
+
+    while i in known_sites
+        # save the x we know
+        known_x = timeseries[i]
+        x_samps[i] = known_x
+
+        # make projective measurement by contracting with the site
+        it *= (class_mps[i] * dag(timeseries_enc[i]))
+        i += 1
+    end
+
+    return i, it
+end
+
+
+
 function precondition(
         class_mps::MPS,
         opts::Options,
@@ -22,37 +47,42 @@ function precondition(
         xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
         xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
     )
-    mps = deepcopy(class_mps)
-    s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
-    total_num_sites = length(mps)
-    x_samps = Vector{Float64}(undef, total_num_sites) # store imputed samples
-    original_mps_length = length(mps)
+    s = siteinds(class_mps)
+    known_sites = setdiff(collect(1:length(class_mps)), imputation_sites)
+    total_known_sites = length(class_mps)
+    total_impute_sites = length(imputation_sites)
 
-    mps_conditioned = Vector{Itensor}(undef, length(imputation_sites))
+    x_samps = Vector{Float64}(undef, total_known_sites) # store imputed samples
+    original_mps_length = length(class_mps)
+
+    mps_conditioned = Vector{ITensor}(undef, total_impute_sites)
 
     mps_cond_idx = 1
     # condition the mps on the known values
     i = 1
     while i <= original_mps_length
-        conditioned = false
-        if i in known_sites
-            conditioned = true
+        if mps_cond_idx == total_impute_sites
+            # at the last site, condition all remaining
             it = ITensor(1)
-            while i in known_sites
-                # save the x we know
-                known_x = timeseries[i]
-                x_samps[i] = known_x
- 
-                # make projective measurement by contracting with the site
-                it *= (class_mps[i] * dag(timeseries_enc[i]))
-                i += 1
+            if i in known_sites
+                # condition all the known sites up until the last imputed site 
+                i, it = condition_until_next!(i, it, x_samps, known_sites, class_mps, timeseries, timeseries_enc)
             end
+            last_site = class_mps[i] # last imputed sites
+            it2 = ITensor(1)
+            i += 1
+            # condition all the remaining sites in the mps (ok if there aren't any)
+            i, it2 = condition_until_next!(i, it2, x_samps, known_sites, class_mps, timeseries, timeseries_enc)
+
+            mps_conditioned[mps_cond_idx] = normalize!(it * last_site * it2)
+
+        elseif i in known_sites
+            it = ITensor(1)
+            i, it = condition_until_next!(i, it, x_samps, known_sites, class_mps, timeseries, timeseries_enc)
             mps_conditioned[mps_cond_idx] = normalize!(it * class_mps[i])
         else
             mps_conditioned[mps_cond_idx] = deepcopy(class_mps[i])
         end
-
         mps_cond_idx += 1
         i += 1
     end
@@ -60,7 +90,7 @@ function precondition(
 
 end
 
-function impute_at(
+function impute_at!(
         mps::MPS,
         x_samps::AbstractVector{Float64},
         method::Function,
@@ -75,32 +105,234 @@ function impute_at(
         xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
         kwargs...
     )
-    inds = eachindex(mps)
+    inds = 1:length(mps)
     s = siteinds(mps)
-    errs = zeros(Float64, total_num_sites)#Vector{Float64}(undef, total_num_sites)
+    errs = zeros(Float64, length(x_samps))#Vector{Float64}(undef, total_known_sites)
+    total_impute_sites = length(imputation_sites)
+
 
     orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non sequential sites, fix
     A = mps[first(inds)]
     for (ii,i) in enumerate(inds)
         imp_idx = imputation_sites[i]
-        site_ind = s[imp_idx]
+        site_ind = s[i]
+
         rdm = prime(A, site_ind) * dag(A)
 
-        mx, ms, errs = method(rdm, xvals, xvals_enc, site_ind, opts, enc_args; kwargs...)
+        mx, ms, err = method(rdm, xvals, xvals_enc, site_ind, opts, enc_args; kwargs...)
         x_samps[imp_idx] = mx
         errs[imp_idx] = err
        
         # recondition the MPS based on the prediction
-        if ii != num_imputation_sites
+        if ii != total_impute_sites
             ms = itensor(ms, site_ind)
             Am = A * dag(ms)
-            A_new = mps[inds[ii+1]] * Am
+            A = normalize!(mps[inds[ii+1]] * Am)
             
-            A .= normalize!(A_new)
+            # A .= normalize!(A_new)
+        end
+    end 
+    return (x_samps, errs)
+end
+
+"""
+impute missing data points using the median of the conditional distribution (single site rdm ρ).
+
+# Arguments
+- `class_mps::MPS`: 
+- `opts::Options`: MPS parameters.
+- `timeseries::AbstractVector{<:Number}`: The input time series data that will be imputed.
+- `timeseries_enc::MPS`: The encoded version of the time series represented as a product state. 
+- `imputation_sites::Vector{Int}`: Indices in the time series where imputation is to be performed.
+- `get_wmad::Bool`: Whether to compute the weighted median absolute deviation (WMAD) during imputation (default is `false`).
+
+# Returns
+A tuple containing:
+- `median_values::Vector{Float64}`: The imputed median values at the specified imputation sites.
+- `wmad_value::Union{Nothing, Float64}`: The weighted median absolute deviation if `get_wmad` is true; otherwise, `nothing`.
+
+"""
+function any_impute_directMedianOpt(
+        class_mps::MPS,
+        opts::Options,
+        enc_args::AbstractVector,
+        timeseries::AbstractVector{<:Number},
+        timeseries_enc::MPS,
+        imputation_sites::Vector{Int};
+        mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
+        dx::Float64=1E-4, 
+        xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
+        mode_index=Index(opts.d),
+        xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
+        xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
+        get_wmad::Bool=true
+    )
+
+    x_samps, mps_conditioned = precondition(
+        class_mps,
+        opts, 
+        timeseries,
+        timeseries_enc,
+        imputation_sites;
+        mode_range=mode_range,
+        dx=dx,
+        xvals=xvals,
+        mode_index=mode_index,
+        xvals_enc=xvals_enc,
+        xvals_enc_it=xvals_enc_it,
+    )
+
+    x_samps, x_wmads = impute_at!(
+        mps_conditioned,
+        x_samps,
+        get_median_from_rdm,
+        opts,
+        enc_args,
+        imputation_sites;
+        mode_range=mode_range, 
+        dx=dx ,
+        xvals=xvals,
+        mode_index=mode_index,
+        xvals_enc=xvals_enc,
+        xvals_enc_it=xvals_enc_it,
+        get_wmad=get_wmad
+    )
+
+    return (x_samps, x_wmads)
+end
+
+
+"""
+impute missing data points using the median of the conditional distribution (single site rdm ρ).
+
+# Arguments
+- `class_mps::MPS`: 
+- `opts::Options`: MPS parameters.
+- `timeseries::AbstractVector{<:Number}`: The input time series data that will be imputed.
+- `timeseries_enc::MPS`: The encoded version of the time series represented as a product state. 
+- `imputation_sites::Vector{Int}`: Indices in the time series where imputation is to be performed.
+- `get_wmad::Bool`: Whether to compute the weighted median absolute deviation (WMAD) during imputation (default is `false`).
+
+# Returns
+A tuple containing:
+- `median_values::Vector{Float64}`: The imputed median values at the specified imputation sites.
+- `wmad_value::Union{Nothing, Float64}`: The weighted median absolute deviation if `get_wmad` is true; otherwise, `nothing`.
+
+"""
+function any_impute_directMedian(
+        class_mps::MPS,
+        opts::Options,
+        enc_args::AbstractVector,
+        timeseries::AbstractVector{<:Number},
+        timeseries_enc::MPS,
+        imputation_sites::Vector{Int};
+        mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
+        dx::Float64=1E-4, 
+        xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
+        mode_index=Index(opts.d),
+        xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
+        xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
+        get_wmad::Bool=true
+    )
+
+    if isempty(imputation_sites)
+        throw(ArgumentError("imputation_sites can't be empty!")) 
+    end
+    mps = deepcopy(class_mps)
+    s = siteinds(mps)
+    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
+    total_known_sites = length(mps)
+    num_imputation_sites = length(imputation_sites)
+    x_samps = Vector{Float64}(undef, total_known_sites) # store imputed samples
+    x_wmads = zeros(Float64, total_known_sites)#Vector{Float64}(undef, total_known_sites)
+    original_mps_length = length(mps)
+
+    last_impute_idx = 0 
+    # condition the mps on the known values
+    for i in 1:original_mps_length
+        if i in known_sites
+            # condition the mps at the known site
+            site_loc = findsite(mps, s[i]) # use the original indices
+            known_x = timeseries[i]
+            x_samps[i] = known_x
+            
+            # pretty sure calling orthogonalize is a massive computational bottleneck
+            #orthogonalize!(mps, site_loc)
+            A = mps[site_loc]
+            # get the reduced density matrix
+            # rdm = prime(A, s[i]) * dag(A)
+            known_state_as_ITensor = timeseries_enc[i]
+            # make projective measurement by contracting with the site
+            Am = A * dag(known_state_as_ITensor)
+            if site_loc == total_known_sites
+                A_new = mps[last_impute_idx] * Am # will IndexError if there are no sites to impute
+            else
+                A_new = mps[(site_loc+1)] * Am
+            end
+            # proba_state = get_conditional_probability(known_x, matrix(rdm), opts) # state' * rdm * state
+            # A_new *= 1/sqrt(proba_state)
+            normalize!(A_new)
+
+            # if !isapprox(norm(A_new), 1.0)
+            #     error("Site not normalised")
+            # end
+            
+            mps[site_loc] = ITensor(1)
+            if site_loc == total_known_sites
+                mps[last_impute_idx] = A_new 
+            else
+                mps[site_loc + 1] = A_new
+            end
+        else
+            last_impute_idx = i
+        end
+    end
+
+    # collapse the mps to just the imputed sites
+    mps_el = [tens for tens in mps if ndims(tens) > 0]
+    mps = MPS(mps_el)
+    s = siteinds(mps)
+
+    inds = eachindex(mps)
+    # inds = reverse(inds)
+    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non adjacent sites, fix
+    A = mps[first(inds)]
+    for (ii,i) in enumerate(inds)
+        rdm = prime(A, s[i]) * dag(A)
+        # get previous ind
+        if isassigned(x_samps, imputation_sites[i] - 1) # isassigned can handle out of bounds indices
+            x_prev = x_samps[imputation_sites[i] - 1]
+
+        elseif isassigned(x_samps, imputation_sites[i]+1)
+            x_prev = x_samps[imputation_sites[i]+1]
+
+        else
+            x_prev = nothing
+        end
+
+        # mx, ms, mad = get_median_from_rdm(matrix(rdm), opts, enc_args; binary_thresh=dx, get_wmad=get_wmad) # dx = 0.001 by default
+        mx, ms, mad = get_median_from_rdm(rdm, xvals, xvals_enc, s[i], opts, enc_args; get_wmad=get_wmad)
+        x_samps[imputation_sites[i]] = mx
+        x_wmads[imputation_sites[i]] = mad
+       
+        if ii != num_imputation_sites
+            # sampled_state_as_ITensor = itensor(ms, s[i])
+            ms = itensor(ms, s[i])
+            #proba_state = get_conditional_probability(ms, rdm)
+            Am = A * dag(ms)
+            A_new = mps[inds[ii+1]] * Am
+            normalize!(A_new)
+            #A_new *= 1/sqrt(proba_state)
+            A = A_new
         end
     end 
     return (x_samps, x_wmads)
 end
+
+
+
+
+
 
 
 function forward_impute_trajectory(
@@ -880,137 +1112,6 @@ function any_impute_directMean_time_dependent(
 end
 
 
-# function any_impute_directMode(class_mps::MPS, opts::Options, timeseries::Vector{Float64},
-#     imputation_sites::Vector{Int})
-#     return any_impute_directMode(class_mps, opts, timeseries_enc, imputation_sites)
-
-# end
-"""
-impute missing data points using the median of the conditional distribution (single site rdm ρ).
-
-# Arguments
-- `class_mps::MPS`: 
-- `opts::Options`: MPS parameters.
-- `timeseries::AbstractVector{<:Number}`: The input time series data that will be imputed.
-- `timeseries_enc::MPS`: The encoded version of the time series represented as a product state. 
-- `imputation_sites::Vector{Int}`: Indices in the time series where imputation is to be performed.
-- `wmad::Bool`: Whether to compute the weighted median absolute deviation (WMAD) during imputation (default is `false`).
-
-# Returns
-A tuple containing:
-- `median_values::Vector{Float64}`: The imputed median values at the specified imputation sites.
-- `wmad_value::Union{Nothing, Float64}`: The weighted median absolute deviation if `wmad` is true; otherwise, `nothing`.
-
-"""
-function any_impute_directMedian(
-        class_mps::MPS,
-        opts::Options,
-        enc_args::AbstractVector,
-        timeseries::AbstractVector{<:Number},
-        timeseries_enc::MPS,
-        imputation_sites::Vector{Int};
-        mode_range::Tuple{<:Number, <:Number}=opts.encoding.range, 
-        dx::Float64=1E-4, 
-        xvals::Vector{Float64}=collect(range(mode_range...; step=dx)),
-        mode_index=Index(opts.d),
-        xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, opts) for x in xvals],
-        xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
-        wmad::Bool=true
-    )
-
-    if isempty(imputation_sites)
-        throw(ArgumentError("imputation_sites can't be empty!")) 
-    end
-    mps = deepcopy(class_mps)
-    s = siteinds(mps)
-    known_sites = setdiff(collect(1:length(mps)), imputation_sites)
-    total_num_sites = length(mps)
-    num_imputation_sites = length(imputation_sites)
-    x_samps = Vector{Float64}(undef, total_num_sites) # store imputed samples
-    x_wmads = zeros(Float64, total_num_sites)#Vector{Float64}(undef, total_num_sites)
-    original_mps_length = length(mps)
-
-    last_impute_idx = 0 
-    # condition the mps on the known values
-    for i in 1:original_mps_length
-        if i in known_sites
-            # condition the mps at the known site
-            site_loc = findsite(mps, s[i]) # use the original indices
-            known_x = timeseries[i]
-            x_samps[i] = known_x
-            
-            # pretty sure calling orthogonalize is a massive computational bottleneck
-            #orthogonalize!(mps, site_loc)
-            A = mps[site_loc]
-            # get the reduced density matrix
-            # rdm = prime(A, s[i]) * dag(A)
-            known_state_as_ITensor = timeseries_enc[i]
-            # make projective measurement by contracting with the site
-            Am = A * dag(known_state_as_ITensor)
-            if site_loc == total_num_sites
-                A_new = mps[last_impute_idx] * Am # will IndexError if there are no sites to impute
-            else
-                A_new = mps[(site_loc+1)] * Am
-            end
-            # proba_state = get_conditional_probability(known_x, matrix(rdm), opts) # state' * rdm * state
-            # A_new *= 1/sqrt(proba_state)
-            normalize!(A_new)
-
-            # if !isapprox(norm(A_new), 1.0)
-            #     error("Site not normalised")
-            # end
-            
-            mps[site_loc] = ITensor(1)
-            if site_loc == total_num_sites
-                mps[last_impute_idx] = A_new 
-            else
-                mps[site_loc + 1] = A_new
-            end
-        else
-            last_impute_idx = i
-        end
-    end
-
-    # collapse the mps to just the imputed sites
-    mps_el = [tens for tens in mps if ndims(tens) > 0]
-    mps = MPS(mps_el)
-    s = siteinds(mps)
-
-    inds = eachindex(mps)
-    # inds = reverse(inds)
-    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non adjacent sites, fix
-    A = mps[first(inds)]
-    for (ii,i) in enumerate(inds)
-        rdm = prime(A, s[i]) * dag(A)
-        # get previous ind
-        if isassigned(x_samps, imputation_sites[i] - 1) # isassigned can handle out of bounds indices
-            x_prev = x_samps[imputation_sites[i] - 1]
-
-        elseif isassigned(x_samps, imputation_sites[i]+1)
-            x_prev = x_samps[imputation_sites[i]+1]
-
-        else
-            x_prev = nothing
-        end
-
-        # mx, ms, mad = get_median_from_rdm(matrix(rdm), opts, enc_args; binary_thresh=dx, get_wmad=wmad) # dx = 0.001 by default
-        mx, ms, mad = get_median_from_rdm(rdm, xvals, xvals_enc, s[i], opts, enc_args; get_wmad=wmad)
-        x_samps[imputation_sites[i]] = mx
-        x_wmads[imputation_sites[i]] = mad
-       
-        if ii != num_imputation_sites
-            # sampled_state_as_ITensor = itensor(ms, s[i])
-            ms = itensor(ms, s[i])
-            #proba_state = get_conditional_probability(ms, rdm)
-            Am = A * dag(ms)
-            A_new = mps[inds[ii+1]] * Am
-            normalize!(A_new)
-            #A_new *= 1/sqrt(proba_state)
-            A = A_new
-        end
-    end 
-    return (x_samps, x_wmads)
-end
 
 function any_impute_directMode(
         class_mps::MPS, 
@@ -1037,9 +1138,9 @@ function any_impute_directMode(
     mps = deepcopy(class_mps)
     s = siteinds(mps)
     known_sites = setdiff(collect(1:length(mps)), imputation_sites)
-    total_num_sites = length(mps)
+    total_known_sites = length(mps)
     num_imputation_sites = length(imputation_sites)
-    x_samps = Vector{Float64}(undef, total_num_sites)
+    x_samps = Vector{Float64}(undef, total_known_sites)
     original_mps_length = length(mps)
 
     last_impute_idx = 0 
@@ -1059,7 +1160,7 @@ function any_impute_directMode(
             known_state_as_ITensor = timeseries_enc[i]
             # make projective measurement by contracting with the site
             Am = A * dag(known_state_as_ITensor)
-            if site_loc == total_num_sites
+            if site_loc == total_known_sites
                 A_new = mps[last_impute_idx] * Am # will IndexError if there are no sites to impute
             else
                 A_new = mps[(site_loc+1)] * Am
@@ -1073,7 +1174,7 @@ function any_impute_directMode(
             # end
             
             mps[site_loc] = ITensor(1)
-            if site_loc == total_num_sites
+            if site_loc == total_known_sites
                 mps[last_impute_idx] = A_new 
             else
                 mps[site_loc + 1] = A_new
@@ -1231,8 +1332,8 @@ function any_impute_ITS_single(
 
     mps = deepcopy(class_mps)
     s = siteinds(mps)
-    total_num_sites = length(mps)
-    known_sites = setdiff(collect(1:total_num_sites), imputation_sites)
+    total_known_sites = length(mps)
+    known_sites = setdiff(collect(1:total_known_sites), imputation_sites)
     num_imputation_sites = length(imputation_sites)
     x_samps = similar(timeseries, Float64)
     original_mps_length = length(mps)
@@ -1249,7 +1350,7 @@ function any_impute_ITS_single(
             known_state_as_ITensor = timeseries_enc[i]
             # make projective measurement by contracting state vector with the MPS site
             Am = A * dag(known_state_as_ITensor)
-            if site_loc == total_num_sites
+            if site_loc == total_known_sites
                 # check if at the last site
                 A_new = mps[last_impute_idx] * Am # will IndexError if there are no sites to impute
             else
@@ -1259,7 +1360,7 @@ function any_impute_ITS_single(
             normalize!(A_new)
 
             mps[site_loc] = ITensor(1)
-            if site_loc == total_num_sites
+            if site_loc == total_known_sites
                 mps[last_impute_idx] = A_new
             else
                 mps[site_loc + 1] = A_new
