@@ -94,12 +94,12 @@ function precondition(
             # condition all the remaining sites in the mps (ok if there aren't any)
             i, it2 = condition_until_next!(i, it2, x_samps, known_sites, class_mps, timeseries, timeseries_enc)
 
-            mps_conditioned[mps_cond_idx] = normalize!(it * last_site * it2)
+            mps_conditioned[mps_cond_idx] = it * last_site * it2# normalize!(it * last_site * it2)
 
         elseif i in known_sites
             it = ITensor(1)
             i, it = condition_until_next!(i, it, x_samps, known_sites, class_mps, timeseries, timeseries_enc)
-            mps_conditioned[mps_cond_idx] = normalize!(it * class_mps[i])
+            mps_conditioned[mps_cond_idx] = it * class_mps[i] # normalize!(it * class_mps[i])
         else
             mps_conditioned[mps_cond_idx] = deepcopy(class_mps[i])
         end
@@ -183,15 +183,15 @@ function impute_at!(
         xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
         kwargs...
     )
-    inds = 1:length(mps)
+    mps_inds = 1:length(mps)
     s = siteinds(mps)
     errs = zeros(Float64, length(x_samps))#Vector{Float64}(undef, total_known_sites)
     total_impute_sites = length(imputation_sites)
 
 
-    orthogonalize!(mps, first(inds)) #TODO: this line is what breaks imputations of non sequential sites, fix
-    A = mps[first(inds)]
-    for (ii,i) in enumerate(inds)
+    orthogonalize!(mps, first(mps_inds)) #TODO: this line is what breaks imputations of non sequential sites, fix
+    A = mps[first(mps_inds)]
+    for (ii,i) in enumerate(mps_inds)
         imp_idx = imputation_sites[i]
         site_ind = s[i]
 
@@ -205,8 +205,8 @@ function impute_at!(
         if ii != total_impute_sites
             ms = itensor(ms, site_ind)
             Am = A * dag(ms)
-            A = normalize!(mps[inds[ii+1]] * Am)
-            
+            # A = normalize!(mps[mps_inds[ii+1]] * Am)
+            A = mps[mps_inds[ii+1]] * Am
             # A .= normalize!(A_new)
         end
     end 
