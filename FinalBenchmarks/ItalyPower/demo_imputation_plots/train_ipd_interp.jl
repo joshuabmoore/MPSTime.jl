@@ -39,7 +39,7 @@ else
     #sweep_summary(info)
 end
 fstyle = font("sans-serif", 23)
-fc = load_forecasting_info_variables(W, X_train, y_train, X_test, y_test, opts_safe; verbosity=0)
+fc = init_imputation_problem(W, X_train, y_train, X_test, y_test, opts_safe; verbosity=0)
 dx=1E-4
 mode_range=(-1,1)
 xvals=collect(range(mode_range...; step=dx))

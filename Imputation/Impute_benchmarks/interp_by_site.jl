@@ -31,7 +31,7 @@ f = jldopen(svpath, "r")
 close(f)
 
 opts, _... = safe_options(opts, nothing, nothing)
-fc = load_forecasting_info_variables(mps, X_train, y_train, X_test, y_test, opts);
+fc = init_imputation_problem(mps, X_train, y_train, X_test, y_test, opts);
 
 
 # Xs = [X_train; X_test]

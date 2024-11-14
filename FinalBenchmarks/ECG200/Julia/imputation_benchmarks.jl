@@ -82,7 +82,7 @@ for fold_idx in 0:0#(length(rs_fold_idxs)-1)
     X_test_fold = Xs[fold_test_idxs, :]
     y_test_fold = ys[fold_test_idxs]
     W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
-    fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
+    fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
     println("Finished training, beginning evaluation of imputed values...")
     
     dx=1E-4
@@ -151,7 +151,7 @@ JLD2.@save "inspect_new_ECG2.jld2" per_fold_mps per_fold_nn
 #         W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
 #         opts_test, _... = safe_options(opts, nothing, nothing)
 #         # step 3 -> impute missing data
-#         fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_test; verbosity=0)
+#         fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_test; verbosity=0)
 #         println("Finished training, beginning evaluation of imputed values...")
 #         dx=1E-4
 #         mode_range=(-1,1)

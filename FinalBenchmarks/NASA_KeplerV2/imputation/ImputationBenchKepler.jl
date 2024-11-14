@@ -78,7 +78,7 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
             # Fit the MPS
             W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
             # Begin imputation
-            fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
+            fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
             num_instances = size(X_test_fold, 1)
             instance_scores = Vector{InstanceScores}(undef, num_instances)
             for instance in 1:num_instances

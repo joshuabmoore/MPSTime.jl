@@ -35,7 +35,7 @@ opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max,  update_iters=1, verbosity=v
 W, info, train_states, test_states = fitMPS(X_train, y_train,X_test, y_test; chi_init=4, opts=opts, test_run=false)
 opts_safe, _... = safe_options(opts, nothing, nothing)
 fstyle=font("sans-serif", 23)
-fc = load_forecasting_info_variables(W, X_train, y_train, X_test, y_test, opts_safe; verbosity=0)
+fc = init_imputation_problem(W, X_train, y_train, X_test, y_test, opts_safe; verbosity=0)
 dx = 5e-4
 mode_range=(-1,1)
 xvals=collect(range(mode_range...; step=dx))

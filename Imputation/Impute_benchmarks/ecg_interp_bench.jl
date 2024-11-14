@@ -64,7 +64,7 @@ opts=Options(; nsweeps=20, chi_max=35, update_iters=1, verbosity=-1, dtype=dtype
     bbopt=BBOpt("CustomGD"), track_cost=track_cost, eta=0.0025, rescale = (false, true), d=8, aux_basis_dim=2, encoding=encoding, 
     encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, exit_early=false)
 
-fc = load_forecasting_info_variables(mps, X_train_scaled, y_train, X_test_scaled, y_test, opts);
+fc = init_imputation_problem(mps, X_train_scaled, y_train, X_test_scaled, y_test, opts);
 
 
 n_midpoints = [1:2:50; 55:5:95]

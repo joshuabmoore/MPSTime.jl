@@ -5,14 +5,6 @@ contractTensor = ITensors._contract
 include("./samplingUtils.jl");
 
 
-mutable struct forecastable
-    mps::MPS
-    class::Int
-    test_samples::Matrix{Float64}
-    opts::Options
-    enc_args::Vector{Any}
-end
-
 function condition_until_next!(
         i::Int,
         it::ITensor,

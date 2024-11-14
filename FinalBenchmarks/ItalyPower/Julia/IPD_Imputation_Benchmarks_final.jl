@@ -101,7 +101,7 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
             println(size(y_test_fold))
             W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, chi_init=4, opts=opts, test_run=false)
             # begin imputation
-            fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
+            fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
             println("Finished training, beginning evaluation of imputed values...")
             num_instances = size(X_test_fold, 1)
             mps_scores = zeros(Float64, num_instances)

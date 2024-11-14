@@ -81,7 +81,7 @@ opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max,  update_iters=1, verbosity=v
 
 W, _, _, _ = fitMPS(X_train, y_train, X_test, y_test, chi_init=4, opts=opts, test_run=false)
 opts_f, _... = safe_options(opts, nothing, nothing);
-fc = load_forecasting_info_variables(W, X_train, y_train, X_test, y_test, opts_f);
+fc = init_imputation_problem(W, X_train, y_train, X_test, y_test, opts_f);
 
 dx=1E-4
 mode_range=(-1,1)
@@ -119,7 +119,7 @@ function train_and_impute()
         W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
         opts_test, _... = safe_options(opts, nothing, nothing)
         # step 3 -> impute missing data
-        fc = load_forecasting_info_variables(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_test; verbosity=0)
+        fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_test; verbosity=0)
         println("Finished training, beginning evaluation of imputated values...")
         dx=1E-4
         mode_range=(-1,1)

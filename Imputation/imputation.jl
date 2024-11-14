@@ -6,6 +6,24 @@ include("./imputationUtils.jl");
 using JLD2
 using StatsPlots, StatsBase, Plots.PlotMeasures
 
+mutable struct EncodedDataRange
+    dx::Float64
+    guess_range::Tuple{R,R} where R <: Real
+    xvals::Vector{Float64}
+    site_index::Index
+    xvals_enc::Vector{<:AbstractVector{<:Number}}
+end 
+
+mutable struct ImputationProblem
+    mps::MPS
+    class::Int
+    X_train::Matrix{<:Real}
+    X_test::Matrix{<:Real}
+    opts::Options
+    enc_args::Vector{Any}
+    x_guess_range::EncodedDataRange
+end
+
 function find_label_index(mps::MPS; label_name::String="f(x)")
     """Find the label index on the mps. If the label does not exist,
     assume mps is already spliced i.e., corresponds to a single class."""
@@ -66,63 +84,68 @@ function slice_mps(label_mps::MPS, class_label::Int)
 end
 
 
-function load_forecasting_info(
-        data_loc::String;
-         mps_id::String="mps",
-        train_data_name::String="X_train", 
-        test_data_name::String="X_test",
-        opts_name::String="opts"
-    )
+function init_imputation_problem(
+        mps::MPS, 
+        X_train::Matrix{R}, 
+        y_train::Vector{Int}, 
+        X_test::Matrix{R}, 
+        y_test::Vector{Int},
+        opts::AbstractMPSOptions; 
+        verbosity::Integer=1,
+        dx::Float64 = 1e-4,
+        guess_range::Union{Nothing, Tuple{R,R}}=nothing
+    ) where {R <: Real}
+    """No saved JLD File, just pass in variables that would have been loaded 
+    from the jld2 file. Need to pass in reconstructed opts struct until the 
+    issue is resolved."""
 
-    # yes, there are a lot of checks...
-    f = jldopen(data_loc, "r")
-    @assert length(f) >= 6 "Expected at least 6 data objects, only found $(length(f))."
-    mps = read(f, "$mps_id")
-    #@assert typeof(mps) == ITensors.MPS "Expected mps to be of type MPS."
-    X_train = read(f, "$train_data_name");
-    @assert typeof(X_train) == Matrix{Float64} "Expected training data to be a matrix."
-    y_train = read(f, "y_train");
-    @assert typeof(y_train) == Vector{Int64} "Expected training labels to be a vector."
-    X_test = read(f, "$test_data_name");
-    @assert typeof(X_test) == Matrix{Float64} "Expected testing data to be a matrix."
-    y_test = read(f, "y_test");
-    @assert typeof(y_test) == Vector{Int64} "Expected testing labels to be a vector."
-    opts = read(f, "$opts_name");
-    @assert typeof(opts) == Options "Expected opts to be of type Options"
-    @assert size(X_train, 2) == size(X_test, 2) "Mismatch between training and testing data number of samples."
-    # add checks for data range.
+    if opts isa MPSOptions
+        _, _, opts = Options(opts)
+    end
 
-    close(f)
+    if isnothing(guess_range)
+        guess_range = opts.encoding.range
+    end
+
 
     # extract info
-    println("+"^60 * "\n"* " "^25 * "Summary:\n")
-    println(" - Dataset has $(size(X_train, 1)) training samples and $(size(X_test, 1)) testing samples.")
+    verbosity > 0 && println("+"^60 * "\n"* " "^25 * "Summary:\n")
+    verbosity > 0 && println(" - Dataset has $(size(X_train, 1)) training samples and $(size(X_test, 1)) testing samples.")
     label_idx, num_classes, _ = find_label_index(mps)
-    println(" - $num_classes class(es) was detected. Slicing MPS into individual states...")
-    fcastables = Vector{forecastable}(undef, num_classes);
+    verbosity > 0 && println(" - $num_classes class(es) was detected. Slicing MPS into individual states...")
+    fcastables = Vector{ImputationProblem}(undef, num_classes);
     if opts.encoding.istimedependent
-        println(" - Time dependent encoding - $(opts.encoding.name) - detected, obtaining encoding args...")
-        println(" - d = $(opts.d), chi_max = $(opts.chi_max), aux_basis_dim = $(opts.aux_basis_dim)")
+        verbosity > 0 && println(" - Time dependent encoding - $(opts.encoding.name) - detected, obtaining encoding args...")
+        verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max), aux_basis_dim = $(opts.aux_basis_dim)")
     else
-        println(" - Time independent encoding - $(opts.encoding.name) - detected.")
-        println(" - d = $(opts.d), chi_max = $(opts.chi_max)")
+        verbosity > 0 && println(" - Time independent encoding - $(opts.encoding.name) - detected.")
+        verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max)")
     end
     enc_args = get_enc_args_from_opts(opts, X_train, y_train)
+
+    xvals=collect(range(guess_range...; step=dx))
+    site_index=Index(opts.d)
+    xvals_enc= [get_state(x, site_index, enc_args) for x in xvals]
+
+    x_guess_range = EncodedDataRange(dx, guess_range, xvals, site_index, xvals_enc)
+
     for class in 0:(num_classes-1)
         class_mps = slice_mps(mps, class);
-        idxs = findall(x -> x .== class, y_test);
-        test_samples = X_test[idxs, :];
-        fcast = forecastable(class_mps, class, test_samples, opts, enc_args);
+        train_samples = X_train[y_train .== class, :]
+        test_samples = X_test[y_test .== class, :]
+        fcast = ImputationProblem(class_mps, class, train_samples, test_samples, opts, enc_args, x_guess_range);
         fcastables[(class+1)] = fcast;
     end
-    println("\n Created $num_classes forecastable struct(s) containing class-wise mps and test samples.")
+    verbosity > 0 && println("\n Created $num_classes ImputationProblem struct(s) containing class-wise mps and test samples.")
+
+
 
     return fcastables
-    
+
 end
 
 
-function NN_impute(fcastables::AbstractVector{forecastable},
+function NN_impute(fcastables::AbstractVector{ImputationProblem},
         which_class::Integer, 
         which_sample::Integer, 
         which_sites::AbstractVector{<:Integer}; 
@@ -165,8 +188,8 @@ function NN_impute(fcastables::AbstractVector{forecastable},
 end
 
 
-function predict(
-        fcastable::Vector{forecastable},
+function get_predictions(
+        fcastable::Vector{ImputationProblem},
         which_class::Int, 
         which_sample::Int, 
         which_sites::Vector{Int}, 
@@ -300,7 +323,7 @@ end
 
 
 function MPS_impute(
-        fcastable::Vector{forecastable},
+        fcastable::Vector{ImputationProblem},
         which_class::Int, 
         which_sample::Int, 
         which_sites::Vector{Int}, 
@@ -320,7 +343,7 @@ function MPS_impute(
     d_mps = maxdim(mps[1])
     enc_name = fcast.opts.encoding.name
 
-    ts, pred_err, target = predict(fcastable, which_class, which_sample, which_sites, method; kwargs...)
+    ts, pred_err, target = get_predictions(fcastable, which_class, which_sample, which_sites, method; kwargs...)
 
     if plot_fits
         p1 = plot(ts, ribbon=pred_err, xlabel="time", ylabel="x", 
@@ -349,7 +372,7 @@ function MPS_impute(
     end
 
     if NN_baseline
-        mse_ts, _... = predict(fcastable, which_class, which_sample, which_sites, :nearestNeighbour; kwargs...)
+        mse_ts, _... = get_predictions(fcastable, which_class, which_sample, which_sites, :nearestNeighbour; kwargs...)
 
         if plot_fits 
             if length(ts) == 1

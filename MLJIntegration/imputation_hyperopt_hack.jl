@@ -45,7 +45,7 @@ function revise_history!(Xs_train::Matrix, ys_train::Vector, impute_sites::Vecto
             xvals_enc= [get_state(x, opts) for x in xvals]
             xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
-            fc = load_forecasting_info_variables(W, Xs_train_fold, ys_train_fold, Xs_val_fold, ys_val_fold, opts; verbosity=-1);
+            fc = init_imputation_problem(W, Xs_train_fold, ys_train_fold, Xs_val_fold, ys_val_fold, opts; verbosity=-1);
 
 
             n_c1s = sum(ys_val_fold)
@@ -150,7 +150,7 @@ end
 #             xvals_enc= [get_state(x, opts) for x in xvals]
 #             xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 
-#             fc = load_forecasting_info_variables(W, Xs_train, ys_train, Xs_val, ys_val, opts; verbosity=-1);
+#             fc = init_imputation_problem(W, Xs_train, ys_train, Xs_val, ys_val, opts; verbosity=-1);
 
 
 #             n_c1s = sum(ys_val)
