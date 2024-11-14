@@ -65,7 +65,7 @@ function revise_history!(Xs_train::Matrix, ys_train::Vector, impute_sites::Vecto
                     class = classes[j]
                     sample = sample_idxs[j]
 
-                    stats, _ = any_impute_single_timeseries(fc, class, sample, impute_sites, :directMode; NN_baseline=false, X_train=Xs_train_fold, y_train=ys_train_fold,  plot_fits=false, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
+                    stats, _ = MPS_impute(fc, class, sample, impute_sites, :directMode; NN_baseline=false, X_train=Xs_train_fold, y_train=ys_train_fold,  plot_fits=false, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
                     f_per_fold[fold] += stats[:MAE]
                     # @show stats
                     # @show f_per_fold[fold]
@@ -166,7 +166,7 @@ end
 #                 class = classes[j]
 #                 sample = sample_idxs[j]
 
-#                 stats, _ = any_impute_single_timeseries(fc, class, sample, heuristic.impute_sites, :directMode; NN_baseline=false, X_train=Xs_train, y_train=ys_train,  plot_fits=false, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
+#                 stats, _ = MPS_impute(fc, class, sample, heuristic.impute_sites, :directMode; NN_baseline=false, X_train=Xs_train, y_train=ys_train,  plot_fits=false, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
 #                 f_per_fold[fold] += stats[:MAE]
 #             end
 #             f_per_fold[fold] /= n_ts

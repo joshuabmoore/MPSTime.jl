@@ -86,7 +86,7 @@ println("Running Two Tasks")
                 for (j, i) in enumerate(chunk) 
                     class = classes[i]
                     instance_idx = samples[i]
-                    stat, p1 = any_impute_single_timeseries(fc, class, instance_idx, impute_sites, :directMedian; invert_transform=true, NN_baseline=false, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, max_jump=max_jump);
+                    stat, p1 = MPS_impute(fc, class, instance_idx, impute_sites, :directMedian; invert_transform=true, NN_baseline=false, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, max_jump=max_jump);
                     stats_chunk[j] = stat
                 end
                 return stats_chunk
@@ -118,7 +118,7 @@ close(f)
 #         for i in eachindex(samples[1:7])
 #             class = classes[i]
 #             instance_idx = samples[i]
-#             stat1, p1 = any_impute_single_timeseries(fc, class, instance_idx, impute_sites, :directMedian; invert_transform=true, NN_baseline=false, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, max_jump=max_jump);
+#             stat1, p1 = MPS_impute(fc, class, instance_idx, impute_sites, :directMedian; invert_transform=true, NN_baseline=false, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, max_jump=max_jump);
 #             # push!(ps1, p1...)
 #             stats[ii][i] = stat1
 #         end

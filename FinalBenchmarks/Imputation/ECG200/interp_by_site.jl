@@ -85,7 +85,7 @@ println("Running $num_tasks Tasks")
                 for (j, i) in enumerate(chunk) 
                     class = classes[i]
                     instance_idx = samples[i]
-                    stat, p1 = any_impute_single_timeseries(fc, class, instance_idx, impute_sites, :directMedian; invert_transform=true, NN_baseline=false, X_train=X_train, y_train=y_train, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
+                    stat, p1 = MPS_impute(fc, class, instance_idx, impute_sites, :directMedian; invert_transform=true, NN_baseline=false, X_train=X_train, y_train=y_train, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
                     stats_chunk[j] = stat
                 end
                 return stats_chunk

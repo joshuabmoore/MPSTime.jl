@@ -97,7 +97,7 @@ impute_sites = collect(5:20)
 instance_idx = 2 # 4
 invert_transform=true
 
-# stats, p1_ns = any_impute_single_timeseries(fc, class, instance_idx, impute_sites, :directMode; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
+# stats, p1_ns = MPS_impute(fc, class, instance_idx, impute_sites, :directMode; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it);
 
 # fstyle = font("sans-serif", 23)
 # plot(p1_ns..., xtickfont=fstyle,ytickfont=fstyle,guidefont=fstyle,titlefont=fstyle,bottom_margin=10mm, left_margin=10mm,xlabel="t")
@@ -155,7 +155,7 @@ function train_and_impute()
                                 mps_chunk = Vector{Float64}(undef, length(chunk))
                                 nn_chunk = Vector{Float64}(undef, length(chunk))
                                 for (j, inst) in enumerate(chunk) 
-                                    stats, _ = any_impute_single_timeseries(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
+                                    stats, _ = MPS_impute(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=invert_transform, NN_baseline=true, X_train=X_train, y_train=y_train, n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 
                                         mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
                                     mps_chunk[j] = stats[:MAE]
                                     nn_chunk[j] = stats[:NN_MAE]
