@@ -111,7 +111,7 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
             nn_scores = zeros(Float64, num_instances)
             instance_scores = Vector{InstanceScores}(undef, num_instances)
             for instance in 1:num_instances
-                println("t: $(round(time() - stime)) F$(fold_idx): Evaluating instance $(instance)/$(num_instances)")
+                println("t: $(round(time() - stime; digits=2)) F$(fold_idx): Evaluating instance $(instance)/$(num_instances)")
                 # loop over windows
                 pm_scores = Vector{WindowScores}(undef, length(pms))
                 for (ipm, pm) in enumerate(pms)
@@ -142,7 +142,7 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
     return fold_scores, opts_safe
 end
 
-results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:5)
+results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:29)
 
 mps_results = Dict()
 nn_results = Dict()
@@ -158,12 +158,8 @@ for pm in 1:length(results[1].fold_scores[1].pm_scores)
     mps_results[pm] = per_pm_res_mps
     nn_results[pm] = per_pm_res_nn
 end
-mps_results
-nn_results
+
 nfolds = length(results)
 
-JLD2.@save "IPD_ImputationFinalResults_3Fold_data_driven.jld2" mps_results nn_results opts_safe
+JLD2.@save "IPD_ImputationFinalResults_$(nfolds)Fold_data_driven.jld2" mps_results nn_results opts_safe
 
-
-mpsres = [mean([mean([mean(mps_results[pm][f][inst]) for inst in 1:1029]) for f in 1:30]) for pm in 1:10]
-nnres = [mean([mean([mean(nn_results[pm][f][inst]) for inst in 1:1029]) for f in 1:30]) for pm in 1:10]

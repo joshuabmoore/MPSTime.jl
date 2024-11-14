@@ -110,8 +110,8 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
             mps_scores = zeros(Float64, num_instances)
             nn_scores = zeros(Float64, num_instances)
             instance_scores = Vector{InstanceScores}(undef, num_instances)
-            for instance in 1:2#num_instances
-                println("t: $(round(time() - stime)) F$(fold_idx): Evaluating instance $(instance)/$(num_instances)")
+            for instance in 1:num_instances
+                println("t: $(round(time() - stime; digits=2)) F$(fold_idx): Evaluating instance $(instance)/$(num_instances)")
                 # loop over windows
                 pm_scores = Vector{WindowScores}(undef, length(pms))
                 for (ipm, pm) in enumerate(pms)
@@ -119,7 +119,7 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
                     num_wins = length(window_idxs[pm])
                     mps_scores = Vector{Float64}(undef, num_wins)
                     nn_scores = Vector{Float64}(undef, num_wins)
-                    @threads for it in 1:3#num_wins
+                    @threads for it in 1:num_wins
                         impute_sites = window_idxs[pm][it]
                         stats, _ = any_impute_single_timeseries(fc, 0, instance, impute_sites, :directMedianOpt; 
                             invert_transform=true, 
@@ -137,12 +137,12 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
         end
         println("Fold $fold_idx took $fold_time seconds.")
         fold_scores_tmp = fold_scores[1:i]
-        JLD2.@save "ECG_ImputationFinalResults_3Fold_data_driven_temp.jld2" fold_scores_tmp
+        JLD2.@save "ECG_ImputationFinalResults_30Fold_data_driven_temp.jld2" fold_scores_tmp
     end
     return fold_scores, opts_safe
 end
 
-results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:5)
+results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:29)
 
 mps_results = Dict()
 nn_results = Dict()
