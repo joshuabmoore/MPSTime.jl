@@ -43,7 +43,7 @@ mode_index=Index(opts_safe.d)
 xvals_enc= [get_state(x, opts_safe) for x in xvals]
 xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
 impute_sites = collect(30:90)
-# stats, p1_ns = MPS_impute(fc, 0, 1, impute_sites, :directMedian; 
+# ts, pred_err, stats, p1_ns = MPS_impute(fc, 0, 1, impute_sites, :directMedian; 
 #         invert_transform=true, 
 #            NN_baseline=true, X_train=X_train, y_train=y_train, 
 #             n_baselines=1, plot_fits=true, dx=dx, mode_range=mode_range, xvals=xvals, 

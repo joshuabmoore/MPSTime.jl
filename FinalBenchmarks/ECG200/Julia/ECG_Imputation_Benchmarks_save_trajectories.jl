@@ -121,7 +121,7 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
                     nn_scores = Vector{Float64}(undef, num_wins)
                     @threads for it in 1:num_wins
                         impute_sites = window_idxs[pm][it]
-                        stats, _ = MPS_impute(fc, 0, instance, impute_sites, :directMedianOpt; 
+                        ts, pred_err, stats, _ = MPS_impute(fc, 0, instance, impute_sites, :directMedianOpt; 
                             invert_transform=true, 
                                     NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
                                     n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 

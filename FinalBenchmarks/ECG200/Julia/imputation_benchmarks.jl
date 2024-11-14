@@ -113,7 +113,7 @@ for fold_idx in 0:0#(length(rs_fold_idxs)-1)
                 for it in 1:num_wins
                     println("Evaluating class $i, instance $inst, window iter $it")
                     impute_sites = window_idxs[pm][it]
-                    stats, _ = MPS_impute(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=true, 
+                    ts, pred_err, stats, _ = MPS_impute(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=true, 
                             NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
                             n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 
                             mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
@@ -176,7 +176,7 @@ JLD2.@save "inspect_new_ECG2.jld2" per_fold_mps per_fold_nn
 #                     # thread this part if low d and chi? 
 #                     for it in 1:num_wins
 #                         impute_sites = window_idxs[pm][it]
-#                         stats, _ = MPS_impute(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=invert_transform, 
+#                         ts, pred_err, stats, _ = MPS_impute(fc, (i-1), inst, impute_sites, :directMedian; invert_transform=invert_transform, 
 #                             NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
 #                             n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 
 #                             mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)

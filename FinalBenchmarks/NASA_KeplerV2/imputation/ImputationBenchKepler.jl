@@ -90,7 +90,7 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
                     nn_scores = Vector{Float64}(undef, num_wins)
                     @threads for it in 1:num_wins
                         impute_sites = window_idxs[pm][it]
-                        stats, _ = MPS_impute(fc, 0, instance, impute_sites, :directMedian;
+                        ts, pred_err, stats, _ = MPS_impute(fc, 0, instance, impute_sites, :directMedian;
                                 invert_transform=true,
                                 NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold,
                                 n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals,

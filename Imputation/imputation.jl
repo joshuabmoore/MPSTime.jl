@@ -376,5 +376,5 @@ function MPS_impute(
         end
     end
 
-    return metrics, ps
+    return ts, pred_err, metrics, ps
 end
