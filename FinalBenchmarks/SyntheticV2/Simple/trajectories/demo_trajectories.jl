@@ -1,8 +1,11 @@
 include("../../../../LogLoss/RealRealHighDimension.jl")
 include("../../../../Interpolation/imputation.jl");
+using KernelDensity
 using JLD2
 using ProgressMeter
-dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/syntheticV2/simple/datasets/eta_01_m_3_tau_20.jld2"
+using Random
+using StatsBase
+dloc =  "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/Data/syntheticV2/complex/datasets/eta_0.1_m_3.0_phi_cont_range_0_6.283185307179586_tau_disc_range_3_LARGE.jld2"
 f = jldopen(dloc, "r")
     X_train = read(f, "X_train")
     y_train = zeros(Int64, size(X_train, 1))
@@ -30,10 +33,10 @@ W, info, train_states, test_states = fitMPS(X_train, y_train, X_test, y_test; ch
 fstyle=font("sans-serif", 23)
 fc = load_forecasting_info_variables(W, X_train, y_train, X_test, y_test, opts_safe; verbosity=0)
 
-n_traj = 20
+n_traj = 100
 trajectories = zeros(Float64, n_traj, size(X_train,2))
-@showprogress for t in 1:n_traj
-    trajectories[t, :] = any_impute_ITS(fc, 0, 55, collect(20:80); X_train=X_train, y_train=y_train, rejection_threshold=2.0)
+@showprogress @threads for t in 1:n_traj
+    trajectories[t, :] = any_impute_ITS(fc, 0, 1, collect(1:100); X_train=X_train, y_train=y_train, rejection_threshold=1.5)
 end
 
 function filter_trajectories_by_probas(trajectories::AbstractMatrix{<:Real}, fc::Vector{forecastable}, 
@@ -88,15 +91,19 @@ end;
 #     plot(traj[1:i], xlims=(0, 100), ylims=(-1, 4.5), dpi=150, xlabel="t", label="", c=pal[1])
 # end
 # gif(anim, "test.gif", fps = 50)
-function make_trajecotry_animation(trajectories::AbstractMatrix{<:Real}, n_trajectories::Int)
-    n_frames_per_traj = length(50:100)  # Number of frames per trajectory
+function make_trajectory_animation(trajectories::AbstractMatrix{<:Real}, n_trajectories::Int,
+    which_pts_imputed::UnitRange)
+    n_frames_per_traj = length(which_pts_imputed)  # Number of frames per trajectory
     anim = @animate for frame_num in 1:(n_trajectories * n_frames_per_traj)
         # calculate the current trajectory index and frame within that trajectory
         traj_idx = div(frame_num - 1, n_frames_per_traj) + 1
-        i = 50 + mod(frame_num - 1, n_frames_per_traj)
+        i = which_pts_imputed[1] + mod(frame_num - 1, n_frames_per_traj)
     
         # Start a new plot with consistent axes and labels
-        plt = plot(xlims=(0, 100), ylims=(-1, 4.5),
+        max_ylim = maximum(maximum(trajectories, dims=2)) + 0.1 # add 0.1 padding
+        min_ylim = minimum(minimum(trajectories, dims=2)) - 0.1 # subtract 0.1 padding
+
+        plt = plot(xlims=(0, size(trajectories, 2)), ylims=(min_ylim, max_ylim),
                    dpi=150, xlabel="t", ylabel="Value", label="")
     
         # Plot previous trajectories with low transparency
@@ -105,13 +112,64 @@ function make_trajecotry_animation(trajectories::AbstractMatrix{<:Real}, n_traje
             plot!(plt, prev_traj, c=pal[prev_traj_idx], alpha=0.2, label="", dpi=150)
         end
     
-        vline!([49], lw=2, ls=:dot, c=:black, label="")
+        vline!([which_pts_imputed[1]-1], lw=2, ls=:dot, c=:black, label="")
     
         # Plot the current trajectory up to point i
         traj = trajectories[traj_idx, :]
         plot!(plt, traj[1:i], c=pal[traj_idx], alpha=1.0, label="",
               title="Trajectory $(traj_idx)", dpi=150)
     end
-    #gif(anim, "noisy_sine_evolving_trajectories.gif", fps = 50)    
     return anim 
 end
+
+function make_kde_heatmap(trajectories::AbstractMatrix{<:Real}, which_pts_imputed::UnitRange, 
+    overplot_samples::Union{Nothing, Int}=nothing)
+    kde_vals = []
+    x_vals = []
+    n_tpts = size(trajectories, 2)
+    fixed_pts = setdiff(1:n_tpts, which_pts_imputed)
+    @show max_x = maximum(maximum(trajectories, dims=2))
+    @show min_x = minimum(minimum(trajectories, dims=2))
+    for t in 1:size(trajectories, 2)
+        kde_v = kde(trajectories[:, t]; boundary=(min_x, max_x), npoints=5000)
+        push!(kde_vals, kde_v.density)
+        push!(x_vals, kde_v.x)
+    end
+    kde_matrix = hcat(kde_vals...)';
+    if length(fixed_pts) != 0
+        kde_matrix[fixed_pts, :] = zeros(length(fixed_pts), size(kde_matrix, 2))
+    end
+    xval_matrix = hcat(x_vals...)';
+    fstyle = font("sans-serif", 23)
+    p = heatmap(collect(1:size(trajectories, 2)), xval_matrix[1, :], kde_matrix', c=:thermal, 
+        alpha=0.9, colorbar=:none, xlabel="t", ylabel="x", xlims=(1, size(trajectories, 2)), ylims=(min_x, max_x),
+        xtickfont=fstyle,
+        ytickfont=fstyle,
+        guidefont=fstyle,
+        titlefont=fstyle,
+        size=(1200, 600),
+        left_margin=10mm,
+        right_margin=10mm,
+        bottom_margin=10mm)
+    if length(fixed_pts) > 0
+        vline!([which_pts_imputed[1]-1], lw=2, ls=:dot, c=:red, label="")
+    end
+    if !isnothing(overplot_samples)
+        # sample random trajectories and overplot them
+        pidxs = sample(1:size(trajectories, 1), overplot_samples; replace=false)
+        for pid in pidxs
+            plot!(collect(which_pts_imputed), trajectories[pid, which_pts_imputed], c=:white, lw=2, 
+                alpha=0.1, label="")
+        end
+    end
+    return p;
+end
+
+# function make_evolving_kde_heatmap()
+#     # same as above, but animated
+# end
+
+
+# anim = make_trajectory_animation(trajectories, 10, 1:100)
+# gif(anim, "difficult_trendy_sinusoid_no_cond2.gif", fps = 100)    
+

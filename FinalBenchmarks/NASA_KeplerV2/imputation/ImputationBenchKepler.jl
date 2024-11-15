@@ -7,7 +7,7 @@ using DelimitedFiles
 using Plots
 
 # load the original split
-dloc = "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/FinalBenchmarks/NASA_KeplerV2/kepler_c0_all_folds.jld2"
+dloc = "/Users/joshua/Desktop/QuantumInspiredMLFinal/QuantumInspiredML/FinalBenchmarks/NASA_KeplerV2/kepler_c4_folds.jld2"
 
 f = jldopen(dloc, "r")
     folds = read(f, "folds");
@@ -45,13 +45,13 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
     encode_classes_separately = false
     train_classes_separately = false
 
-    d = 15  # Originally 15
+    d = 12  # Originally 15
     chi_max = 35  # Originally 35
 
-    opts = MPSOptions(; nsweeps=5, chi_max=chi_max, update_iters=1, verbosity=verbosity, loss_grad=:KLD,
+    opts = MPSOptions(; nsweeps=3, chi_max=chi_max, update_iters=1, verbosity=verbosity, loss_grad=:KLD,
         bbopt=:TSGO, track_cost=track_cost, eta=0.1, rescale=(false, true), d=d, aux_basis_dim=2, encoding=encoding,
         encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately,
-        exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4)
+        exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0)
     opts_safe, _... = safe_options(opts, nothing, nothing)
 
     dx = 5e-3
@@ -65,11 +65,14 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
     fold_scores = Vector{FoldResults}(undef, num_folds)
 
     for (i, fold_idx) in enumerate(which_folds)
+        println("STARTING FOLD $fold_idx")
         ts_scores = Vector{TSResults}(undef, length(folds[1][1]))
         X_train_fold_all = folds[fold_idx][1]
         X_test_fold_all = folds[fold_idx][2]
         # Isolate the train and test set, single instance
+
         for ts in 1:length(folds[1][1])  # Or ts in 1:length(folds[1][1]) for generality
+            start_time = time()
             # Extract the train and test windows to make a train/test set
             X_train_fold = vcat(X_train_fold_all[ts]'...)
             y_train_fold = zeros(Int64, size(X_train_fold, 1))
@@ -82,7 +85,7 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
             num_instances = size(X_test_fold, 1)
             instance_scores = Vector{InstanceScores}(undef, num_instances)
             for instance in 1:num_instances
-                println("Evaluating instance $instance")
+                #println("Evaluating instance $instance")
                 pm_scores = Vector{WindowScores}(undef, length(pms))
                 for (ipm, pm) in enumerate(pms)
                     num_wins = length(window_idxs[pm])
@@ -103,17 +106,20 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
                 instance_scores[instance] = InstanceScores(pm_scores)
             end
             ts_scores[ts] = TSResults(instance_scores)
+            end_time = time()
+            elapsed_time = end_time - start_time
+            println("Time taken for single time series $ts: $(elapsed_time) seconds")
         end
         fold_scores[i] = FoldResults(ts_scores)
+        println("FINISHED FOLD $fold_idx")
     end
     return fold_scores, opts_safe
 end
 
-fscores, opts_safe = run_folds(folds, window_idxs, 1:2)
+fscores, opts_safe = run_folds(folds, window_idxs, 11:20)
+JLD2.@save "kepler_bench_c4_f_11_20.jld2" fscores opts_safe
 
 # first fold, first time series, first test window, 5% missing
-mean(fscores[1].ts_scores[1].instance_scores[1].pm_scores[2].mps_scores)
-mean(fscores[1].ts_scores[1].instance_scores[1].pm_scores[2].nn_scores)
-
-
+# mean(fscores[1].ts_scores[2].instance_scores[2].pm_scores[1].mps_scores)
+# mean(fscores[1].ts_scores[2].instance_scores[2].pm_scores[1].nn_scores)
 
