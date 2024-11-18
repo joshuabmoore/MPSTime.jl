@@ -1,22 +1,15 @@
 include("../LogLoss/RealRealHighDimension.jl");
-include("./imputationMetrics.jl");
-include("./samplingUtils.jl");
-include("./imputationUtils.jl");
-
-using JLD2
-using StatsPlots, StatsBase, Plots.PlotMeasures
 
 mutable struct EncodedDataRange
     dx::Float64
     guess_range::Tuple{R,R} where R <: Real
     xvals::Vector{Float64}
     site_index::Index
-    xvals_enc::Vector{<:AbstractVector{<:Number}}
+    xvals_enc::Vector{<:AbstractVector{<:AbstractVector{<:Number}}} # https://i.imgur.com/cmFIJmS.png (I apologise)
 end 
 
 mutable struct ImputationProblem
-    mps::MPS
-    class::Int
+    mpss::AbstractVector{<:MPS}
     X_train::Matrix{<:Real}
     X_test::Matrix{<:Real}
     opts::Options
@@ -24,24 +17,15 @@ mutable struct ImputationProblem
     x_guess_range::EncodedDataRange
 end
 
-function find_label_index(mps::MPS; label_name::String="f(x)")
-    """Find the label index on the mps. If the label does not exist,
-    assume mps is already spliced i.e., corresponds to a single class."""
-    l_mps = lastindex(ITensors.data(mps))
-    posvec = [l_mps, 1:(l_mps-1)...]
-    # loop through each site and check for label
-    for pos in posvec
-        label_idx = findindex(mps[pos], label_name)
-        if !isnothing(label_idx)
-            num_classes = ITensors.dim(label_idx)
-            return label_idx, num_classes, pos
-        end
-    end
 
-    @warn "Could not find label index on mps. Assuming single class mps."
+include("./imputationMetrics.jl");
+include("./samplingUtils.jl");
+include("./imputationUtils.jl");
 
-    return nothing, 1, nothing 
-end
+using JLD2
+using StatsPlots, StatsBase, Plots.PlotMeasures
+
+
 
 # probably redundant if enc args are provided externally from training
 function get_enc_args_from_opts(
@@ -63,23 +47,6 @@ function get_enc_args_from_opts(
     end
 
     return enc_args
-
-end
-
-function slice_mps(label_mps::MPS, class_label::Int)
-    """Slice an MPS along the specified class label index
-    to return a single class state."""
-    mps = deepcopy(label_mps)
-    label_idx, num_classes, pos = find_label_index(mps);
-    if !isnothing(label_idx)
-        decision_state = onehot(label_idx => (class_label + 1));
-        mps[pos] *= decision_state;
-        normalize(mps);
-    else
-        @warn "MPS cannot be sliced, returning original MPS."
-    end
-
-    return mps
 
 end
 
@@ -111,11 +78,13 @@ function init_imputation_problem(
     # extract info
     verbosity > 0 && println("+"^60 * "\n"* " "^25 * "Summary:\n")
     verbosity > 0 && println(" - Dataset has $(size(X_train, 1)) training samples and $(size(X_test, 1)) testing samples.")
-    label_idx, num_classes, _ = find_label_index(mps)
-    verbosity > 0 && println(" - $num_classes class(es) was detected. Slicing MPS into individual states...")
-    fcastables = Vector{ImputationProblem}(undef, num_classes);
+    verbosity > 0 && println("Slicing MPS into individual states...")
+    mpss, label_idx = expand_label_index(mps)
+    num_classes = length(mpss)
+    verbosity > 0 && println(" - $num_classes class(es) were detected.")
+
     if opts.encoding.istimedependent
-        verbosity > 0 && println(" - Time dependent encoding - $(opts.encoding.name) - detected, obtaining encoding args...")
+        verbosity > 0 && println(" - Time dependent encoding - $(opts.encoding.name) - detected")
         verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max), aux_basis_dim = $(opts.aux_basis_dim)")
     else
         verbosity > 0 && println(" - Time independent encoding - $(opts.encoding.name) - detected.")
@@ -125,41 +94,40 @@ function init_imputation_problem(
 
     xvals=collect(range(guess_range...; step=dx))
     site_index=Index(opts.d)
-    xvals_enc= [get_state(x, site_index, enc_args) for x in xvals]
+    if opts.encoding.istimedependent
+        # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
+        xvals_enc = [[get_state(x, opts, j, enc_args) for x in xvals] for j in eachindex(mps)] # a proper nightmare of preallocation, but necessary
+    else
+        xvals_enc_single = [get_state(x, opts, 1, enc_args) for x in xvals]
+        xvals_enc = [view(xvals_enc_single, :) for _ in eachindex(mps)]
+    end
 
     x_guess_range = EncodedDataRange(dx, guess_range, xvals, site_index, xvals_enc)
+    mpss, l_ind = expand_label_index(mps)
 
-    for class in 0:(num_classes-1)
-        class_mps = slice_mps(mps, class);
-        train_samples = X_train[y_train .== class, :]
-        test_samples = X_test[y_test .== class, :]
-        fcast = ImputationProblem(class_mps, class, train_samples, test_samples, opts, enc_args, x_guess_range);
-        fcastables[(class+1)] = fcast;
-    end
+    imp_prob = ImputationProblem(mpss, X_train, X_test, opts, enc_args, x_guess_range);
+
     verbosity > 0 && println("\n Created $num_classes ImputationProblem struct(s) containing class-wise mps and test samples.")
 
 
 
-    return fcastables
+    return imp_prob
 
 end
 
 
-function NN_impute(fcastables::AbstractVector{ImputationProblem},
+function NN_impute(imp::ImputationProblem,
         which_class::Integer, 
         which_sample::Integer, 
         which_sites::AbstractVector{<:Integer}; 
-        X_train::AbstractMatrix{<:Real}, 
-        y_train::AbstractVector{<:Integer}, 
         n_ts::Integer=1,
     )
 
-    fcast = fcastables[(which_class+1)]
-    mps = fcast.mps
+    mps = imp.mps[which_class+1]
+    X_train = imp.X_train
+    y_train = imp.y_train
 
-
-    target_timeseries_full = fcast.test_samples[which_sample, :]
-
+    target_timeseries_full = imp.X_test[which_sample, :]
 
     known_sites = setdiff(collect(1:length(mps)), which_sites)
     target_series = target_timeseries_full[known_sites]
@@ -189,107 +157,54 @@ end
 
 
 function get_predictions(
-        fcastable::Vector{ImputationProblem},
+        imp::ImputationProblem,
         which_class::Int, 
         which_sample::Int, 
         which_sites::Vector{Int}, 
         method::Symbol=:directMean;
-        X_train::AbstractMatrix{<:Real}, 
-        y_train::AbstractVector{<:Integer}=Int[], 
         invert_transform::Bool=true, # whether to undo the sigmoid transform/minmax normalisation, if this is false, timeseries that hve extrema larger than any training instance may give odd results
-        dx::Float64 = 1E-4,
-        mode_range=fcastable[1].opts.encoding.range,
-        xvals::AbstractVector{Float64}=collect(range(mode_range...; step=dx)),
-        mode_index=Index(fcastable[1].opts.d),
-        xvals_enc:: AbstractVector{<:AbstractVector{<:Number}}= [get_state(x, fcastable[1].opts, fcastable[1].enc_args) for x in xvals],
-        xvals_enc_it::AbstractVector{ITensor}=[ITensor(s, mode_index) for s in xvals_enc],
         n_baselines::Integer=1,
         kwargs... # method specific keyword arguments
     )
 
     # setup imputation variables
-    fcast = fcastable[(which_class+1)]
-    X_test = vcat([fc.test_samples for fc in fcastable]...)
+    X_test = imp.X_test
 
-    mps = fcast.mps
-    target_ts_raw = fcast.test_samples[which_sample, :]
+    mps = imp.mps[which_class + 1]
+    target_ts_raw = imp.test_samples[which_sample, :]
     target_timeseries= deepcopy(target_ts_raw)
 
     # transform the data
     # perform the scaling
 
-    X_train_scaled, norms = transform_train_data(X_train; opts=fcast.opts)
-    target_timeseries_full, oob_rescales_full = transform_test_data(target_ts_raw, norms; opts=fcast.opts)
+    X_train_scaled, norms = transform_train_data(X_train; opts=imp.opts)
+    target_timeseries_full, oob_rescales_full = transform_test_data(target_ts_raw, norms; opts=imp.opts)
 
     target_timeseries[which_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
-    target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=fcast.opts)
+    target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
+
+    sites = siteinds(mps)
+    target_enc = MPS([itensor(get_state(x, opts, j, enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
     pred_err = nothing
     if method == :directMean        
-        if fcast.opts.encoding.istimedependent
-            ts, pred_err = any_impute_directMean_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites, kwargs...)
-        else
-            ts, pred_err = any_impute_directMean(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites, kwargs...)
-        end
+        ts, pred_err = impute_mean(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites, kwargs...)
+
     elseif method == :directMedian
-        if fcast.opts.encoding.istimedependent
-            error("Time dependent option not yet implemented!")
-        else
-            sites = siteinds(mps)
+        ts, pred_err = impute_median(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites; kwargs...)
 
-            states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts, pred_err = any_impute_directMedian(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, kwargs...)
-        end
-
-    elseif method == :directMedianOpt
-        if fcast.opts.encoding.istimedependent
-            error("Time dependent option not yet implemented!")
-        else
-            sites = siteinds(mps)
-
-            states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts, pred_err = any_impute_directMedianOpt(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, kwargs...)
-        end
     elseif method == :directMode
-        if fcast.opts.encoding.istimedependent
-            # xvals_enc = [get_state(x, opts) for x in x_vals]
-
-            ts = any_impute_directMode_time_dependent(mps, fcast.opts, fcast.enc_args, target_timeseries, which_sites, kwargs...)
-        else
-            sites = siteinds(mps)
-            
-            states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts = any_impute_directMode(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index, kwargs...)
-        end
-    elseif method == :MeanMode
-        if fcast.opts.encoding.istimedependent
-            # xvals_enc = [get_state(x, opts) for x in x_vals]
-            error("Time dep not implemented for MeanMode")
-        else
-            sites = siteinds(mps)
-            
-            states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts = any_impute_MeanMode(fcast.mps, fcast.opts, target_timeseries, states, which_sites; dx=dx, mode_range=mode_range, xvals=xvals, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it, mode_index=mode_index,  kwargs...)
-        end
+        ts = impute_mode(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites; kwargs...)
 
     elseif method == :ITS
-        if fcast.opts.encoding.istimedependent
-            error("Time dependent option not yet implemented!")
-        else
-            sites = siteinds(mps)
-    
-            states = MPS([itensor(fcast.opts.encoding.encode(t, fcast.opts.d, fcast.enc_args...), sites[i]) for (i,t) in enumerate(target_timeseries)])
-            ts = any_impute_ITS_single(mps, fcast.opts, fcast.enc_args, target_timeseries, states, which_sites; kwargs...)
-        end
+        ts = impute_ITS(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites; kwargs...)
     
     elseif method ==:nearestNeighbour
-        ts = NN_impute(fcastable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines) # Does not take kwargs!!
-
-
+        ts = NN_impute(imputable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines) # Does not take kwargs!!
 
         if !invert_transform
             for i in eachindex(ts)
-                ts[i], _ = transform_test_data(ts[i], norms; opts=fcast.opts)
+                ts[i], _ = transform_test_data(ts[i], norms; opts=imp.opts)
             end
         end
 
@@ -302,12 +217,12 @@ function get_predictions(
         if !isnothing(pred_err )
             pred_err .+=  ts # remove the time-series, leaving the unscaled uncertainty
 
-            ts = invert_test_transform(ts, oob_rescales, norms; opts=fcast.opts)
-            pred_err = invert_test_transform(pred_err, oob_rescales, norms; opts=fcast.opts)
+            ts = invert_test_transform(ts, oob_rescales, norms; opts=imp.opts)
+            pred_err = invert_test_transform(pred_err, oob_rescales, norms; opts=imp.opts)
 
             pred_err .-=  ts # remove the time-series, leaving the unscaled uncertainty
         else
-            ts = invert_test_transform(ts, oob_rescales, norms; opts=fcast.opts)
+            ts = invert_test_transform(ts, oob_rescales, norms; opts=imp.opts)
 
         end
         target = target_ts_raw
@@ -323,11 +238,11 @@ end
 
 
 function MPS_impute(
-        fcastable::Vector{ImputationProblem},
+        imp::ImputationProblem,
         which_class::Int, 
         which_sample::Int, 
         which_sites::Vector{Int}, 
-        method::Symbol=:directMean;
+        method::Symbol=:directMedian;
         NN_baseline::Bool=true, 
         get_metrics::Bool=true, # whether to compute goodness of fit metrics
         full_metrics::Bool=false, # whether to compute every metric or just MAE
@@ -336,14 +251,13 @@ function MPS_impute(
         kwargs... # passed on to the imputer that does the real work
     )
 
-    fcast = fcastable[(which_class+1)]
-    X_test = vcat([fc.test_samples for fc in fcastable]...)
-    mps = fcast.mps
-    chi_mps = maxlinkdim(mps)
-    d_mps = maxdim(mps[1])
-    enc_name = fcast.opts.encoding.name
 
-    ts, pred_err, target = get_predictions(fcastable, which_class, which_sample, which_sites, method; kwargs...)
+    mps = imp.mps[which_class + 1]
+    chi_mps = maxlinkdim(mps)
+    d_mps = siteinds(m)[1] |> dim
+    enc_name = imp.opts.encoding.name
+
+    ts, pred_err, target = get_predictions(imp, which_class, which_sample, which_sites, method; kwargs...)
 
     if plot_fits
         p1 = plot(ts, ribbon=pred_err, xlabel="time", ylabel="x", 
@@ -372,7 +286,7 @@ function MPS_impute(
     end
 
     if NN_baseline
-        mse_ts, _... = get_predictions(fcastable, which_class, which_sample, which_sites, :nearestNeighbour; kwargs...)
+        mse_ts, _... = get_predictions(imp, which_class, which_sample, which_sites, :nearestNeighbour; kwargs...)
 
         if plot_fits 
             if length(ts) == 1
