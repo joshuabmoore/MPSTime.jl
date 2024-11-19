@@ -13,27 +13,11 @@ include("../LogLoss/structs/structs.jl")
 include("../LogLoss/encodings/encodings.jl")
 
 
-# function get_state(x::Float64, opts::Options)
-#     """Get the state for a time independent encoding"""
-#     if !opts.encoding.istimedependent    
-#         enc_args = []
-#         state = opts.encoding.encode(x, opts.d, enc_args...)
-#     else
-#         error("Expected a time independent encoding.")
-#     end
-
-#     return state
-
-# end
-
-# function get_state(x::Real, opts::Options, enc_args::AbstractVector)
-#     return opts.encoding.encode(x, opts.d, enc_args...)
-# end
 
 function get_state(
         x::Float64, 
         opts::Options, 
-        j::Int,
+        j::Integer,
         enc_args::AbstractVector
     )
     """Get the state for a time dependent encoding at site j"""
@@ -67,27 +51,13 @@ function get_conditional_probability(state::ITensor, rdm::ITensor)
 
 end
 
-# function get_conditional_probability(
-#         x::Float64, 
-#         rdm::Matrix, 
-#         opts::Options, 
-#         enc_args::AbstractVector
-#     )
-#     """For a given site, and its associated conditional reduced 
-#     density matrix (rdm), obtain the conditional
-#     probability of a state ϕ(x)."""
-#     # get σ_k = |⟨x_k | ρ | x_k⟩|
-#     state = get_state(x, opts, enc_args)
 
-#     return abs(state' * rdm * state)
-
-# end
 
 function get_conditional_probability(
         x::Float64, 
         rdm::Matrix, 
         opts::Options, 
-        j::Int,
+        j::Integer,
         enc_args::AbstractVector
     )
 
@@ -105,22 +75,8 @@ function get_normalisation_constant(s::Index, rdm::ITensor, args...)
 
 end
 
-# function get_normalisation_constant(rdm::Matrix, opts::Options, enc_args::AbstractVector)
-#     """Compute the normalisation constant, Z_k, such that 
-#     the conditional distribution integrates to one.
-#     """
-#     # make an anonymous function which allows us to integrate over x
-#     prob_density_wrapper(x) = get_conditional_probability(x, rdm, opts, enc_args)
-#     # integrate over data domain xk 
-#     lower, upper = opts.encoding.range
-#     Z, _ = quadgk(prob_density_wrapper, lower, upper)
 
-#     return Z
-
-# end
-
-
-function get_normalisation_constant(rdm::Matrix, opts::Options, j::Int, enc_args::AbstractVector)
+function get_normalisation_constant(rdm::Matrix, opts::Options, j::Integer, enc_args::AbstractVector)
     prob_density_wrapper(x) = get_conditional_probability(x, rdm, opts, j, enc_args)
     lower, upper = opts.encoding.range
     Z, _ = quadgk(prob_density_wrapper, lower, upper)
@@ -128,210 +84,51 @@ function get_normalisation_constant(rdm::Matrix, opts::Options, j::Int, enc_args
     return Z
 end
 
-# function get_cdf(x::Float64, rdm::Matrix, Z::Float64, opts::Options, enc_args::AbstractVector)
-#     """Compute the cumulative dist. function 
-#     via numerical integration of the probability density 
-#     function. Returns cdf evaluated at x where x is the proposed 
-#     value i.e., F(x)."""
-#     prob_density_wrapper(x_prime) = (1/Z) * get_conditional_probability(x_prime, rdm, opts, enc_args)
-#     lower, _ = opts.encoding.range
-#     cdf_val, _ = quadgk(prob_density_wrapper, lower, x)
-
-#     return cdf_val
-
-# end
-
-function get_cdf(
-        x::Float64, 
-        rdm::Matrix, 
-        Z::Float64,     
-        opts::Options, 
-        j::Int,
-        enc_args::AbstractVector
-    )
-    prob_density_wrapper(x_prime) = (1/Z) * get_conditional_probability(x_prime, rdm, opts, j, enc_args)
-    lower, _ = opts.encoding.range
-    cdf_val, _ = quadgk(prob_density_wrapper, lower, x)
-
-    return cdf_val
+function get_normalisation_constant(xs::AbstractVector{Float64}, pdf::AbstractVector{Float64})
+    return NumericalIntegration.integrate(xs, pdf, NumericalIntegration.TrapezoidalEvenFast())
 
 end
 
 
-function get_cdf(
-        rdm::ITensor, 
-        samp_xs::AbstractVector{Float64}, 
-        samp_states::AbstractVector{<:AbstractVector{<:Number}},
-    )
-
-    probs = Vector{Float64}(undef, length(samp_states))
-    for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
-        probs[index] = prob
-    end
-
-    cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
-    Z = cdf[end]
-    cdf /= Z
-    return cdf
-end
-
-# function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args; atol=1e-5)
-#     """Sample an x value, and its corresponding state,
-#     ϕ(x) from a conditional density matrix using inverse 
-#     transform sampling."""
-#     Z = get_normalisation_constant(rdm, opts, enc_args)
-#     # sample a uniform random value from U(0,1)
-#     u = rand()
-#     # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
-#     cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
-#     sampled_x = find_zero(cdf_wrapper, opts.encoding.range; atol=atol)
-#     # map sampled x_k back to a state
-#     sampled_state = get_state(sampled_x, opts, enc_args)
-
-#     return sampled_x, sampled_state
-
-# end
 
 
 
-function get_median_and_cdf(
+function get_mean_from_rdm(
         rdm::ITensor, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
         opts::Options, 
-        j::Int,
+        j::Integer,
         enc_args::AbstractVector,
-        x_prev::Float64;
-        get_wmad::Bool=true
+        x_prev::Float64,
+        dx::Float64;
+        get_std::Bool=true
     )
-    # return the median and the weighted median absolute deviation as a measure of uncertainty 
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
+        prob = get_conditional_probability(itensor(state, s), rdm) 
         probs[index] = prob
     end
 
-    cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
-    Z = cdf[end]
-    cdf /= Z
-    probs /= Z
+    Z = get_normalisation_constant(samp_xs, probs)
 
-    median_arg = argmin(@. abs(cdf - 0.5))
+    # expectation
+    expect_x = mapreduce(*,+,samp_xs, probs) * dx / Z
+    expect_state = itensor(get_state(expect_x, opts, j, enc_args),s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
-    median_x = samp_xs[median_arg]
-    median_s = get_state(median_x, opts, j, enc_args)
+    std_val = 0.
+    if get_std
+        # variance
+        squared_diffs = (samp_xs .- expect_x).^2
+        var = mapreduce(*,+,squared_diffs, probs) * dx / Z
 
-    wmad_x = 0.
-    if get_wmad
-        # get the weighted median abs deviation
-        wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
-    end
-    return (median_x, median_s, wmad_x, cdf)
+        std_val = sqrt(var)
 
-end
-
-function get_sample_from_rdm(
-        rdm::ITensor, 
-        samp_xs::AbstractVector{Float64}, 
-        samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
-        s::Index, 
-        opts::Options, 
-        j::Int,
-        enc_args::AbstractVector,
-        x_prev::Float64;
-        threshold::Union{Float64, Symbol}=2.5, 
-        max_trials::Int=10    
-    )
-    """Sample from the conditional distribution defined by the rdm, but 
-    reject samples if they exceed a predetermined threshold which is set
-    by the weighted median absolute deviation (WMAD).
-    - threshold is the multiplier for WMAD as threshold i.e., threshold*WMAD 
-    - atol is abs tolerance for the root finder
-    - max trials is the maximum number of rejections
-    """
-    # sample without rejection if threshold is none
-    sampled_x = 0.
-    if threshold == :none
-        u = rand()
-        #cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
-        cdf = get_cdf(rdm, samp_xs, samp_states)
-        sampled_x = (@. abs(cdf - u ) ) |> minimum
-        # sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, j, enc_args) - u, opts.encoding.range; atol=atol)
-    else
-        # now determine the median and wmad - don't need high precision here, just a general ballpark
-        median_x, _, wmad, cdf = get_median_and_cdf(rdm, samp_xs, samp_states, s, opts, j, enc_args, x_prev; get_wmad=true)
-        rejections = 0 # rejected :(
-        for i in 1:max_trials
-            u = rand() # sample a random value from ~ U(0, 1)
-            # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
-            sampled_x = (@. abs(cdf - u ) ) |> minimum
-            # sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, j, enc_args) - u, opts.encoding.range; atol=atol)
-            # choose whether to accept or reject
-            if abs(sampled_x - median_x) < threshold*wmad
-                break 
-            end
-            rejections += 1
-        end
-        #@show rejections
-    end
-    # map sampled x_k back to a state
-    sampled_state = get_state(sampled_x, opts, j, enc_args)
-    return sampled_x, sampled_state, wmad 
-end
-
-# function get_sample_from_rdm(rdm::Matrix, opts::Options, enc_args::AbstractVector,
-#     j::Int)
-#     Z = get_normalisation_constant(rdm, opts, enc_args, j)
-#     # sample a uniform random value from U(0,1)
-#     u = rand()
-#     # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
-#     cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args, j) - u
-#     sampled_x = find_zero(cdf_wrapper, opts.encoding.range; rtol=0)
-#     # map sampled x_k back to a state
-#     sampled_state = get_state(sampled_x, opts, enc_args, j)
-
-#     return sampled_x, sampled_state
-
-# end
-
-function get_median_from_rdm(
-        rdm::ITensor, 
-        samp_xs::AbstractVector{Float64}, 
-        samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
-        s::Index, 
-        opts::Options, 
-        j::Int,
-        enc_args::AbstractVector,
-        x_prev::Float64;
-        get_wmad::Bool=true
-    )
-    # return the median and the weighted median absolute deviation as a measure of uncertainty 
-
-    probs = Vector{Float64}(undef, length(samp_states))
-    for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
-        probs[index] = prob
     end
 
-    cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
-    Z = cdf[end]
-    cdf /= Z
-    probs /= Z
-
-    median_arg = argmin(@. abs(cdf - 0.5))
-
-    median_x = samp_xs[median_arg]
-    median_s = get_state(median_x, opts, j, enc_args)
-
-    wmad_x = 0.
-    if get_wmad
-        # get the weighted median abs deviation
-        wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
-    end
-    return (median_x, median_s, wmad_x)
+    return expect_x, expect_state, std_val
 
 end
 
@@ -386,7 +183,7 @@ get_mode_from_rdm(
     samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
     s::Index, 
     opts::Options,
-    j::Int,
+    j::Integer,
     enc_args::AbstractVector,
     x_prev::Union{Number, Nothing}=nothing, 
     max_jump::Union{Number, Nothing}=nothing
@@ -394,53 +191,166 @@ get_mode_from_rdm(
 
 
 
-
-function get_mean_from_rdm(
+function get_median_from_rdm(
         rdm::ITensor, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
         opts::Options, 
-        j::Int,
+        j::Integer,
         enc_args::AbstractVector,
         x_prev::Float64;
-        get_std::Bool=true
+        get_wmad::Bool=true
     )
-
-    Z = get_normalisation_constant(s, rdm, opts, j, enc_args)
-    lower, upper = opts.encoding.range
-    xvals = collect(lower:dx:upper)
+    # return the median and the weighted median absolute deviation as a measure of uncertainty 
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)/Z
+        prob = get_conditional_probability(itensor(state, s), rdm)
         probs[index] = prob
     end
 
-    # expectation
-    expect_x = mapreduce(*,+,samp_xs, probs) * dx
-    expect_state = itensor(get_state(expect_x, opts, j, enc_args),s)
+    cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
+    Z = cdf[end]
+    cdf /= Z
+    probs /= Z
 
-    std_val = 0.
-    if get_std
-        # variance
-        squared_diffs = (xvals .- expect_x).^2
-        var = sum(squared_diffs .* probs) * dx
+    median_arg = argmin(@. abs(cdf - 0.5))
 
-        std_val = sqrt(var)
+    median_x = samp_xs[median_arg]
+    median_s = itensor(get_state(median_x, opts, j, enc_args), s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
+    wmad_x = 0.
+    if get_wmad
+        # get the weighted median abs deviation
+        wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
     end
-
-    return expect_x, expect_state, std_val
+    return (median_x, median_s, wmad_x)
 
 end
+
+
+
+
+
+function get_median_and_cdf(
+    rdm::ITensor, 
+    samp_xs::AbstractVector{Float64}, 
+    samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
+    s::Index, 
+    opts::Options, 
+    j::Integer,
+    enc_args::AbstractVector,
+    x_prev::Float64;
+    get_wmad::Bool=true
+)
+# return the median and the weighted median absolute deviation as a measure of uncertainty 
+
+probs = Vector{Float64}(undef, length(samp_states))
+for (index, state) in enumerate(samp_states)
+    prob = get_conditional_probability(itensor(state, s), rdm)
+    probs[index] = prob
+end
+
+cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
+Z = cdf[end]
+cdf /= Z
+probs /= Z
+
+median_arg = argmin(@. abs(cdf - 0.5))
+
+median_x = samp_xs[median_arg]
+median_s = get_state(median_x, opts, j, enc_args) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+
+wmad_x = 0.
+if get_wmad
+    # get the weighted median abs deviation
+    wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
+end
+return (median_x, median_s, wmad_x, cdf)
+
+end
+
+
+function get_cdf(
+        rdm::ITensor, 
+        samp_xs::AbstractVector{Float64}, 
+        samp_states::AbstractVector{<:AbstractVector{<:Number}},
+        s::Index
+    )
+
+    probs = Vector{Float64}(undef, length(samp_states))
+    for (index, state) in enumerate(samp_states)
+        prob = get_conditional_probability(itensor(state, s), rdm)
+        probs[index] = prob
+    end
+
+    cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
+    Z = cdf[end]
+    cdf /= Z
+    return cdf
+end
+
+function get_sample_from_rdm(
+        rdm::ITensor, 
+        samp_xs::AbstractVector{Float64}, 
+        samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
+        s::Index, 
+        opts::Options, 
+        j::Integer,
+        enc_args::AbstractVector,
+        x_prev::Float64;
+        rng::AbstractRNG,
+        rejection_threshold::Union{Float64, Symbol}, 
+        max_trials::Integer,
+    )
+    """Sample from the conditional distribution defined by the rdm, but 
+    reject samples if they exceed a predetermined threshold which is set
+    by the weighted median absolute deviation (WMAD).
+    - threshold is the multiplier for WMAD as threshold i.e., threshold*WMAD 
+    - atol is abs tolerance for the root finder
+    - max trials is the maximum number of rejections
+    """
+    # sample without rejection if threshold is none
+    sampled_x = 0.
+    if rejection_threshold == :none
+        u = rand()
+        #cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
+        cdf = get_cdf(rdm, samp_xs, samp_states, s)
+        x_ind = argmin(@. abs(cdf - u ) )
+        sampled_x = samp_xs[x_ind]
+        wmad = 0.
+        # sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, j, enc_args) - u, opts.encoding.range; atol=atol)
+    else
+        # now determine the median and wmad - don't need high precision here, just a general ballpark
+        median, _, wmad, cdf = get_median_and_cdf(rdm, samp_xs, samp_states, s, opts, j, enc_args, x_prev; get_wmad=true)
+        rejections = 0 # rejected :(
+        for i in 1:max_trials
+            u = rand() # sample a random value from ~ U(0, 1)
+            # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
+            x_ind = argmin(@. abs(cdf - u ) )
+            sampled_x = samp_xs[x_ind]
+            # sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, j, enc_args) - u, opts.encoding.range; atol=atol)
+            # choose whether to accept or reject
+            if abs(sampled_x - median) < rejection_threshold*wmad
+                break 
+            end
+            rejections += 1
+        end
+        #@show rejections
+    end
+    # map sampled x_k back to a state
+    sampled_state = itensor(samp_states[x_ind], s) / sqrt(cdf[end]) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    return sampled_x, sampled_state, wmad 
+end
+
 
 
 ##### Maybe used for something?
 # function check_inverse_sampling(
 #     rdm::Matrix, 
 #     opts::Options,
-#     j::Int,
+#     j::Integer,
 #     enc_args::AbstractVector; 
 #     dx::Float64=0.01)
 #     """Check the inverse sampling approach to ensure 
@@ -463,9 +373,9 @@ end
 # function plot_samples_from_rdm(
 #         rdm::Matrix, 
 #         opts::Options, 
-#         n_samples::Int,
+#         n_samples::Integer,
 #         show_plot::Bool,
-#         j::Int,
+#         j::Integer,
 #         enc_args::AbstractVector
 #     )
 #     """Plot a histogram of the samples drawn 
@@ -498,8 +408,8 @@ end
 #         x::Float64, 
 #         opts::Options, 
 #         enc_args::AbstractVector, 
-#         j::Int,
-#         n_samples::Int; 
+#         j::Integer,
+#         n_samples::Integer; 
 #         show_plot=true
 #     )
 #     """ Inspect the distribution corresponding to 
@@ -523,7 +433,7 @@ end
 
 # function get_encoding_uncertainty(
 #         opts::Options, 
-#         j::Int,
+#         j::Integer,
 #         enc_args::AbstractVector, 
 #         xvals::Vector
 #     )
@@ -548,7 +458,7 @@ end
 #     return xvals, abs_diffs, stds
 # end
 
-# function get_dist_mean_difference(eval_intervals::Int, opts::Options, n_samples::Int, j::Int, enc_args::AbstractVector)
+# function get_dist_mean_difference(eval_intervals::Integer, opts::Options, n_samples::Integer, j::Integer, enc_args::AbstractVector)
 #     """Get the difference between the known value
 #     and distribution mean for the given encoding 
 #     over the interval x_k ∈ [lower, upper]."""
@@ -581,10 +491,10 @@ end
 # function get_sample_from_rdm(
 #         rdm::Matrix, 
 #         opts::Options, 
-#         j::Int,
+#         j::Integer,
 #         enc_args::AbstractVector;
 #         threshold::Union{Float64, Symbol}=2.5, 
-#         max_trials::Int=10, atol=1e-5
+#         max_trials::Integer=10, atol=1e-5
 #     )
 #     """Sample from the conditional distribution defined by the rdm, but 
 #     reject samples if they exceed a predetermined threshold which is set
@@ -659,7 +569,7 @@ end
 #         rdm::Matrix, 
 #         opts::Options, 
 #         enc_args::AbstractVector,
-#         j::Int; 
+#         j::Integer; 
 #         dx = 1E-4
 #     )
 #     Z = get_normalisation_constant(rdm, opts, enc_args, j)
@@ -685,7 +595,7 @@ end
 # function get_mean_from_rdm(
 #         rdm::Matrix, 
 #         opts::Options,
-#         j::Int,
+#         j::Integer,
 #         enc_args::AbstractVector;
 #         dx = 1E-4,
 #         get_std::Bool=true
@@ -723,7 +633,7 @@ end
 #         rdm::Matrix, 
 #         opts::Options, 
 #         enc_args::AbstractVector, 
-#         j::Int; 
+#         j::Integer; 
 #         dx = 1E-4
 #     )
 

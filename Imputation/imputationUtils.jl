@@ -6,7 +6,7 @@ include("./samplingUtils.jl");
 
 
 function condition_until_next!(
-        i::Int,
+        i::Integer,
         it::ITensor,
         x_samps::AbstractVector{Float64},
         known_sites::AbstractVector{Int},
@@ -105,7 +105,7 @@ function impute_at!(
         x_guess_range::EncodedDataRange,
         imputation_sites::Vector{Int},
         args...;
-        norm:Bool=true,
+        norm::Bool=true,
         kwargs...
     )
     mps_inds = 1:length(mps)
@@ -115,7 +115,7 @@ function impute_at!(
 
 
     orthogonalize!(mps, first(mps_inds)) #TODO: this line is what breaks imputations of non sequential sites, fix
-    A = mps[first(mps_inds)]
+    A = mps[mps_inds[1]]
 
     imp_idx = imputation_sites[1]
     if isassigned(x_samps, imp_idx - 1) # isassigned can handle out of bounds indices
@@ -143,7 +143,6 @@ function impute_at!(
        
         # recondition the MPS based on the prediction
         if ii != total_impute_sites
-            ms = itensor(ms, site_ind)
             Am = A * dag(ms)
             # A = normalize!(mps[mps_inds[ii+1]] * Am)
             A = mps[mps_inds[ii+1]] * Am
@@ -157,7 +156,7 @@ function impute_at!(
             end
         end
     end 
-    return (x_samps, errs)
+    return errs
 end
 
 """
@@ -182,8 +181,8 @@ A tuple containing:
 function impute_median(
         class_mps::MPS,
         opts::Options,
-        enc_args::AbstractVector,
         x_guess_range::EncodedDataRange,
+        enc_args::AbstractVector,
         timeseries::AbstractVector{<:Number},
         timeseries_enc::MPS,
         imputation_sites::Vector{Int};
@@ -192,7 +191,7 @@ function impute_median(
     
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )
 
-    x_samps, x_wmads = impute_at!(
+    x_wmads = impute_at!(
         mps_conditioned,
         x_samps,
         get_median_from_rdm,
@@ -214,6 +213,7 @@ function impute_mean(
         x_guess_range::EncodedDataRange,
         enc_args::AbstractVector,
         timeseries::Vector{Float64},
+        timeseries_enc::MPS,
         imputation_sites::Vector{Int};
         get_std::Bool=true
     )
@@ -224,18 +224,24 @@ function impute_mean(
     # condition the mps on the known values
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )
 
-    x_samps, x_std = impute_at!(
+    x_samps2 = deepcopy(x_samps)
+    dx = mean(abs.(diff(fc_sl.x_guess_range.xvals)))
+    x_std = impute_at!(
         mps_conditioned,
         x_samps,
         get_mean_from_rdm,
         opts,
         enc_args,
         x_guess_range,
-        imputation_sites;
+        imputation_sites,
+        dx;
         norm=false,
         get_std=get_std
     )
 
+    if all(x_samps .== x_samps2)
+        println("x_samps not properly mutated")
+    end
     return (x_samps, x_std)
 end
 
@@ -255,16 +261,16 @@ function impute_mode(
     Use direct mode."""
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )
 
-    x_samps, errs = impute_at!(
+    errs = impute_at!(
         mps_conditioned,
         x_samps,
-        get_mean_from_rdm,
+        get_mode_from_rdm,
         opts,
         enc_args,
         x_guess_range,
-        imputation_sites;
-        norm=false,
-        get_std=get_std
+        imputation_sites,
+        max_jump;
+        norm=false
     )
     return x_samps
 end
@@ -272,7 +278,7 @@ end
 """
 Impute a SINGLE trajectory using inverse transform sampling (ITS).\n
 """
-function impute_ITS_single(
+function impute_ITS(
     class_mps::MPS, 
     opts::Options, 
     x_guess_range::EncodedDataRange,
@@ -280,24 +286,37 @@ function impute_ITS_single(
     timeseries::AbstractVector{<:Number},
     timeseries_enc::MPS, 
     imputation_sites::Vector{Int};
-    rejection_threshold::Union{Float64, Symbol}=1.0,
-    max_trials::Int=10
+    rseed::Integer=1,
+    rejection_threshold::Union{Float64, Symbol}=2.5,
+    max_trials::Integer=10,
+    num_trajectories::Integer=1
     )
 
 
     x_samps, mps_conditioned = precondition(class_mps, timeseries, timeseries_enc, imputation_sites )
 
-    x_samps, errs = impute_at!(
-        mps_conditioned,
-        x_samps,
-        get_mean_from_rdm,
-        opts,
-        enc_args,
-        x_guess_range,
-        imputation_sites;
-        norm=true,
-        threshold=rejection_threshold,
-        max_trials=max_trials
-    )
-    return x_samps
+    trajectories = Vector{Vector{Float64}}(undef, num_trajectories)
+
+    rng = MersenneTwister(rseed)
+    for i in 1:num_trajectories
+        x_samps_temp = deepcopy(x_samps)
+        mps_cond = deepcopy(mps_conditioned)
+
+        errs = impute_at!(
+            mps_cond,
+            x_samps_temp,
+            get_sample_from_rdm,
+            opts,
+            enc_args,
+            x_guess_range,
+            imputation_sites;
+            norm=false,
+            rng=rng,
+            rejection_threshold=rejection_threshold,
+            max_trials=max_trials
+        )
+        trajectories[i] = x_samps_temp
+    end
+
+    return trajectories
 end

@@ -11,7 +11,9 @@ end
 mutable struct ImputationProblem
     mpss::AbstractVector{<:MPS}
     X_train::Matrix{<:Real}
+    y_train::Vector{<:Integer}
     X_test::Matrix{<:Real}
+    y_test::Vector{<:Integer}
     opts::Options
     enc_args::Vector{Any}
     x_guess_range::EncodedDataRange
@@ -105,7 +107,7 @@ function init_imputation_problem(
     x_guess_range = EncodedDataRange(dx, guess_range, xvals, site_index, xvals_enc)
     mpss, l_ind = expand_label_index(mps)
 
-    imp_prob = ImputationProblem(mpss, X_train, X_test, opts, enc_args, x_guess_range);
+    imp_prob = ImputationProblem(mpss, X_train, y_train, X_test, y_test, opts, enc_args, x_guess_range);
 
     verbosity > 0 && println("\n Created $num_classes ImputationProblem struct(s) containing class-wise mps and test samples.")
 
@@ -116,14 +118,15 @@ function init_imputation_problem(
 end
 
 
-function NN_impute(imp::ImputationProblem,
+function NN_impute(
+        imp::ImputationProblem,
         which_class::Integer, 
         which_sample::Integer, 
         which_sites::AbstractVector{<:Integer}; 
         n_ts::Integer=1,
     )
 
-    mps = imp.mps[which_class+1]
+    mps = imp.mpss[which_class+1]
     X_train = imp.X_train
     y_train = imp.y_train
 
@@ -158,8 +161,8 @@ end
 
 function get_predictions(
         imp::ImputationProblem,
-        which_class::Int, 
-        which_sample::Int, 
+        which_class::Integer, 
+        which_sample::Integer, 
         which_sites::Vector{Int}, 
         method::Symbol=:directMean;
         invert_transform::Bool=true, # whether to undo the sigmoid transform/minmax normalisation, if this is false, timeseries that hve extrema larger than any training instance may give odd results
@@ -170,8 +173,9 @@ function get_predictions(
     # setup imputation variables
     X_test = imp.X_test
 
-    mps = imp.mps[which_class + 1]
-    target_ts_raw = imp.test_samples[which_sample, :]
+    mps = imp.mpss[which_class + 1]
+    cl_inds = (1:length(imp.y_test))[imp.y_test .== which_class] # For backwards compatibility reasons
+    target_ts_raw = imp.X_test[cl_inds[which_sample], :]
     target_timeseries= deepcopy(target_ts_raw)
 
     # transform the data
@@ -184,23 +188,28 @@ function get_predictions(
     target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
 
     sites = siteinds(mps)
-    target_enc = MPS([itensor(get_state(x, opts, j, enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
+    target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
-    pred_err = nothing
+    pred_err = []
     if method == :directMean        
-        ts, pred_err = impute_mean(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites, kwargs...)
+        ts, pred_err = impute_mean(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites, kwargs...)
+        ts = [ts] # type stability
+        pred_err = [pred_err]
 
     elseif method == :directMedian
-        ts, pred_err = impute_median(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites; kwargs...)
+        ts, pred_err = impute_median(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites; kwargs...)
+        ts = [ts] # type stability
+        pred_err = [pred_err]
 
     elseif method == :directMode
-        ts = impute_mode(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites; kwargs...)
+        ts = impute_mode(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites; kwargs...)
+        ts = [ts] # type stability
 
     elseif method == :ITS
-        ts = impute_ITS(mps, imp.opts, imp.enc_args, imp.x_guess_range, target_timeseries, target_enc, which_sites; kwargs...)
-    
+        ts = impute_ITS(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites; kwargs...)
+
     elseif method ==:nearestNeighbour
-        ts = NN_impute(imputable, which_class, which_sample, which_sites; X_train, y_train, n_ts=n_baselines) # Does not take kwargs!!
+        ts = NN_impute(imp, which_class, which_sample, which_sites; n_ts=n_baselines) # Does not take kwargs!!
 
         if !invert_transform
             for i in eachindex(ts)
@@ -214,22 +223,33 @@ function get_predictions(
 
 
     if invert_transform && !(method == :nearestNeighbour)
-        if !isnothing(pred_err )
-            pred_err .+=  ts # remove the time-series, leaving the unscaled uncertainty
+        if !isempty(pred_err)
+            for i in eachindex(ts)
+                pred_err[i] .+=  ts[i] # add the time-series, so nonlinear rescaling is reversed correctly
 
-            ts = invert_test_transform(ts, oob_rescales, norms; opts=imp.opts)
-            pred_err = invert_test_transform(pred_err, oob_rescales, norms; opts=imp.opts)
+                ts[i] = invert_test_transform(ts[i], oob_rescales, norms; opts=imp.opts)
+                pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
 
-            pred_err .-=  ts # remove the time-series, leaving the unscaled uncertainty
+                pred_err[i] .-=  ts[i] # remove the time-series, leaving the unscaled uncertainty          
+            end
+            
         else
-            ts = invert_test_transform(ts, oob_rescales, norms; opts=imp.opts)
+            for i in eachindex(ts)
+                ts[i] = invert_test_transform(ts[i], oob_rescales, norms; opts=imp.opts)            
+            end
 
         end
+
         target = target_ts_raw
 
     else
         target = target_timeseries_full
     end
+
+    if isempty(pred_err)
+        pred_err = [nothing for _ in eachindex(ts)] # helps the plotting functions not crash later
+    end
+    
 
     return ts, pred_err, target
 end
@@ -239,8 +259,8 @@ end
 
 function MPS_impute(
         imp::ImputationProblem,
-        which_class::Int, 
-        which_sample::Int, 
+        which_class::Integer, 
+        which_sample::Integer, 
         which_sites::Vector{Int}, 
         method::Symbol=:directMedian;
         NN_baseline::Bool=true, 
@@ -252,18 +272,22 @@ function MPS_impute(
     )
 
 
-    mps = imp.mps[which_class + 1]
+    mps = imp.mpss[which_class + 1]
     chi_mps = maxlinkdim(mps)
-    d_mps = siteinds(m)[1] |> dim
+    d_mps = siteinds(mps)[1] |> ITensors.dim
     enc_name = imp.opts.encoding.name
 
     ts, pred_err, target = get_predictions(imp, which_class, which_sample, which_sites, method; kwargs...)
 
     if plot_fits
-        p1 = plot(ts, ribbon=pred_err, xlabel="time", ylabel="x", 
+        p1 = plot(ts[1], ribbon=pred_err[1], xlabel="time", ylabel="x", 
             label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
             size=(1000, 500), bottom_margin=5mm, left_margin=5mm, top_margin=5mm
         )
+
+        for i in eachindex(ts)[2:end]
+            p1 = plot!(ts[i], ribbon=pred_err[i], label="MPS imputed $i", ls=:dot, lw=2, alpha=0.8)
+        end
 
         p1 = plot!(target, label="Ground Truth", c=:orange, lw=2, alpha=0.7)
         p1 = title!("Sample $which_sample, Class $which_class, $(length(which_sites))-site Imputation, 
@@ -275,40 +299,39 @@ function MPS_impute(
     end
 
 
+    metrics = []
     if get_metrics
-        if full_metrics
-            metrics = compute_all_forecast_metrics(ts[which_sites], target[which_sites], print_metric_table)
-        else
-            metrics = Dict(:MAE => mae(ts[which_sites], target[which_sites]))
+        for t in ts
+            if full_metrics
+                push!(metrics, compute_all_forecast_metrics(t[which_sites], target[which_sites], print_metric_table))
+            else
+                push!(metrics, Dict(:MAE => mae(t[which_sites], target[which_sites])))
+            end
         end
-    else
-        metrics = []
+
+
     end
 
     if NN_baseline
         mse_ts, _... = get_predictions(imp, which_class, which_sample, which_sites, :nearestNeighbour; kwargs...)
 
         if plot_fits 
-            if length(ts) == 1
-                p1 = plot!(mse_ts[1], label="Nearest Train Data", c=:red, lw=2, alpha=0.7, ls=:dot)
-            else
-                for (i,t) in enumerate(mse_ts)
-                    p1 = plot!(t, label="Nearest Train Data $i", c=:red,lw=2, alpha=0.7, ls=:dot)
-                end
-
+            for (i,t) in enumerate(mse_ts)
+                p1 = plot!(t, label="Nearest Train Data $i", c=:red,lw=2, alpha=0.7, ls=:dot)
             end
+
             ps = [p1] # for type stability
         end
 
         
         if get_metrics
-            if full_metrics
+            if full_metrics # only compute the first NN_MAE
                 NN_metrics = compute_all_forecast_metrics(mse_ts[1][which_sites], target[which_sites], print_metric_table)
                 for key in keys(NN_metrics)
-                    metrics[Symbol("NN_" * string(key) )] = NN_metrics[key]
+                    metrics[1][Symbol("NN_" * string(key) )] = NN_metrics[key]
                 end
             else
-                metrics[:NN_MAE] = mae(mse_ts[1][which_sites], target[which_sites])
+                metrics[1][:NN_MAE] = mae(mse_ts[1][which_sites], target[which_sites])
             end
         end
     end
