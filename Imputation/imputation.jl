@@ -130,7 +130,8 @@ function NN_impute(
     X_train = imp.X_train
     y_train = imp.y_train
 
-    target_timeseries_full = imp.X_test[which_sample, :]
+    cl_inds = (1:length(imp.y_test))[imp.y_test .== which_class] # For backwards compatibility reasons
+    target_timeseries_full = imp.X_test[cl_inds[which_sample], :]
 
     known_sites = setdiff(collect(1:length(mps)), which_sites)
     target_series = target_timeseries_full[known_sites]
