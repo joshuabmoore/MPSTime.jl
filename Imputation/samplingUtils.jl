@@ -314,21 +314,23 @@ function get_sample_from_rdm(
     # sample without rejection if threshold is none
     sampled_x = 0.
     if rejection_threshold == :none
-        u = rand()
+        u = rand(rng)
         #cdf_wrapper(x) = get_cdf(x, rdm, Z, opts, enc_args) - u
         cdf = get_cdf(rdm, samp_xs, samp_states, s)
-        x_ind = argmin(@. abs(cdf - u ) )
+        Z = cdf[end]
+        x_ind = argmin(@. abs(cdf/Z - u ) )
         sampled_x = samp_xs[x_ind]
         wmad = 0.
         # sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, j, enc_args) - u, opts.encoding.range; atol=atol)
     else
         # now determine the median and wmad - don't need high precision here, just a general ballpark
         median, _, wmad, cdf = get_median_and_cdf(rdm, samp_xs, samp_states, s, opts, j, enc_args, x_prev; get_wmad=true)
+        Z = cdf[end]
         rejections = 0 # rejected :(
         for i in 1:max_trials
-            u = rand() # sample a random value from ~ U(0, 1)
+            u = rand(rng) # sample a random value from ~ U(0, 1)
             # solve for x by defining an auxilary function g(x) such that g(x) = F(x) - u
-            x_ind = argmin(@. abs(cdf - u ) )
+            x_ind = argmin(@. abs(cdf/Z - u ) )
             sampled_x = samp_xs[x_ind]
             # sampled_x = find_zero(x -> get_cdf(x, rdm, Z, opts, j, enc_args) - u, opts.encoding.range; atol=atol)
             # choose whether to accept or reject
@@ -340,7 +342,7 @@ function get_sample_from_rdm(
         #@show rejections
     end
     # map sampled x_k back to a state
-    sampled_state = itensor(samp_states[x_ind], s) / sqrt(cdf[end]) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    sampled_state = itensor(samp_states[x_ind], s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
     return sampled_x, sampled_state, wmad 
 end
 
