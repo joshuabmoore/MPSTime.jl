@@ -1,10 +1,11 @@
-using Pkg
-Pkg.activate(".")
 include("../../../LogLoss/RealRealHighDimension.jl")
 include("../../../Imputation/imputation.jl");
 using JLD2
 using DelimitedFiles
 using Plots
+
+GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
+
 
 # load the original ECG200 split
 dloc = "Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
@@ -65,12 +66,8 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
     opts_safe, _... = safe_options(opts, nothing, nothing)
 
     dx = 5e-3
-    mode_range=(-1,1)
-    xvals=collect(range(mode_range...; step=dx))
-    mode_index=Index(opts_safe.d)
     pms = 5:10:95
-    # xvals_enc= [get_state(x, opts_safe,fc[1].enc_args) for x in xvals]
-    # xvals_enc_it=[ITensor(s, mode_index) for s in xvals_enc];
+
 
     num_folds = length(which_folds) # specified by the user
     if num_folds > length(fold_idxs)
@@ -81,13 +78,8 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
     fold_scores = Vector{FoldResults}(undef, num_folds)
     for (i, fold_idx) in enumerate(which_folds)
         # imputation related parameters
-        dx = 5e-3
-        mode_range = (-1, 1)
-        xvals = collect(range(mode_range...; step=dx))
-        mode_index = Index(opts_safe.d)
+
         pms = 5:10:95 
-        # xvals_enc = [get_state(x, opts_safe, fc[1].enc_args) for x in xvals] # encode the xvals form mode imputation 
-        # xvals_enc_it = [ITensor(s, mode_index) for s in xvals_enc] # convert encoded vals to ITensors for mode imputation
         fold_time = @elapsed begin
             fold_train_idxs = fold_idxs[fold_idx]["train"]
             fold_test_idxs = fold_idxs[fold_idx]["test"]
@@ -96,22 +88,28 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
             # all of the instances go into the same class
             y_train_fold = zeros(Int64, size(X_train_fold, 1))
             y_test_fold = zeros(Int64, size(X_test_fold, 1))
-            println(size(X_train_fold))
-            println(size(y_train_fold))
-            println(size(X_test_fold))
-            println(size(y_test_fold))
+            println("Train fold size: ",size(X_train_fold))
+            println("#Train classes: ", size(y_train_fold))
+            println("Test fold size: ",size(X_test_fold))
+            println("#Test classes: ", size(y_test_fold))
+            println("Training")
+            train_start = time()
+
             W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, chi_init=4, opts=opts, test_run=false)
+            println("training took $(round(time() - train_start; digits=3))s")
             # begin imputation
-            fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
-            xvals_enc = [get_state(x, opts_safe, fc[1].enc_args) for x in xvals] # encode the xvals form mode imputation 
-            xvals_enc_it = [ITensor(s, mode_index) for s in xvals_enc] # convert encoded vals to ITensors for mode imputation
+            imp = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0, dx=dx)
+
             println("Finished training, beginning evaluation of imputed values...")
             num_instances = size(X_test_fold, 1)
             mps_scores = zeros(Float64, num_instances)
             nn_scores = zeros(Float64, num_instances)
             instance_scores = Vector{InstanceScores}(undef, num_instances)
+
+            times = Vector{Float64}(undef, num_instances)
             for instance in 1:num_instances
-                println("t: $(round(time() - stime; digits=2)) F$(fold_idx): Evaluating instance $(instance)/$(num_instances)")
+                inst_time = time()
+                print("t: $(round(time() - stime; digits=3))s F$(fold_idx): Evaluating instance $(instance)/$(num_instances) ")
                 # loop over windows
                 pm_scores = Vector{WindowScores}(undef, length(pms))
                 for (ipm, pm) in enumerate(pms)
@@ -121,26 +119,25 @@ function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, whic
                     nn_scores = Vector{Float64}(undef, num_wins)
                     @threads for it in 1:num_wins
                         impute_sites = window_idxs[pm][it]
-                        ts, pred_err, stats, _ = MPS_impute(fc, 0, instance, impute_sites, :directMedianOpt; 
-                            invert_transform=true, 
-                                    NN_baseline=true, X_train=X_train_fold, y_train=y_train_fold, 
-                                    n_baselines=1, plot_fits=false, dx=dx, mode_range=mode_range, xvals=xvals, 
-                                    mode_index=mode_index, xvals_enc=xvals_enc, xvals_enc_it=xvals_enc_it)
-                        mps_scores[it] = stats[:MAE]
-                        nn_scores[it] = stats[:NN_MAE]
+                        ts, pred_err, stats, _ = MPS_impute(imp, 0, instance, impute_sites, :directMedian; invert_transform=true, NN_baseline=true, n_baselines=1, plot_fits=false)
+                        mps_scores[it] = stats[1][:MAE]
+                        nn_scores[it] = stats[1][:NN_MAE]
                     end
                     pm_scores[ipm] = WindowScores(mps_scores, nn_scores)
                 end
                 instance_scores[instance] = InstanceScores(pm_scores)
+                times[instance] = time() - inst_time
+                println("($(round(mean(times[1:instance]);digits=3))s per inst)")
             end
             fold_scores[i] = FoldResults(instance_scores)
         end
         println("Fold $fold_idx took $fold_time seconds.")
         fold_scores_tmp = fold_scores[1:i]
-        JLD2.@save "IPD_ImputationFinalResults_30Fold_data_driven_temp.jld2" fold_scores_tmp
+        JLD2.@save "IPD_ImputationFinalResults_30Fold_data_driven_temp_2.jld2" fold_scores_tmp
     end
     return fold_scores, opts_safe
 end
+
 
 results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:29)
 
@@ -161,5 +158,5 @@ end
 
 nfolds = length(results)
 
-JLD2.@save "IPD_ImputationFinalResults_$(nfolds)Fold_data_driven.jld2" mps_results nn_results opts_safe
+JLD2.@save "IPD_ImputationFinalResults_$(nfolds)Fold_data_driven_2.jld2" mps_results nn_results opts_safe
 
