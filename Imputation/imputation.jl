@@ -173,6 +173,7 @@ function get_predictions(
 
     # setup imputation variables
     X_test = imp.X_test
+    X_train = imp.X_train
 
     mps = imp.mpss[which_class + 1]
     cl_inds = (1:length(imp.y_test))[imp.y_test .== which_class] # For backwards compatibility reasons

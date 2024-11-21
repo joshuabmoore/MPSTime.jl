@@ -13,9 +13,10 @@ using SharedArrays
     GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
 end
 
-@everywhere begin
+println("Libraries loaded!")
 
-    # load the original ECG200 split
+@everywhere begin
+# load the original ECG200 split
     dloc = "Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
     f = jldopen(dloc, "r")
         X_train = read(f, "X_train")
@@ -38,6 +39,10 @@ end
     window_idxs = read(windows_f, "windows_julia")
     close(windows_f)
 
+end
+
+println("Data loaded, defining helper functions")
+@everywhere begin
     # define structs for the results
     struct WindowScores
         mps_scores::Vector{Float64}
@@ -52,72 +57,83 @@ end
         fold_scores::Vector{InstanceScores}
     end
 
-    function run_fold(fold, Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, opts_safe::Options)
-        
-        dx = 5e-3
-        pms = 5:10:95
-        stime = time()
-        # main loop            # imputation related parameters
-        fold_time = @elapsed begin
-            fold_train_idxs = fold_idxs["train"]
-            fold_test_idxs = fold_idxs["test"]
-            X_train_fold = Xs[fold_train_idxs, :]
-            X_test_fold = Xs[fold_test_idxs, :]
-            # all of the instances go into the same class
-            y_train_fold = zeros(Int64, size(X_train_fold, 1))
-            y_test_fold = zeros(Int64, size(X_test_fold, 1))
-            # println("Train fold size: ",size(X_train_fold))
-            # println("#Train classes: ", size(y_train_fold))
-            # println("Test fold size: ",size(X_test_fold))
-            # println("#Test classes: ", size(y_test_fold))
-            println("Training")
-            train_start = time()
-
-            W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, chi_init=4, opts=opts, test_run=false)
-            println("training took $(round(time() - train_start; digits=3))s")
-            # begin imputation
-            imp = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0, dx=dx)
-
-            println("Finished training, beginning evaluation of imputed values...")
-            num_instances = 2#size(X_test_fold, 1)
-            instance_scores = Vector{InstanceScores}(undef, num_instances)
-
-            times = Vector{Float64}(undef, num_instances)
-            for instance in 1:num_instances
-                inst_time = time()
-                
-                # loop over windows
-                pm_scores = Vector{WindowScores}(undef, length(pms))
-                for (ipm, pm) in enumerate(pms)
-                    # loop over window iterations
-                    num_wins = length(window_idxs[pm])
-                    mps_scores = Vector{Float64}(undef, num_wins)
-                    nn_scores = Vector{Float64}(undef, num_wins)
-                    for it in 1:num_wins
-                        impute_sites = window_idxs[pm][it]
-                        ts, pred_err, stats, _ = MPS_impute(imp, 0, instance, impute_sites, :directMedian; invert_transform=true, NN_baseline=true, n_baselines=1, plot_fits=false)
-                        mps_scores[it] = stats[1][:MAE]
-                        nn_scores[it] = stats[1][:NN_MAE]
-                    end
-                    pm_scores[ipm] = WindowScores(mps_scores, nn_scores)
-                end
-                instance_scores[instance] = InstanceScores(pm_scores)
-                times[instance] = time() - inst_time
-                println("t: $(round(time() - stime; digits=3))s F$(fold): Evaluated instance $(instance)/$(num_instances) ($(round(mean(times[1:instance]);digits=3))s per inst)")
+    function impute_instance(instance::Integer, num_instances::Integer, fold_idx::Integer, pms::StepRange, window_idxs::Dict, imp::ImputationProblem)
+        bt = time()
+        # loop over windows
+        pm_scores = Vector{WindowScores}(undef, length(pms))
+        for (ipm, pm) in enumerate(pms)
+            # loop over window iterations
+            num_wins = length(window_idxs[pm])
+            mps_scores = Vector{Float64}(undef, num_wins)
+            nn_scores = Vector{Float64}(undef, num_wins)
+            for it in 1:num_wins
+                impute_sites = window_idxs[pm][it]
+                ts, pred_err, stats, _ = MPS_impute(imp, 0, instance, impute_sites, :directMedian; invert_transform=true, NN_baseline=true, n_baselines=1, plot_fits=false)
+                mps_scores[it] = stats[1][:MAE]
+                nn_scores[it] = stats[1][:NN_MAE]
             end
+            pm_scores[ipm] = WindowScores(mps_scores, nn_scores)
         end
-        res =  FoldResults(instance_scores)
+        println("Fold $(fold_idx): Evaluated instance $(instance)/$(num_instances) ($(round(time() - bt; digits=3))s)")
 
-        JLD2.@save "IPD_ImputationFinalResults_fold_$(fold).jld2" res opts_safe
-        println("Fold $fold took $fold_time seconds.")        
-        return res
+        return InstanceScores(pm_scores)
+    end
+
+    function run_folds(Xs::Matrix{Float64}, window_idxs::Dict, fold_idxs::Dict, which_folds::UnitRange=0:29)
+
+        num_folds = length(which_folds) # specified by the user
+        if num_folds > length(fold_idxs)
+            error("Fold range specified must be samller than the max number of folds ($length(fold_idxs)).")
+        end
+        stime = time()
+        # main loop
+        fold_scores = Vector{FoldResults}(undef, num_folds)
+        for (i, fold_idx) in enumerate(which_folds)
+            # imputation related parameters
+
+            pms = 5:10:95 
+            fold_time = @elapsed begin
+                fold_train_idxs = fold_idxs[fold_idx]["train"]
+                fold_test_idxs = fold_idxs[fold_idx]["test"]
+                X_train_fold = Xs[fold_train_idxs, :]
+                X_test_fold = Xs[fold_test_idxs, :]
+                # all of the instances go into the same class
+                y_train_fold = zeros(Int64, size(X_train_fold, 1))
+                y_test_fold = zeros(Int64, size(X_test_fold, 1))
+                # println("Train fold size: ",size(X_train_fold))
+                # println("#Train classes: ", size(y_train_fold))
+                # println("Test fold size: ",size(X_test_fold))
+                # println("#Test classes: ", size(y_test_fold))
+                println("Training")
+                train_start = time()
+                GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(nworkers())
+
+                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, chi_init=4, opts=opts, test_run=false)
+                println("training took $(round(time() - train_start; digits=3))s")
+                # begin imputation
+                imp = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0, dx=dx)
+
+                println("Finished training, beginning evaluation of imputed values...")
+                GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
+
+                num_instances = size(X_test_fold, 1)
+                
+                instance_scores = pmap(i-> impute_instance(i, num_instances, fold_idx, pms, window_idxs, imp), 1:num_instances)                    
+                fold_scores[i] = FoldResults(instance_scores)
+            end
+            println("Fold $fold_idx took $fold_time seconds.")
+            fold_scores_tmp = fold_scores[1:i]
+            JLD2.@save "IPD_ImputationFinalResults_$(length(which_folds))Fold_data_driven_temp_B.jld2" fold_scores_tmp
+        end
+        return fold_scores, opts_safe
     end
 
     # training related parameters
     Rdtype = Float64
     verbosity = -10
+    test_run = false
     track_cost = false
-    encoding = :sahand_legendre
+    encoding = :sahand_legendre_time_dependent
     encode_classes_separately = false
     train_classes_separately = false
 
@@ -130,19 +146,14 @@ end
             encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
             exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0)
     opts_safe, _... = safe_options(opts, nothing, nothing)
+
+    dx = 5e-3
+    pms = 5:10:95
 end
 
-GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
-nfolds = 4
-# results = SharedArray{FoldResults}(nfolds)
-# @sync @distributed for i = 1:nfolds
-#     res = run_fold(i, Xs, window_idxs, rs_fold_idxs[i-1], opts_safe) # blame python for the i-1
-#     results[i] = res
-#     JLD2.@save "IPD_ImputationFinalResults_fold_$(fold).jld2" res opts_safe
-# end
+nfolds = 2
 
-results = @sync pmap(i-> run_fold(i, Xs, window_idxs, rs_fold_idxs[i-1], opts_safe), 1:nfolds)
-# results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:29)
+results, opts_safe = run_folds(Xs, window_idxs, rs_fold_idxs, 0:(nfolds-1))
 
 mps_results = Dict()
 nn_results = Dict()
@@ -150,7 +161,7 @@ nn_results = Dict()
 for pm in 1:length(results[1].fold_scores[1].pm_scores)
     per_pm_res_mps = Dict()
     per_pm_res_nn = Dict()
-    for f in 1:length(results)
+    for f in 1:nfolds
         total_instances = length(results[f].fold_scores)
         per_pm_res_mps[f] = [results[f].fold_scores[inst].pm_scores[pm].mps_scores for inst in 1:total_instances]
         per_pm_res_nn[f] = [results[f].fold_scores[inst].pm_scores[pm].nn_scores for inst in 1:total_instances]
@@ -159,7 +170,7 @@ for pm in 1:length(results[1].fold_scores[1].pm_scores)
     nn_results[pm] = per_pm_res_nn
 end
 
-nfolds = length(results)
 
-JLD2.@save "IPD_ImputationFinalResults_$(nfolds)Fold_data_driven_2.jld2" mps_results nn_results opts_safe
+
+JLD2.@save "IPD_ImputationFinalResults_$(nfolds)Fold_data_driven_B.jld2" mps_results nn_results opts_safe
 

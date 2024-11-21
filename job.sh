@@ -1,14 +1,13 @@
 #!/bin/bash
-#PBS -N impute_benchmarks_rewrite_IPD
-#PBS -l select=1:ncpus=64:mem=100GB:ompthreads=1
-#PBS -l walltime=40:00:00
+#PBS -N impute_benchmarks_time_dependent
+#PBS -l select=1:ncpus=32:mem=100GB:ompthreads=1
+#PBS -l walltime=16:00:00
 #PBS -m bea
 #PBS -M hugo.stackhouse@sydney.edu.au 
 #PBS -V
 cd "$PBS_O_WORKDIR"
-julia --project=. --threads=auto instantiate.jl # ensure libraries according to manifest
-julia --project=. --threads=auto --heap-size-hint=280G FinalBenchmarks/ECG200/Julia/ECG_Imputation_Benchmarks_save_trajectories.jl
-julia --project=. --threads=auto --heap-size-hint=280G FinalBenchmarks/ItalyPower/Julia/IPD_Imputation_Benchmarks_save_trajectories.jl   # run your program, note the heap size limit
+julia --project=. -p 32 --heap-size-hint=185G Imputation/distributed_benchmark.jl   # run your program, note the heap size limit
+# julia --project=. -p 32 --heap-size-hint=185G FinalBenchmarks/ItalyPower/Julia/IPD_Imputation_Bench_distributed.jl   # run your program, note the heap size limit
 
 exit
 
