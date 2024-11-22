@@ -234,40 +234,40 @@ end
 
 
 function get_median_and_cdf(
-    rdm::ITensor, 
-    samp_xs::AbstractVector{Float64}, 
-    samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
-    s::Index, 
-    opts::Options, 
-    j::Integer,
-    enc_args::AbstractVector,
-    x_prev::Float64;
-    get_wmad::Bool=true
-)
-# return the median and the weighted median absolute deviation as a measure of uncertainty 
+        rdm::ITensor, 
+        samp_xs::AbstractVector{Float64}, 
+        samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
+        s::Index, 
+        opts::Options, 
+        j::Integer,
+        enc_args::AbstractVector,
+        x_prev::Float64;
+        get_wmad::Bool=true
+    )
+    # return the median and the weighted median absolute deviation as a measure of uncertainty 
 
-probs = Vector{Float64}(undef, length(samp_states))
-for (index, state) in enumerate(samp_states)
-    prob = get_conditional_probability(itensor(state, s), rdm)
-    probs[index] = prob
-end
+    probs = Vector{Float64}(undef, length(samp_states))
+    for (index, state) in enumerate(samp_states)
+        prob = get_conditional_probability(itensor(state, s), rdm)
+        probs[index] = prob
+    end
 
-cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
-Z = cdf[end]
-cdf /= Z
-probs /= Z
+    cdf = NumericalIntegration.cumul_integrate(samp_xs, probs, NumericalIntegration.TrapezoidalEvenFast())
+    Z = cdf[end]
+    cdf /= Z
+    probs /= Z
 
-median_arg = argmin(@. abs(cdf - 0.5))
+    median_arg = argmin(@. abs(cdf - 0.5))
 
-median_x = samp_xs[median_arg]
-median_s = get_state(median_x, opts, j, enc_args) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    median_x = samp_xs[median_arg]
+    median_s = itensor(get_state(median_x, opts, j, enc_args),s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
-wmad_x = 0.
-if get_wmad
-    # get the weighted median abs deviation
-    wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
-end
-return (median_x, median_s, wmad_x, cdf)
+    wmad_x = 0.
+    if get_wmad
+        # get the weighted median abs deviation
+        wmad_x = median(abs.(samp_xs .- median_x), pweights(probs))
+    end
+    return (median_x, median_s, wmad_x, cdf)
 
 end
 

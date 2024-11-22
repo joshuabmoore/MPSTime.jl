@@ -97,6 +97,7 @@ function init_imputation_problem(
     xvals=collect(range(guess_range...; step=dx))
     site_index=Index(opts.d)
     if opts.encoding.istimedependent
+        println("Pre-computing possible encoded values of x_t, this may take a while... ")
         # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
         xvals_enc = [[get_state(x, opts, j, enc_args) for x in xvals] for j in eachindex(mps)] # a proper nightmare of preallocation, but necessary
     else
@@ -339,4 +340,46 @@ function MPS_impute(
     end
 
     return ts, pred_err, metrics, ps
+end
+
+
+
+
+
+function get_rdms(
+        imp::ImputationProblem,
+        which_class::Integer, 
+        which_sample::Integer, 
+        which_sites::Vector{Int};
+        kwargs... # method specific keyword arguments
+    )
+
+    # setup imputation variables
+    X_test = imp.X_test
+    X_train = imp.X_train
+
+    mps = imp.mpss[which_class + 1]
+    cl_inds = (1:length(imp.y_test))[imp.y_test .== which_class] # For backwards compatibility reasons
+    target_ts_raw = imp.X_test[cl_inds[which_sample], :]
+    target_timeseries = deepcopy(target_ts_raw)
+
+    # transform the data
+    # perform the scaling
+
+    X_train_scaled, norms = transform_train_data(X_train; opts=imp.opts)
+    target_timeseries_full, oob_rescales_full = transform_test_data(target_ts_raw, norms; opts=imp.opts)
+
+    target_timeseries[which_sites] .= mean(X_test[:]) # make it impossible for the unknown region to be used, even accidentally
+    target_timeseries, oob_rescales = transform_test_data(target_timeseries, norms; opts=imp.opts)
+
+    sites = siteinds(mps)
+    target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
+
+
+    ts, pred_err, cdfs = get_rdms_with_med(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites; kwargs...)
+    ts = [ts] # type stability
+    pred_err = [pred_err]
+    
+
+    return cdfs, ts, pred_err, target_timeseries_full
 end

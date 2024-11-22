@@ -114,7 +114,7 @@ function window_single_instance(all_instances::Vector{instance}, which_idx::Int,
     
     if plot_windows
         ps = []
-        for i in 1:length(windows_all)
+        for i in eachindex(IndexLinear(), windows_all)
             if check_for_artifacts(windows_all[i])
                 titlefontcolor= :red
             else
