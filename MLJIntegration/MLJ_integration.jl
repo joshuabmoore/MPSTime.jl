@@ -83,23 +83,3 @@ MMI.selectrows(::MPSClassifier, I, Xmatrix) = (view(Xmatrix, :, I), )
 
 
 include("imputation_hyperopt_hack.jl")
-# # for fit:
-# MMI.reformat(::MPSClassifier, X, y) =
-#     (MMI.matrix(X; transpose=true), MMI.int(y), classes(y))
-
-# function MMI.selectrows(m::MPSClassifier, I, Xmatrix, y, meta...) 
-#     yv = view(y, I)
-#     opts = Options(m)
-#     X_enc = encoderows(opts, view(Xmatrix, :, I), yv)
-#     (X_enc, yv, meta...)
-
-# end
-
-# # for predict:
-# MMI.reformat(::MPSClassifier, X) = (MMI.matrix(X; transpose=true),)
-
-# function MMI.selectrows(m::MPSClassifier, I, Xmatrix)
-#     opts = Options(m)
-#     X_enc = encoderows(opts, view(Xmatrix, :, I))
-#     return (X_enc,)
-# end

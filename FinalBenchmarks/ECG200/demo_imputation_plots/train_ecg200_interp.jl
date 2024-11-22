@@ -40,8 +40,8 @@ end
 
 range = model_encoding(opts.encoding).range
 
-X_train_scaled = transform_data(X_train; range=range, minmax_output=opts.minmax)
-X_test_scaled = transform_data(X_test; range=range, minmax_output=opts.minmax)
+X_train_scaled, X_test_scaled, norms, oob_rescales = transform_data(permutedims(X_train), permutedims(X_test); opts=opts)
+
 svpath = "/Users/joshua/Desktop/QuantumInspiredML/FinalBenchmarks/ECG200/demo_imputation_plots/legendre_ns_d$(d)_chi$(chi_max).jld2"
 f = jldopen(svpath, "w")
     write(f, "X_train_scaled", X_train_scaled)

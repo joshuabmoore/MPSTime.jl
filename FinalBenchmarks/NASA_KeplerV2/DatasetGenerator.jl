@@ -18,7 +18,7 @@ function create_instances(dloc::String)
     # merge data
     Xs, ys = vcat(X_train, X_test), vcat(y_train, y_test)
     # vector of KeplerInstances
-    dset = [KeplerInstance(Xs[i, :], ys[i]) for i in 1:size(Xs, 1)]
+    dset = [KeplerInstance(row, ys[i]) for (i,row) in enumerate(eachrow(Xs))]
     return dset
 end
 

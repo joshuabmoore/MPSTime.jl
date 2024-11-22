@@ -61,8 +61,8 @@ if save
     scaler = fit(RobustSigmoid, X_train)
     range = model_encoding(opts.encoding).range
 
-    X_train_scaled = transform_data(scaler, X_train; range=range, minmax_output=opts.minmax)
-    X_test_scaled = transform_data(scaler, X_test; range=range, minmax_output=opts.minmax)
+    X_train_scaled, X_test_scaled, norms, oob_rescales = transform_data(permutedims(X_train), permutedims(X_test); opts=opts)
+
     svpath = "Data/NASA_kepler/mps_saves/legendreNN2_d12_chi35.jld2"
     f = jldopen(svpath, "w")
         write(f, "X_train_scaled", X_train_scaled)
