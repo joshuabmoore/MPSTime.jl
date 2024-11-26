@@ -136,7 +136,7 @@ end
 # To use a time dependent basis, set is_time_dependent to true. The input function must have the signature 
 # b(x::Float64, d:Integer, ti::Int, init_args...) and return a d-dimensional Numerical Vector
 # A vector [x_1, x_2, x_3, ..., x_N] will be encoded as  [b_1(x_1), b_2(x_2), b_3(x_3),..., b_N(x_N)]
-function construct_basis(basis::Function, is_complex::Bool, range::Tuple{<:Real,<:Real}, init::Function=no_init; is_time_dependent::Bool=false, name::String="Custom" )
+function function_basis(basis::Function, is_complex::Bool, range::Tuple{<:Real,<:Real}, init::Function=no_init; is_time_dependent::Bool=false, name::String="Custom" )
     return Basis(name, init, basis, is_complex, is_time_dependent, range)
 end
 

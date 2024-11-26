@@ -1,14 +1,4 @@
-#### Import these two libraries first and in this order!!
-using GenericLinearAlgebra
-using MKL
-####
-import MLJModelInterface
-using MLJ
 const MMI = MLJModelInterface
-
-include("../LogLoss/RealRealHighDimension.jl")
-
-
 MMI.@mlj_model mutable struct MPSClassifier <: MMI.Deterministic
     reformat_verbosity::Int=-1 # The verbosity used when reformatting/encoding data
     #### contents of MPSOptions goes here
@@ -38,8 +28,6 @@ MMI.@mlj_model mutable struct MPSClassifier <: MMI.Deterministic
     log_level::Int=0 # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
     data_bounds::Tuple{Float64, Float64}=(0.,1.)
 end
-
-include("MLJUtils.jl")
 
 function MMI.fit(m::MPSClassifier, verbosity::Int, X, y, decode)
     opts = MPSOptions(m; verbosity=verbosity)
@@ -80,6 +68,3 @@ MMI.selectrows(::MPSClassifier, I, Xmatrix, y, meta...) = (view(Xmatrix, :, I), 
 # for predict:
 MMI.reformat(::MPSClassifier, X) = (MMI.matrix(X; transpose=true),)
 MMI.selectrows(::MPSClassifier, I, Xmatrix) = (view(Xmatrix, :, I), )
-
-
-include("imputation_hyperopt_hack.jl")

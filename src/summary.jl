@@ -1,12 +1,4 @@
-using ITensors
-using Random
-using Distributions
-using StatsBase
-using Plots
-using PrettyTables
-using MLJ
 
-import MLBase
 
 function contractMPS(W::MPS, PS::PState)
         N_sites = length(W)
@@ -202,9 +194,6 @@ function plot_conf_mat(confmat::Matrix)
 end
 
 
-
-
-
 function get_training_summary(mps::MPS, training_pss::TimeseriesIterable, testing_pss::TimeseriesIterable; print_stats=false,io::IO=stdin)
     # get final traing acc, final training loss
 
@@ -344,34 +333,3 @@ function KL_div(W::MPS, test_states::TimeseriesIterable)
     end
     return KLdiv / length(test_states)
 end
-
-function KL_div_old(W::MPS, test_states::TimeseriesIterable)
-    """Computes KL divergence of TS on MPS, only works for a 2 category label index"""
-    W0, W1, l_ind = expand_label_index(W)
-
-    KLdiv = 0
-
-    for x in test_states, l in 0:1
-        if x.label == l
-            qlx = l == 0 ? abs2(dot(x.pstate,W0)) : abs2(dot(x.pstate, W1))
-            KLdiv +=  -log(qlx) # plx is 1
-        end
-    end
-    return KLdiv / length(test_states)
-end
-
-function test_dot(W::MPS, test_states::TimeseriesIterable)
-    Ws, l_ind = expand_label_index(W)
-
-    outcomes = []
-    for (i,ps) in enumerate(test_states)
-        inns = [inner(ps.pstate, mps) for mps in Ws]
-        cons = Vector(contractMPS(W, ps))
-
-        if !all(isapprox.(inns,cons))
-            push!(outcomes,i)
-        end
-    end
-    return outcomes
-end
-

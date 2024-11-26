@@ -1,5 +1,4 @@
 include("MLJ_integration.jl")
-using JLD2
 
 dloc =  "Data/epilepsy/datasets/Epilepsy2.jld2"
 f = jldopen(dloc, "r")

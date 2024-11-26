@@ -1,6 +1,6 @@
-import Base.*
-contractTensor = ITensors._contract
-*(t1::Tensor, t2::Tensor) = contractTensor(t1, t2)
+contract_tensor = ITensors._contract
+*(t1::Tensor, t2::Tensor) = contract_tensor(t1, t2)
+
 abstract type LossFunction <: Function end
 
 abstract type KLDLoss <: LossFunction end
@@ -437,47 +437,3 @@ function (::Loss_Grad_default)(::TrainSeparate{true}, BT::ITensor, LE::PCache, R
     return losses, grads
 
 end
-
-
-#################### Do not use, for reproducing old data only
-function KLD_iter_slow(BT_c::ITensor, LEP::PCacheCol, REP::PCacheCol,
-    product_state::PState, lid::Int, rid::Int) 
-    """Computes the complex valued logarithmic loss function derived from KL divergence and its gradient"""
-
-
-    yhat, phi_tilde = yhat_phitilde(BT_c, LEP, REP, product_state, lid, rid)
-
-    # convert the label to ITensor
-    label_idx = inds(yhat)[1]
-    y = onehot(label_idx => (product_state.label + 1))
-    f_ln = (yhat *y)[1]
-    loss = -log(abs2(f_ln))
-
-    # construct the gradient - return dC/dB
-    gradient = -y * conj(phi_tilde / f_ln) # mult by y to account for delta_l^lambda
-
-    return [loss, gradient]
-
-end
-
-function (::Loss_Grad_KLD_slow)(::TrainSeparate{false}, BT::ITensor, LE::PCache, RE::PCache,
-    ETSs::EncodedTimeseriesSet, lid::Int, rid::Int)
-    """Function for computing the loss function and the gradient over all samples using lg_iter and a left and right cache. 
-        Allows the input to be complex if that is supported by lg_iter"""
-    # Assumes that the timeseries are sorted by class
- 
-    TSs = ETSs.timeseries
-    l = findindex(BT, "f(x)")
-    loss,grad = mapreduce((LEP,REP, prod_state) -> [1.0, onehot(l => prod_state.label_index)] .* KLD_iter(BT * onehot(l => prod_state.label_index),LEP,REP,prod_state,lid,rid),+, eachcol(LE), eachcol(RE),TSs)
-    
-    loss /= length(TSs)
-    grad ./= length(TSs)
-
-    return loss, grad
-
-end
-
-
-
-
-

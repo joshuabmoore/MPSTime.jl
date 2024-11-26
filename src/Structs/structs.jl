@@ -1,8 +1,3 @@
-using Parameters
-using ITensors
-using MLJ
-
-import Base.convert
 # type aliases
 const PCache = Matrix{ITensor}
 const PCacheCol = AbstractVector{ITensor} # for view mapping shenanigans
@@ -59,13 +54,7 @@ function Base.show(io::IO, O::BBOpt)
 end
 
 
-
-include("basis_structs.jl")
-include("options.jl")
-
-
 # type conversions
-# These are reasonable to implement because Basis() and BBOpt() are just wrapper types with some validation built in
-convert(::Type{Basis}, s::String) = Basis(s)
+# Reasonable to implement because  BBOpt() is just a wrapper type with some validation built in
 convert(::Type{BBOpt}, s::String) = BBOpt(s)
 

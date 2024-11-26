@@ -1,10 +1,3 @@
-import Base.*
-contractTensor = ITensors._contract
-*(t1::Tensor, t2::Tensor) = contractTensor(t1, t2)
-
-include("./samplingUtils.jl");
-
-
 function condition_until_next!(
         i::Integer,
         it::ITensor,

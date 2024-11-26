@@ -1,4 +1,3 @@
-using KernelDensity
 
 # Sets of Basis Functions
 function uniform_encode(x::Float64, d::Int) # please don't actually use this unless it's auxilliary to some kind of splitting method

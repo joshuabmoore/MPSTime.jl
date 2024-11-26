@@ -1,7 +1,4 @@
 include("../../MLJ_integration.jl")
-using MLJParticleSwarmOptimization
-import MLJ
-using JLD2
 
 dloc =  "Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
 f = jldopen(dloc, "r")

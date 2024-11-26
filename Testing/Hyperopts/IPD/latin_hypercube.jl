@@ -1,8 +1,5 @@
 include("../../MLJ_integration.jl")
 
-using JLD2
-import MLJ
-
 
 dloc =  "Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
 f = jldopen(dloc, "r")

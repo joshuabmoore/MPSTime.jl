@@ -1,28 +1,3 @@
-#### Import these two libraries first and in this order!!
-using GenericLinearAlgebra
-using MKL
-####
-using Strided
-using ITensors
-using NDTensors
-using Optim
-using OptimKit
-using Random
-using Distributions
-using DelimitedFiles
-using JLD2
-using StatsBase
-using Plots
-
-
-include("structs/structs.jl")
-include("encodings/encodings.jl")
-include("summary.jl")
-include("utils.jl")
-include("loss_functions.jl")
-
-
-
 function generate_startingMPS(chi_init::Integer, site_indices::Vector{Index{T}};
     num_classes, random_state=nothing, label_tag::String="f(x)", opts::Options=Options(), verbosity::Real=opts.verbosity, dtype::DataType=opts.dtype) where {T <: Integer}
     """Generate the starting weight MPS, W using values sampled from a 

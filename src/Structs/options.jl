@@ -1,4 +1,3 @@
-import Base.convert
 
 abstract type AbstractMPSOptions end
 
@@ -72,7 +71,7 @@ end
 
 # container for options with default values
 
-@with_kw struct Options <: AbstractMPSOptions
+struct Options <: AbstractMPSOptions
     verbosity::Int # Represents how much info to print to the terminal while optimising the MPS. Higher numbers mean more output
     nsweeps::Int # Number of MPS optimisation sweeps to perform (Both forwards and Backwards)
     chi_max::Int # Maximum bond dimension allowed within the MPS during the SVD step

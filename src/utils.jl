@@ -1,14 +1,3 @@
-using StatsBase
-using Random
-using Plots
-using Plots.PlotMeasures
-using DelimitedFiles
-using JLD2
-using Normalization
-
-
-
-
 function load_splits_txt(train_set_location::String, val_set_location::String, 
     test_set_location::String)
     """As per typical UCR formatting, assume labels in first column, followed by data"""
@@ -382,14 +371,6 @@ function saveMPS(mps::MPS, path::String; id::String="W")
     println("Succesfully saved mps $id at $file.h5")
 end
 
-function loadMPS(path::String; id::String="W")
-"""Loads an MPS from a .h5 file. Returns and ITensor MPS."""
-    file = path[end-2:end] != ".h5" ? path * ".h5" : path
-    f = h5open("$file","r")
-    mps = read(f, "$id", MPS)
-    close(f)
-    return mps
-end
 
 function get_siteinds(W::MPS)
     W1 = deepcopy(W)
@@ -397,30 +378,4 @@ function get_siteinds(W::MPS)
     W1[pos] *= onehot(label_idx => 1) # eliminate label index
 
     return siteinds(W1)
-end
-
-function loadMPS_tests(path::String; id::String="W", opts::Options=Options())
-
-    W = loadMPS(path;id=id)
-
-    (X_train, y_train), (X_val, y_val), (X_test, y_test) = load_splits_txt("MPS_MSE/datasets/ECG_train.txt", 
-   "MPS_MSE/datasets/ECG_val.txt", "MPS_MSE/datasets/ECG_test.txt")
-    X_train = vcat(X_train, X_val)
-    y_train = vcat(y_train, y_val)
-
-    sites = get_siteinds(W)
-
-    # now let's handle the training/testing data
-    # rescale using a robust sigmoid transform
-    scaler = fit(RobustSigmoid, X_train);
-    X_train_scaled = transform_data(scaler, X_train)
-    X_test_scaled = transform_data(scaler, X_test)
-
-    # generate product states using rescaled data
-    
-    training_states = encode_dataset(X_train_scaled, y_train, "train", sites; opts=opts)
-    testing_states = encode_dataset(X_test_scaled, y_test, "test", sites; opts=opts)
-
-
-    return W, training_states, testing_states
 end

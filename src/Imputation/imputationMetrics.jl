@@ -1,5 +1,3 @@
-using StatsBase
-using PrettyTables
 
 function mape(forecast::Vector{Float64}, actual::Vector{Float64}; symmetric=false)
     """
