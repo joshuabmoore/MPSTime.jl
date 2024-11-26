@@ -276,3 +276,9 @@ end
 histsplit(; balanced=false) = histsplit(_uniform(); balanced=balanced)
 unifsplit(; balanced=false) = unifsplit(_uniform(); balanced=balanced)
 
+
+function construct_basis()
+
+
+end
+

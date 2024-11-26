@@ -101,7 +101,7 @@ function get_mean_from_rdm(
         opts::Options, 
         j::Integer,
         enc_args::AbstractVector,
-        x_prev::Float64,
+        x_prev::Union{Float64, Nothing},
         dx::Float64;
         get_std::Bool=true
     )
@@ -138,7 +138,7 @@ function get_mode_from_rdm(
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
-        x_prev::Float64, 
+        x_prev::Union{Float64, Nothing}, 
         max_jump::Union{Number, Nothing}=nothing
     )
     """Much simpler approach to get the mode of the conditional 
@@ -199,7 +199,7 @@ function get_median_from_rdm(
         opts::Options, 
         j::Integer,
         enc_args::AbstractVector,
-        x_prev::Float64;
+        x_prev::Union{Float64, Nothing};
         get_wmad::Bool=true
     )
     # return the median and the weighted median absolute deviation as a measure of uncertainty 
@@ -241,7 +241,7 @@ function get_median_and_cdf(
         opts::Options, 
         j::Integer,
         enc_args::AbstractVector,
-        x_prev::Float64;
+        x_prev::Union{Float64, Nothing};
         get_wmad::Bool=true
     )
     # return the median and the weighted median absolute deviation as a measure of uncertainty 
@@ -299,7 +299,7 @@ function get_sample_from_rdm(
         opts::Options, 
         j::Integer,
         enc_args::AbstractVector,
-        x_prev::Float64;
+        x_prev::Union{Float64, Nothing};
         rng::AbstractRNG,
         rejection_threshold::Union{Float64, Symbol}, 
         max_trials::Integer,

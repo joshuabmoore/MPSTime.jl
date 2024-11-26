@@ -38,14 +38,15 @@ function get_enc_args_from_opts(
     """Rescale and then Re-encode the scaled training data using the time dependent
     encoding to get the encoding args."""
 
-    X_train_scaled, norm = transform_train_data(X_train;opts=opts)
+    X_train_scaled, norm = transform_train_data(permutedims(X_train) ;opts=opts)
 
-
+    
     if isnothing(opts.encoding.init)
         enc_args = []
     else
         println("Re-encoding the training data to get the encoding arguments...")
-        enc_args = opts.encoding.init(X_train_scaled, y; opts=opts)
+        order = sortperm(y)
+        enc_args = opts.encoding.init(X_train_scaled[:,order], y[order]; opts=opts)
     end
 
     return enc_args
@@ -99,10 +100,10 @@ function init_imputation_problem(
     if opts.encoding.istimedependent
         println("Pre-computing possible encoded values of x_t, this may take a while... ")
         # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
-        xvals_enc = [[get_state(x, opts, j, enc_args) for x in xvals] for j in eachindex(mps)] # a proper nightmare of preallocation, but necessary
+        xvals_enc = [[get_state(x, opts, j, enc_args) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
     else
         xvals_enc_single = [get_state(x, opts, 1, enc_args) for x in xvals]
-        xvals_enc = [view(xvals_enc_single, :) for _ in eachindex(mps)]
+        xvals_enc = [view(xvals_enc_single, :) for _ in 1:length(mps)]
     end
 
     x_guess_range = EncodedDataRange(dx, guess_range, xvals, site_index, xvals_enc)
@@ -193,6 +194,7 @@ function get_predictions(
     sites = siteinds(mps)
     target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
+    return [target_enc], [], target_timeseries
     pred_err = []
     if method == :directMean        
         ts, pred_err = impute_mean(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites, kwargs...)
@@ -282,6 +284,7 @@ function MPS_impute(
 
     ts, pred_err, target = get_predictions(imp, which_class, which_sample, which_sites, method; kwargs...)
 
+    return ts, pred_err, target
     if plot_fits
         p1 = plot(ts[1], ribbon=pred_err[1], xlabel="time", ylabel="x", 
             label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,

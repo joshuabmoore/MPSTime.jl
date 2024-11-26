@@ -1,3 +1,5 @@
+using KernelDensity
+
 # Sets of Basis Functions
 function uniform_encode(x::Float64, d::Int) # please don't use this unless it's auxilliary to some kind of splitting method
     return [1 for _ in 1:d] / d
@@ -127,24 +129,39 @@ sahand_legendre_encode(
 ) = sahand_legendre_encode(x, d, kdes[ti], minxs[ti], scales[ti], cVecs[ti])
 
 
+# test encode, constructs a time-dependent encoding that returns _encoding_
+# The test encoding should be of the form [b_1(x_1), b_2(x_2), b_3(x_3),..., b_N(x_N)]
+# where each b_i is a vector of length at least _d_
+function test_encode(testcase::AbstractVector)
+    function test_encode_helper(x::Float64, 
+        d::Integer, 
+        ti::Integer
+        )
+
+        return testcase[ti][1:d]
+    end
+    return test_encode_helper
+end
+
 
 #### Projection Initialisers
-# sahand-legendre projections
-
+# Used generally
 function construct_kerneldensity_wavefunction(xs::AbstractVector{<:Real}, xs_samps::AbstractVector{<:Real}; bandwidth=nothing, kwargs...)
-    kdense = isnothing(bandwidth) ? kdes(xs) : kde(xs; bandwidth=bandwidth) 
+    kdense = isnothing(bandwidth) ? kde(xs) : kde(xs; bandwidth=bandwidth) 
     ys = pdf(kdense, xs_samps)
 
     wf = sqrt.(ys);
     return wf
 end
 
-function construct_kerneldensity_wavefunction(xs::AbstractVector{<:Real}, range::Tuple; max_samples=max(200, 2*length(xs)), bandwidth=nothing, kwargs...)
-    xs_samps = range(range..., max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
+function construct_kerneldensity_wavefunction(xs::AbstractVector{<:Real}, x_range::Tuple; max_samples=max(200, 2*length(xs)), bandwidth=nothing, kwargs...)
+    xs_samps = range(x_range..., max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
     wf = construct_kerneldensity_wavefunction(xs, xs_samps; bandwidth=bandwidth)
 
     return xs_samps, wf
 end
+
+# sahand-legendre projections
 
 function sahand_legendre_coeffs(xs_samp::AbstractVector{<:Real}, f0::AbstractVector{<:Real}, d::Integer)
     N=d-1
@@ -196,9 +213,7 @@ function sahand_legendre_coeffs(xs_samp::AbstractVector{<:Real}, f0::AbstractVec
     return cVecs
 end
 
-# function exp_smooth_regions!(xs::AbstractVector{<:Real}, ys::AbstractVector{<:Real}, regions::AbstractVector{<:Tuple}, coeffs::AbstractVector{:expr})
-    #  possible way to actually implement the below function
-# end
+
 
 function smooth_zero_intervals(xs::AbstractArray{<:Real}, f0::AbstractArray{<:Real})
     # replace regions of zero probability with decaying exponentials
@@ -352,9 +367,6 @@ function project_fourier(xs::AbstractVector{T}, d; max_series_terms=10*d, max_sa
     basis = [x -> cispi(n * x) for n in get_fourier_freqs(max_series_terms)]
     return series_expand(basis, xs_samps, wf, d)
 end
-
-
-
 
 
 function project_legendre_time_independent(Xs::AbstractMatrix{T}, d::Integer; kwargs...) where {T <: Real}
