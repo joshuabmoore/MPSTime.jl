@@ -47,7 +47,7 @@ nsplits = 30
 
 W, info, train_states, test_states = MPS(), Dict(), EncodedTimeseriesSet(), EncodedTimeseriesSet()
 @profilehtml begin
-    outs = fitMPS(X_train, y_train, X_test, y_test; opts=opts);
+    outs = fitMPS(X_train, y_train, X_test, y_test, opts);
     global W = outs[1];
     global info = outs[2];
     global train_states = outs[3];

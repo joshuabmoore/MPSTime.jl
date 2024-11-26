@@ -37,10 +37,10 @@ nsplits = 30
 
 
 if test_run
-    W, info, train_states, test_states, p = fitMPS(X_train, y_train,  X_test, y_test;  opts=opts, test_run=true)
+    W, info, train_states, test_states, p = fitMPS(X_train, y_train,  X_test, y_test,  opts; test_run=true)
     plot(p)
 else
-    W, info, train_states, test_states = fitMPS( X_train, y_train,X_test, y_test;  opts=opts, test_run=false)
+    W, info, train_states, test_states = fitMPS( X_train, y_train,X_test, y_test, opts; test_run=false)
 
     print_opts(opts)
     summary = get_training_summary(W, train_states.timeseries, test_states.timeseries; print_stats=true);

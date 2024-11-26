@@ -76,7 +76,7 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
             X_test_fold = vcat(X_test_fold_all[ts]'...)
             y_test_fold = zeros(Int64, size(X_test_fold, 1))
             # Fit the MPS
-            W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
+            W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts; chi_init=4,  test_run=false)
             # Begin imputation
             fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
             num_instances = size(X_test_fold, 1)

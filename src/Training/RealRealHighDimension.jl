@@ -400,16 +400,38 @@ end
 # This is the intended entrypoint for calls to fitMPS, so input sanitisation can be done here
 # If you call a method further down it's assumed you know what you're doing
 #TODO fix the opts so it isnt such a disaster
-function fitMPS(X_train::Matrix, args...;  kwargs...)    
-    return fitMPS(DataIsRescaled{false}(), X_train, args...; kwargs...) 
-end
-
-
-function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector; random_state=nothing, chi_init=nothing, opts::AbstractMPSOptions=Options(), kwargs...)
-    # first, create the site indices for the MPS and product states 
+function fitMPS(X_train::Matrix, X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), encoding::Union{Function, Nothing}=nothing; random_state=nothing, chi_init=nothing, kwargs...)    
+    # handle how the encoding is specified
     if opts isa Options
         @warn("Calling fitMPS with the Options struct is deprecated and can lead to serialisation issues! Use the MPSOptions struct instead.")
     end
+
+    if encoding !== nothing
+        if opts isa Options
+            throw(ArgumentError("Cannot use a custom encoding if using the Options struct, use MPSOptions instead"))
+
+        elseif opts.encoding !== :Custom
+            throw(ArgumentError("Use the \'encoding\' field of the MPSOptions struct to set the encoding. If you intended to use a custom encoding, specify \'encoding = :Custom\'"))
+        else
+            opts, random_state, chi_init = safe_options(opts, random_state, chi_init) # make sure options is abstract
+            opts = _set_options(opts; encoding=encoding)
+        end
+
+    else
+        opts, random_state, chi_init = safe_options(opts, random_state, chi_init) # make sure options is abstract
+
+    end
+
+
+    
+
+    return fitMPS(DataIsRescaled{false}(), X_train, y_train, X_test, y_test, opts; random_state=nothing, chi_init=nothing, kwargs...) 
+end
+
+
+function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector, opts::AbstractMPSOptions; random_state=nothing, chi_init=nothing, kwargs...)
+    # first, create the site indices for the MPS and product states 
+    
 
     opts, random_state, chi_init = safe_options(opts, random_state, chi_init) # make sure options is abstract
 
@@ -429,7 +451,7 @@ function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::M
     
 end
 
-function fitMPS(::DataIsRescaled{false}, W::MPS, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector; opts::AbstractMPSOptions=Options(), kwargs...)
+function fitMPS(::DataIsRescaled{false}, W::MPS, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector, opts::AbstractMPSOptions; kwargs...)
     @assert eltype(W[1]) == opts.dtype  "The MPS elements are of type $(eltype(W[1])) but the datatype is opts.dtype=$(opts.dtype)"
     opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
     
@@ -439,7 +461,7 @@ function fitMPS(::DataIsRescaled{false}, W::MPS, X_train::Matrix, y_train::Vecto
 
 end
 
-function fitMPS(::DataIsRescaled{true}, W::MPS, X_train_scaled::Matrix, y_train::Vector, X_test_scaled::Matrix, y_test::Vector; opts::AbstractMPSOptions=Options(), test_run=false, return_sample_encoding::Bool=false)
+function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector, opts::AbstractMPSOptions; test_run=false, return_sample_encoding::Bool=false)
     opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
     # first, get the site indices for the product states from the MPS
     sites = get_siteinds(W)
@@ -460,7 +482,6 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train_scaled::Matrix, y_train:
         @warn "Using a complex valued MPS but the encoding is real"
     end
 
-    @assert !(opts.encode_classes_separately && opts.encoding.isbalanced) "Attempting to balance classes while encoding separately is ambiguous"
 
     # generate the starting MPS with uniform bond dimension chi_init and random values (with seed if provided)
     classes = unique(vcat(y_train, y_test))
@@ -543,8 +564,8 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train_scaled::Matrix, y_train:
     return [fitMPS(W, training_states, testing_states; opts=opts, test_run=test_run)..., extra_args... ]
 end
 
-function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet;
-    random_state=nothing, chi_init=nothing, opts::AbstractMPSOptions=Options(), test_run=false) # optimise bond tensor)
+function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet, opts::AbstractMPSOptions;
+    random_state=nothing, chi_init=nothing, test_run=false) # optimise bond tensor)
     # first, create the site indices for the MPS and product states 
     opts, random_state, chi_init = safe_options(opts, random_state, chi_init) # make sure options is abstract
 
@@ -588,8 +609,9 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
      opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
 
 
+    verbosity = opts.verbosity
     if test_run
-        opts.verbosity > -1 && println("Encoding completed! Returning initial states without training.")
+        verbosity > -1 && println("Encoding completed! Returning initial states without training.")
         return W, [], training_states, testing_states, []
     end
 
@@ -599,7 +621,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
         @show blas_name
     end
 
-    @unpack_Options opts # unpacks the attributes of opts into the local namespace
+    # @unpack_Options opts # unpacks the attributes of opts into the local namespace
     tsep = TrainSeparate{opts.train_classes_separately}() # value type to determine training style
 
     
@@ -625,7 +647,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
 
     verbosity > -1 && println("Using $update_iters iterations per update.")
     # construct initial caches
-    LE, RE = construct_caches(W, training_states; going_left=true, dtype=dtype)
+    LE, RE = construct_caches(W, training_states; going_left=true, dtype=opts.dtype)
 
 
     # create structures to store training information
@@ -651,7 +673,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
     )
     end
 
-    if log_level > 0
+    if opts.log_level > 0
 
         # compute initial training and validation acc/loss
         init_train_loss, init_train_acc = MSE_loss_acc(W, training_states)
@@ -689,30 +711,35 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
 
 
     # initialising loss algorithms
-    if typeof(loss_grad) <: AbstractArray
-        @assert length(loss_grad) == nsweeps "loss_grad(...)::(loss,grad) must be a loss function or an array of loss functions with length nsweeps"
-        loss_grads = loss_grad
-    elseif typeof(loss_grad) <: Function
-        loss_grads = [loss_grad for _ in 1:nsweeps]
+    if typeof(opts.loss_grad) <: AbstractArray
+        @assert length(opts.loss_grad) == nsweeps "loss_grad(...)::(loss,grad) must be a loss function or an array of loss functions with length nsweeps"
+        loss_grads = opts.loss_grad
+    elseif typeof(opts.loss_grad) <: Function
+        loss_grads = [opts.loss_grad for _ in 1:nsweeps]
     else
         error("loss_grad(...)::(loss,grad) must be a loss function or an array of loss functions with length nsweeps")
     end
 
-    if train_classes_separately && !(eltype(loss_grads) <: KLDLoss)
+    if opts.train_classes_separately && !(eltype(loss_grads) <: KLDLoss)
         @warn "Classes will be trained separately, but the cost function _may_ depend on measurements of multiple classes. Switch to a KLD style cost function or ensure your custom cost function depends only on one class at a time."
     end
 
-    if typeof(bbopt) <: AbstractArray
-        @assert length(bbopt) == nsweeps "bbopt must be an optimiser or an array of optimisers to use with length nsweeps"
-        bbopts = bbopt
-    elseif typeof(bbopt) <: BBOpt
-        bbopts = [bbopt for _ in 1:nsweeps]
+    if typeof(opts.bbopt) <: AbstractArray
+        @assert length(opts.bbopt) == nsweeps "bbopt must be an optimiser or an array of optimisers to use with length nsweeps"
+        bbopts = opts.bbopt
+    elseif typeof(opts.bbopt) <: BBOpt
+        bbopts = [opts.bbopt for _ in 1:nsweeps]
     else
         error("bbopt must be an optimiser or an array of optimisers to use with length nsweeps")
     end
 
     # start the sweep
-    for itS = 1:nsweeps
+    update_iters = opts.update_iters
+    dtype = opts.dtype
+    track_cost = opts.track_cost
+    eta = opts.eta
+    rescale = opts.rescale
+    for itS = 1:opts.nsweeps
         
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
@@ -769,7 +796,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
         # add time taken for full sweep 
         verbosity > -1 && println("Finished sweep $itS. Time for sweep: $(round(time_elapsed,digits=2))s")
 
-        if log_level > 0
+        if opts.log_level > 0
 
             # compute the loss and acc on both training and validation sets
             train_loss, train_acc = MSE_loss_acc(W, training_states)
@@ -812,7 +839,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
     end
     normalize!(W)
     verbosity > -1 && println("\nMPS normalised!\n")
-    if log_level > 0
+    if opts.log_level > 0
 
         # compute the loss and acc on both training and validation sets
         train_loss, train_acc = MSE_loss_acc(W, training_states)

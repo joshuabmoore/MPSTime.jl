@@ -87,7 +87,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
                 X_test_fold = Xs[fold_test_idxs, :]
                 y_test_fold = ys[fold_test_idxs]
 
-                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold; chi_init=4, opts=opts, test_run=false)
+                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts; chi_init=4,  test_run=false)
                 fc = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0)
 
                 println("Finished training, beginning evaluation of imputed values...")

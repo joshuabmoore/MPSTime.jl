@@ -38,10 +38,10 @@ nsplits = 30
 accs = Vector{Float64}(undef, nsplits+1)
 
 if test_run
-    W, info, train_states, test_states, p = fitMPS(X_train, y_train,  X_test, y_test; opts=opts, test_run=true)
+    W, info, train_states, test_states, p = fitMPS(X_train, y_train,  X_test, y_test, opts; test_run=true)
     plot(p)
 else
-    W, info, train_states, test_states = fitMPS(X_train, y_train,X_test, y_test; opts=opts, test_run=false)
+    W, info, train_states, test_states = fitMPS(X_train, y_train,X_test, y_test, opts; test_run=false)
 
     print_opts(opts)
     summary = get_training_summary(W, train_states.timeseries, test_states.timeseries; print_stats=true);
@@ -80,7 +80,7 @@ for i in 1:nsplits
 
     f_ys_train = ys[tr_inds]
     f_ys_test = ys[te_inds]
-    _, info, _,_ = fitMPS(f_Xs_train, f_ys_train, f_Xs_test, f_ys_test;  opts=opts, test_run=false)
+    _, info, _,_ = fitMPS(f_Xs_train, f_ys_train, f_Xs_test, f_ys_test, opts; test_run=false)
     accs[i+1] = info["test_acc"][end]
 end
 

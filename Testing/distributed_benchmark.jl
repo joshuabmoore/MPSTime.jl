@@ -125,7 +125,7 @@ function benchmark(nfolds::Int, opts::AbstractMPSOptions, name::String, dloc::St
                 train_start = time()
                 GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(nworkers())
 
-                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, chi_init=4, opts=opts, test_run=false)
+                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts; chi_init=4,test_run=false)
                 println("training took $(round(time() - train_start; digits=3))s")
                 # begin imputation
                 imp = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0, dx=dx)

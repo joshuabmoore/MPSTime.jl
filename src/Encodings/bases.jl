@@ -1,9 +1,10 @@
 using KernelDensity
 
 # Sets of Basis Functions
-function uniform_encode(x::Float64, d::Int) # please don't use this unless it's auxilliary to some kind of splitting method
+function uniform_encode(x::Float64, d::Int) # please don't actually use this unless it's auxilliary to some kind of splitting method
     return [1 for _ in 1:d] / d
 end
+
 
 function angle_encode(x::Float64, d::Int; periods=1/4)
     @assert d == 2 "Stoudenmire Angle encoding only supports d = 2!"
@@ -129,22 +130,14 @@ sahand_legendre_encode(
 ) = sahand_legendre_encode(x, d, kdes[ti], minxs[ti], scales[ti], cVecs[ti])
 
 
-# test encode, constructs a time-dependent encoding that returns _encoding_
-# The test encoding should be of the form [b_1(x_1), b_2(x_2), b_3(x_3),..., b_N(x_N)]
-# where each b_i is a vector of length at least _d_
-function test_encode(testcase::AbstractVector)
-    function test_encode_helper(x::Float64, 
-        d::Integer, 
-        ti::Integer
-        )
 
-        return testcase[ti][1:d]
-    end
-    return test_encode_helper
+
+#### Initialisers
+# if no initialisation required
+function no_init(args...; kwargs...) 
+    return []
 end
 
-
-#### Projection Initialisers
 # Used generally
 function construct_kerneldensity_wavefunction(xs::AbstractVector{<:Real}, xs_samps::AbstractVector{<:Real}; bandwidth=nothing, kwargs...)
     kdense = isnothing(bandwidth) ? kde(xs) : kde(xs; bandwidth=bandwidth) 

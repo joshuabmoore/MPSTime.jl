@@ -54,7 +54,7 @@ svpath_ecg = "Data/ecg200/mps_saves/PL_d$(d)_chi$(chi_max).jld2"
 svpath_ipd = "Data/italypower/mps_saves/PL_d$(d)_chi$(chi_max).jld2"
 
 println("t: $(round(time()-tstart; digits=3)) ECG, d: $(d) chi: $(chi_max)")
-W, _... = fitMPS( ecg_X_train, ecg_y_train,ecg_X_test, ecg_y_test;  opts=opts, test_run=false)
+W, _... = fitMPS( ecg_X_train, ecg_y_train,ecg_X_test, ecg_y_test, opts; test_run=false)
 f = jldopen(svpath_ecg, "w")
         write(f, "mps", W)
         write(f, "opts", opts)
@@ -62,7 +62,7 @@ close(f)
 
 println("t: $(round(time()-tstart; digits=3)) IPD d: $(d) chi: $(chi_max)")
 
-W, _... = fitMPS( ipd_X_train, ipd_y_train,ipd_X_test, ipd_y_test;  opts=opts, test_run=false)
+W, _... = fitMPS( ipd_X_train, ipd_y_train,ipd_X_test, ipd_y_test, opts; test_run=false)
 f = jldopen(svpath_ipd, "w")
         write(f, "mps", W)
         write(f, "opts", opts)
@@ -84,7 +84,7 @@ close(f)
 # svpath_ipd = "Data/italypower/mps_saves/L_d$(d)_chi$(chi_max).jld2"
 
 # println("t: $(round(time()-tstart; digits=3)) ECG, d: $(d) chi: $(chi_max)")
-# W, _... = fitMPS( ecg_X_train, ecg_y_train,ecg_X_test, ecg_y_test;  opts=opts, test_run=false)
+# W, _... = fitMPS( ecg_X_train, ecg_y_train,ecg_X_test, ecg_y_test, opts; test_run=false)
 # f = jldopen(svpath_ecg, "w")
 #         write(f, "mps", W)
 #         write(f, "opts", opts)
@@ -92,7 +92,7 @@ close(f)
 
 # println("t: $(round(time()-tstart; digits=3)) IPD d: $(d) chi: $(chi_max)")
 
-# W, _... = fitMPS( ipd_X_train, ipd_y_train,ipd_X_test, ipd_y_test;  opts=opts, test_run=false)
+# W, _... = fitMPS( ipd_X_train, ipd_y_train,ipd_X_test, ipd_y_test, opts; test_run=false)
 # f = jldopen(svpath_ipd, "w")
 #         write(f, "mps", W)
 #         write(f, "opts", opts)
@@ -111,7 +111,7 @@ close(f)
 # svpath_ipd = "Data/italypower/mps_saves/L_d$(d)_chi$(chi_max).jld2"
 
 # println("t: $(round(time()-tstart; digits=3)) ECG, d: $(d) chi: $(chi_max)")
-# W, _... = fitMPS( ecg_X_train, ecg_y_train,ecg_X_test, ecg_y_test;  opts=opts, test_run=false)
+# W, _... = fitMPS( ecg_X_train, ecg_y_train,ecg_X_test, ecg_y_test, opts; test_run=false)
 # f = jldopen(svpath_ecg, "w")
 #         write(f, "mps", W)
 #         write(f, "opts", opts)
@@ -119,7 +119,7 @@ close(f)
 
 # println("t: $(round(time()-tstart; digits=3)) IPD d: $(d) chi: $(chi_max)")
 
-# W, _... = fitMPS( ipd_X_train, ipd_y_train,ipd_X_test, ipd_y_test;  opts=opts, test_run=false)
+# W, _... = fitMPS( ipd_X_train, ipd_y_train,ipd_X_test, ipd_y_test, opts; test_run=false)
 # f = jldopen(svpath_ipd, "w")
 #         write(f, "mps", W)
 #         write(f, "opts", opts)

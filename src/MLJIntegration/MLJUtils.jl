@@ -23,7 +23,6 @@ function encoderows(sites::AbstractVector{<:Index{<:Integer}}, opts::Options, Xs
         @warn "Using a complex valued MPS but the encoding is real"
     end
 
-    @assert !(opts.encode_classes_separately && opts.encoding.isbalanced) "Attempting to balance classes while encoding separately is ambiguous"
 
     # generate the starting MPS with uniform bond dimension chi_init and random values (with seed if provided)
     classes = unique(ys)

@@ -145,9 +145,9 @@ function Options(;
 end
 
 function model_encoding(s::Symbol, proj::Bool=false)
-    if s in [:Legendre_No_Norm, :legendre_no_norm]
+    if s in [:Legendre_No_Norm, :legendre_no_norm, :Legendre, :legendre]
         enc = legendre_no_norm(project=proj)
-    elseif s in [:Legendre, :legendre]
+    elseif s in [:Legendre_Norm, :legendre_norm]
         enc = legendre(project=proj)
     elseif s in [:Stoudenmire, :stoudenmire]
         enc = stoudenmire()
@@ -159,6 +159,12 @@ function model_encoding(s::Symbol, proj::Bool=false)
         enc = sahand_legendre(false)
     elseif s in [:SLTD, :Sahand_Legendre_Time_Dependent, :sahand_legendre_time_dependent]
         enc = sahand_legendre(true)
+    elseif s in [:Uniform, :uniform]
+        enc = uniform()
+    elseif s in [:Custom, :custom]
+        enc = erf()  # placeholder
+    else
+        raise(ArgumentError("Unknown encoding function. Please use one of :Legendre, Stoudenmire, :Fourier, Sahand_Legendre, etc."))
     end
     return enc
 end
@@ -199,7 +205,7 @@ function Options(m::MPSOptions)
 
 end
 
-# ability to "modify" options. Useful in very specific cases #TODO add '!' to end of name
+# ability to "modify" options. Useful in very specific cases.
 function _set_options(opts::AbstractMPSOptions; kwargs...)
     properties = propertynames(opts)
     kwkeys = keys(kwargs)

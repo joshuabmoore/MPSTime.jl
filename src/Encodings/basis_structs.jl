@@ -1,82 +1,14 @@
 # timeseries encoding shell
 abstract type Encoding end
 
-function Encoding(s::String)  # probably should not be called directly
-    if occursin("Split", titlecase(s))
-        return SplitBasis(s)
-    else
-        return Basis(s)
-    end
-end
-
-
 struct Basis <: Encoding # probably should not be called directly
     name::String
-    init::Union{Function,Nothing}
+    init::Union{Function}
     encode::Function
     iscomplex::Bool
     istimedependent::Bool
-    isbalanced::Bool
     range::Tuple{Real, Real}
-    project::Bool
-    # Basis(s::String,init::Union{Function,Nothing}, enc::Function, isc::Bool, istd::Bool, isb, range::Tuple{Real, Real}) = begin
-    #     if !(titlecase(s) in ["Stoud", "Stoudenmire", "Fourier", "Sahand", "Legendre", "Uniform", "Legendre_No_Norm"]) 
-    #         error("""Unknown Basis "$s", options are [\"Stoud\", \"Stoudenmire\", \"Fourier\", \"Sahand\", \"Legendre\", "Uniform", "Legendre_No_Norm"]""")
-    #     end
-    #     new(s, init, enc, isc, istd, isb, range)
-    # end
 end
-
-
-function Basis(s::AbstractString)
-    @warn("Calling Basis(basis_name::String) is deprecated and may lead to unexpected results. Call the function $(lowercase(s))() instead.")
-    sl = titlecase(s)
-    init = nothing
-    project = false
-    if sl == "Stoud" || sl == "Stoudenmire"
-        sl = "Stoudenmire" 
-        enc = angle_encode
-        iscomplex=true
-        istimedependent=false
-        isbalanced=false
-        range = (0,1)
-    elseif sl == "Fourier"
-        enc = fourier_encode
-        iscomplex=true
-        istimedependent=false
-        isbalanced=false
-        range = (-1,1)
-    elseif sl == "Sahand"
-        enc = sahand_encode
-        iscomplex=true
-        istimedependent=false
-        isbalanced=false
-        range = (0,1)
-    elseif sl in ["Legendre", "Lengendre_Norm"]
-        sl = "Legendre_Norm"
-        enc = legendre_encode
-        iscomplex = false
-        istimedependent=false
-        isbalanced=false
-        range = (-1,1)
-    elseif sl == "Legendre_No_Norm"
-        enc = (args...) -> legendre_encode(args...; norm=false)
-        iscomplex = false
-        istimedependent=false
-        isbalanced=false
-        range = (-1,1)
-    elseif sl =="Uniform"
-        enc = uniform_encode
-        iscomplex = false
-        istimedependent=false
-        isbalanced=false
-        range = (0,1)
-    else
-        error("Unknown Basis name!")
-    end
-    return Basis(sl, init, enc, iscomplex, istimedependent,isbalanced, range, project)
-end
-
 
 
 function Base.show(io::IO, E::Basis)
@@ -86,13 +18,12 @@ end
 # Splitting up into a time dependent histogram
 struct SplitBasis <: Encoding
     name::String
-    init::Union{Function,Nothing}
+    init::Union{Function}
     splitmethod::Function
     basis::Basis
     encode::Function
     iscomplex::Bool
     istimedependent::Bool
-    isbalanced::Bool
     range::Tuple{Real, Real}
     SplitBasis(s::String, init::Union{Function,Nothing}, spm::Function, basis::Basis, enc::Function, isc::Bool, istd::Bool, isb, range::Tuple{Real, Real}) = begin
         # spname = replace(s, Regex(" "*basis.name*"\$")=>"") # strip the basis name from the end
@@ -111,49 +42,6 @@ struct SplitBasis <: Encoding
     end
 end
 
-function SplitBasis(s::AbstractString)
-    return SplitBasis(String.(rsplit(s; limit=2))...)
-end
-
-function SplitBasis(s::AbstractString, bn::AbstractString)
-    basis = Basis(bn)
-    isc = basis.iscomplex
-    range = basis.range
-
-    spname = replace(s, Regex(" "*basis.name*"\$")=>"")
-
-    spl = String.(rsplit(spname; limit=2))
-
-    if titlecase(spl[2]) == "Balanced"
-        st = spl[1]
-        isb = true
-    else
-        st = spname
-        isb = false
-    end
-
-    st = titlecase(st)
-
-    if st in ["Hist Split", "Histogram Split"]
-        st = "Histogram Split"
-        init = hist_split_init
-        splitmethod = hist_split
-        istd = true
-        enc = project_onto_hist_bins
-
-    elseif st == "Uniform Split"
-        init = unif_split_init
-        splitmethod = unif_split
-        istd = basis.istimedependent # if the aux. basis _is_ time dependent we have to treat the entire split as such
-        enc = project_onto_unif_bins
-    else
-        error("Unknown split type \"$st\"")
-    end
-
-    return SplitBasis(titlecase(spname)*" "*basis.name,init, splitmethod, basis, enc, isc, istd, isb, range)
-
-end
-
 function Base.show(io::IO, E::SplitBasis)
     print(io,"SplitBasis($(E.name))")
 end
@@ -162,41 +50,38 @@ end
 ##############################################
 
 function stoudenmire()
-    project = false
     sl = "Stoudenmire" 
     enc = angle_encode
     iscomplex=true
     istimedependent=false
-    isbalanced=false
     range = (0,1)
     init = nothing
 
-    return Basis(sl, init, enc, iscomplex, istimedependent, isbalanced, range, project)
+    return Basis(sl, init, enc, iscomplex, istimedependent, range)
 end
 
 
 function fourier(; project=false)
-    sl = "Fourier"
+    sl = project ? "Projected Fourier" : "Fourier"
     enc = fourier_encode
     iscomplex=true
     istimedependent=project
-    isbalanced=false
     range = (-1,1)
-    init = project ? project_fourier : nothing
+    init = project ? project_fourier : no_init
 
-    return Basis(sl, init, enc, iscomplex, istimedependent, isbalanced, range, project)
+    return Basis(sl, init, enc, iscomplex, istimedependent, range)
 end
 
 function legendre(; norm=false, project=false)
-    sl = norm ? "Legendre_Norm" : "Legendre_No_Norm"
+    sl = norm ? "Legendre_Norm" : "Legendre"
+    sl = project ? "Projected "* sl : sl
     enc = norm ? legendre_encode : legendre_encode_no_norm
     iscomplex = false
     istimedependent=project
-    isbalanced=false
     range = (-1,1)
-    init = project ? project_legendre : nothing
+    init = project ? project_legendre : no_init
 
-    return Basis(sl, init, enc, iscomplex, istimedependent, isbalanced, range, project)
+    return Basis(sl, init, enc, iscomplex, istimedependent, range)
 end
 
 legendre_no_norm(; project=false) = legendre(; norm=false, project) 
@@ -206,79 +91,84 @@ function sahand_legendre(istimedependent::Bool=true)
     enc = sahand_legendre_encode
     iscomplex = false
     istimedependent=istimedependent
-    isbalanced=false
     range = (-1,1)
     init = istimedependent ?  init_sahand_legendre_time_dependent : init_sahand_legendre
-    project=false
 
-    return Basis(sl, init, enc, iscomplex, istimedependent, isbalanced, range, project)
+    return Basis(sl, init, enc, iscomplex, istimedependent, range)
 end
 
 function sahand()
-    project = false
     sl = "Sahand"
     enc = sahand_encode
     iscomplex=true
     istimedependent=false
-    isbalanced=false
     range = (0,1)
-    init = nothing
+    init = no_init
 
-    return Basis(sl, init, enc, iscomplex, istimedependent, isbalanced, range, project)
+    return Basis(sl, init, enc, iscomplex, istimedependent, range)
 end
 
-function _uniform()
-    project = false
+function uniform()
     sl = "Uniform"
     enc = uniform_encode
     iscomplex = false
     istimedependent=false
-    isbalanced=false
     range = (0,1)
-    init = nothing
+    init = no_init
 
-    return Basis(sl, init, enc, iscomplex, istimedependent, isbalanced, range, project)
+    return Basis(sl, init, enc, iscomplex, istimedependent, range)
+end
+
+# the error function Basis, raises an error (used as a placeholder only)
+function erf()
+    f = _ -> error("Tried to use a basis that isn't implemented")
+    iscomplex = false # POSIX compliant error function
+    istimedependent = false
+    range = (-1,1)
+    return Basis("Pun Intended", no_init, basis, iscomplex, istimedependent, range)
 end
 
 
-function histsplit(basis::Basis; balanced=false)
+# constructs a time-dependent encoding from a function
+# For a time independent basis, the input function must have the signature :
+# b(x::Float64, d:Integer, init_args...) and return a d-dimensional Numerical Vector
+# A vector [x_1, x_2, x_3, ..., x_N] will be encoded as [b(x_1), b(x_2), b(x_3),..., b(x_N)]
+# To use a time dependent basis, set is_time_dependent to true. The input function must have the signature 
+# b(x::Float64, d:Integer, ti::Int, init_args...) and return a d-dimensional Numerical Vector
+# A vector [x_1, x_2, x_3, ..., x_N] will be encoded as  [b_1(x_1), b_2(x_2), b_3(x_3),..., b_N(x_N)]
+function construct_basis(basis::Function, is_complex::Bool, range::Tuple{<:Real,<:Real}, init::Function=no_init; is_time_dependent::Bool=false, name::String="Custom" )
+    return Basis(name, init, basis, is_complex, is_time_dependent, range)
+end
+
+function hist_split(basis::Basis)
     isc = basis.iscomplex
     range = basis.range
 
-    bstr = balanced ? "Balanced " : ""
-    name = bstr * "Hist. Split $(basis.name)" 
+    name = "Hist. Split $(basis.name)" 
 
     init = hist_split_init
     splitmethod = hist_split
     istd = true
     enc = project_onto_hist_bins
 
-    return SplitBasis(name, init, splitmethod, basis, enc, isc, istd, balanced, range)
+    return SplitBasis(name, init, splitmethod, basis, enc, isc, istd, range)
 
 end
 
-function unifsplit(basis::Basis; balanced=false)
+function uniform_split(basis::Basis)
     isc = basis.iscomplex
     range = basis.range
 
-    bstr = balanced ? "Balanced " : ""
-    name = bstr * "Unif. Split $(basis.name)" 
+    name = "Unif. Split $(basis.name)" 
 
     init = unif_split_init
     splitmethod = unif_split
     istd = basis.istimedependent # if the aux. basis _is_ time dependent we have to treat the entire split as such
     enc = project_onto_unif_bins
 
-    return SplitBasis(name, init, splitmethod, basis, enc, isc, istd, balanced, range)
+    return SplitBasis(name, init, splitmethod, basis, enc, isc, istd, range)
 
 end
 
-histsplit(; balanced=false) = histsplit(_uniform(); balanced=balanced)
-unifsplit(; balanced=false) = unifsplit(_uniform(); balanced=balanced)
-
-
-function construct_basis()
-
-
-end
-
+hist_split() = hist_split(uniform())
+uniform_split() = uniform_split(uniform())
