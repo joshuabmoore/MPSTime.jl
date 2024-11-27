@@ -19,7 +19,6 @@ using OptimKit
 using Normalization # Standardised normalisation by Brendan :). Used to do the preprocessing / denormalising steps
 
 
-
 using LegendrePolynomials # For legendre polynomial basis
 using KernelDensity # Used for histogram-derived data-driven bases
 

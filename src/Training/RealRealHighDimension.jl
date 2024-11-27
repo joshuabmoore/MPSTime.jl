@@ -1,5 +1,5 @@
-function generate_startingMPS(chi_init::Integer, site_indices::Vector{Index{T}};
-    num_classes, random_state=nothing, label_tag::String="f(x)", opts::Options=Options(), verbosity::Real=opts.verbosity, dtype::DataType=opts.dtype) where {T <: Integer}
+function generate_startingMPS(chi_init::Integer, site_indices::Vector{Index{T}}, num_classes::Integer, opts::Options;
+    random_state=nothing, label_tag::String="f(x)", verbosity::Real=opts.verbosity, dtype::DataType=opts.dtype) where {T <: Integer}
     """Generate the starting weight MPS, W using values sampled from a 
     Gaussian (normal) distribution. Accepts a chi_init parameter which
     specifies the initial (uniform) bond dimension of the MPS."""
@@ -420,23 +420,23 @@ function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::M
 
     # generate the starting MPS with uniform bond dimension chi_init and random values (with seed if provided)
     num_classes = length(unique(y_train))
-    W = generate_startingMPS(chi_init, sites; num_classes=num_classes, random_state=random_state, opts=opts)
+    W = generate_startingMPS(chi_init, sites, num_classes, opts; random_state=random_state)
 
     return fitMPS(DIS, W, X_train, y_train, X_test, y_test, opts; kwargs...)
     
 end
 
-function fitMPS(::DataIsRescaled{false}, W::MPS, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector, opts::AbstractMPSOptions; kwargs...)
+function fitMPS(::DataIsRescaled{false}, W::MPS, X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions; kwargs...)
     @assert eltype(W[1]) == opts.dtype  "The MPS elements are of type $(eltype(W[1])) but the datatype is opts.dtype=$(opts.dtype)"
     opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
     
     X_train_scaled, X_test_scaled, norms, oob_rescales = transform_data(permutedims(X_train), permutedims(X_test); opts=opts)
     
-    return fitMPS(DataIsRescaled{true}(), W, X_train_scaled, y_train, X_test_scaled, y_test, opts, kwargs...)
+    return fitMPS(DataIsRescaled{true}(), W, X_train_scaled, y_train, X_test_scaled, y_test, opts; kwargs...)
 
 end
 
-function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector, opts::AbstractMPSOptions; test_run=false, return_sample_encoding::Bool=false)
+function fitMPS(::DataIsRescaled{true}, W::MPS, X_train_scaled::Matrix, y_train::Vector, X_test_scaled::Matrix, y_test::Vector, opts::AbstractMPSOptions; test_run=false, return_sample_encoding::Bool=false)
     opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
     # first, get the site indices for the product states from the MPS
     sites = get_siteinds(W)
@@ -536,7 +536,7 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, y_train::Vector
         push!(extra_args, enc_args)
     end
 
-    return [fitMPS(W, training_states, testing_states, opts, test_run=test_run)..., extra_args... ]
+    return [fitMPS(W, training_states, testing_states, opts; test_run=test_run)..., extra_args... ]
 end
 
 function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet, opts::AbstractMPSOptions;
@@ -552,7 +552,7 @@ function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta:
 
     # generate the starting MPS with unfirom bond dimension chi_init and random values (with seed if provided)
     num_classes = length(unique([ps.label for ps in training_states]))
-    W = generate_startingMPS(chi_init, sites; num_classes=num_classes, random_state=random_state, opts=opts)
+    W = generate_startingMPS(chi_init, sites, num_classes, opts; random_state=random_state)
 
     fitMPS(W, training_states_meta, testing_states_meta, opts, test_run=test_run)
 
@@ -579,12 +579,13 @@ Options
     encode_classes_separately::Bool # only relevant for a histogram splitbasis. If true, then the histogram used to determine the bin widths for encoding class A is composed of only data from class A, etc. Functionally, this causes the encoding method to vary depending on the class
     return_encoding_meta_info::Bool # Whether to return the normalised data as well as the histogram bins for the splitbasis types
     """
-function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet; 
-     opts::AbstractMPSOptions=Options(), test_run=false) # optimise bond tensor)
+function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet, opts::AbstractMPSOptions=Options(); test_run=false) # optimise bond tensor)
      opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
 
 
     verbosity = opts.verbosity
+    nsweeps = opts.nsweeps
+
     if test_run
         verbosity > -1 && println("Encoding completed! Returning initial states without training.")
         return W, [], training_states, testing_states, []
@@ -620,7 +621,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
 
     has_test = !isempty(y_test)
 
-    verbosity > -1 && println("Using $update_iters iterations per update.")
+    verbosity > -1 && println("Using $opts.update_iters iterations per update.")
     # construct initial caches
     LE, RE = construct_caches(W, training_states; going_left=true, dtype=opts.dtype)
 
@@ -713,7 +714,9 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
     dtype = opts.dtype
     track_cost = opts.track_cost
     eta = opts.eta
+    chi_max = opts.chi_max
     rescale = opts.rescale
+    cutoff=opts.cutoff
     for itS = 1:opts.nsweeps
         
         start = time()

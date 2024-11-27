@@ -238,8 +238,8 @@ function transform_test_data(X_test::AbstractMatrix, norms::Vector{<:Union{Nothi
             trans = Real[i, 0.,1.] # the "Real" is to stop a conversion to Vector{Float}, as this will cause an indexerror later
             lb, ub = extrema(ts)
             if lb < 0
-                if opts.verbosity > -5 && abs(lb) > 0.01 
-                    @warn "Test set has a value more than 1% below lower bound after train normalization! lb=$lb"
+                if opts.verbosity > 5 && abs(lb) > 0.01 
+                    @warn "Test series has a value more than 1% below lower bound after train normalization! lb=$lb"
                 end
                 num_ts_scaled += 1
                 ts .-= lb
@@ -248,8 +248,8 @@ function transform_test_data(X_test::AbstractMatrix, norms::Vector{<:Union{Nothi
             end
 
             if ub > 1
-                if opts.verbosity > -5 && abs(ub-1) > 0.01 
-                    @warn "Test set has a value more than 1% above upper bound after train normalization! ub=$ub"
+                if opts.verbosity > 5 && abs(ub-1) > 0.01 
+                    @warn "Test series has a value more than 1% above upper bound after train normalization! ub=$ub"
                 end
                 num_ts_scaled += 1
                 ts  ./= ub
@@ -261,7 +261,7 @@ function transform_test_data(X_test::AbstractMatrix, norms::Vector{<:Union{Nothi
         end
 
         if opts.verbosity > -1 && num_ts_scaled >0
-            println("$num_ts_scaled rescaling operations were performed!")
+            println("The test set couldn't be perfectly rescaled by the training set normalization, $num_ts_scaled additional rescaling operations had to be performed!")
         end
     end
 

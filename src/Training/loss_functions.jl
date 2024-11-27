@@ -1,5 +1,5 @@
 contract_tensor = ITensors._contract
-*(t1::Tensor, t2::Tensor) = contract_tensor(t1, t2)
+⊗(t1::Tensor, t2::Tensor) = contract_tensor(t1, t2)
 
 abstract type LossFunction <: Function end
 
@@ -39,32 +39,32 @@ function yhat_phitilde_left(BT::Tensor, LEP::PCacheCol, REP::PCacheCol,
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
             # @show inds(phi_tilde)
-            # @show inds(conj.(psl*psr) * rc)
-            @inbounds @fastmath phi_tilde =  conj.(psr) * rc * conj.(psl)
+            # @show inds(conj.(psl⊗psr) ⊗ rc)
+            @inbounds @fastmath phi_tilde =  conj.(psr) ⊗ rc ⊗ conj.(psl)
         end
        
     elseif rid == length(ps)
         lc = tensor(LEP[lid-1])
     
         # terminal site, no RE
-        # temp = $*(conj($*(psr * psl)),
+        # temp = $⊗(conj($⊗(psr ⊗ psl)),
         # lc)
 
         # @show inds(phi_tilde)
         # @show inds(temp)
-        @inbounds @fastmath phi_tilde =  conj(psr * psl) * lc
+        @inbounds @fastmath phi_tilde =  conj(psr ⊗ psl) ⊗ lc
 
     else
         rc = tensor(REP[rid+1])
         lc = tensor(LEP[lid-1])
 
         
-        # tmp = *(*(*(conj(psr), rc), 
+        # tmp = ⊗(⊗(⊗(conj(psr), rc), 
         # conj(psl)), lc )
 
         # @show inds(phi_tilde)
         # @show inds(tmp)
-        @inbounds @fastmath phi_tilde =  conj(psr) * rc * conj(psl) * lc
+        @inbounds @fastmath phi_tilde =  conj(psr) ⊗ rc ⊗ conj(psl) ⊗ lc
 
     end
 
@@ -74,7 +74,7 @@ function yhat_phitilde_left(BT::Tensor, LEP::PCacheCol, REP::PCacheCol,
     # end
 
 
-    @inbounds @fastmath yhat = BT * phi_tilde # NOT a complex inner product !! 
+    @inbounds @fastmath yhat = BT ⊗ phi_tilde # NOT a complex inner product !! 
 
     return yhat, phi_tilde
 
@@ -96,23 +96,23 @@ function yhat_phitilde_right(BT::Tensor, LEP::PCacheCol, REP::PCacheCol,
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
             # @show inds(phi_tilde)
-            @inbounds @fastmath phi_tilde =  conj(psl *psr) * rc
+            @inbounds @fastmath phi_tilde =  conj(psl ⊗psr) ⊗ rc
         end
        
     elseif rid == length(ps)
         @inbounds lc = tensor(LEP[lid-1])
     
         # terminal site, no RE
-        @inbounds @fastmath phi_tilde = conj(psl) * lc * conj(psr)
+        @inbounds @fastmath phi_tilde = conj(psl) ⊗ lc ⊗ conj(psr)
 
     else
         @inbounds rc = tensor(REP[rid+1])
         @inbounds lc = tensor(LEP[lid-1])
         # going right
-        @inbounds @fastmath phi_tilde = conj(psl) * lc * conj(psr) * rc 
+        @inbounds @fastmath phi_tilde = conj(psl) ⊗ lc ⊗ conj(psr) ⊗ rc 
 
         # we are in the bulk, both LE and RE exist
-        # phi_tilde *= LEP[lid-1] * REP[rid+1]
+        # phi_tilde ⊗= LEP[lid-1] ⊗ REP[rid+1]
 
     end
 
@@ -121,7 +121,7 @@ function yhat_phitilde_right(BT::Tensor, LEP::PCacheCol, REP::PCacheCol,
     #     @show(inds(phi_tilde))
     # end
 
-    @inbounds @fastmath yhat = BT * phi_tilde # NOT a complex inner product !! 
+    @inbounds @fastmath yhat = BT ⊗ phi_tilde # NOT a complex inner product !! 
 
     return yhat, phi_tilde
 
