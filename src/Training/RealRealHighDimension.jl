@@ -375,7 +375,7 @@ end
 # This is the intended entrypoint for calls to fitMPS, so input sanitisation can be done here
 # If you call a method further down it's assumed you know what you're doing
 #TODO fix the opts so it isnt such a disaster
-function fitMPS(X_train::Matrix, X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), encoding::Union{Function, Nothing}=nothing; random_state=nothing, chi_init=nothing, kwargs...)    
+function fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), encoding::Union{Function, Nothing}=nothing; random_state=nothing, chi_init=nothing, kwargs...)    
     # handle how the encoding is specified
     if opts isa Options
         @warn("Calling fitMPS with the Options struct is deprecated and can lead to serialisation issues! Use the MPSOptions struct instead.")
@@ -400,7 +400,7 @@ function fitMPS(X_train::Matrix, X_train::AbstractMatrix, y_train::AbstractVecto
 
     
 
-    return fitMPS(DataIsRescaled{false}(), X_train, y_train, X_test, y_test, opts; random_state=nothing, chi_init=nothing, kwargs...) 
+    return fitMPS(DataIsRescaled{false}(), X_train, y_train, X_test, y_test, opts; random_state=random_state, chi_init=chi_init, kwargs...) 
 end
 
 
@@ -408,7 +408,7 @@ function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::M
     # first, create the site indices for the MPS and product states 
     
 
-    opts, random_state, chi_init = safe_options(opts, random_state, chi_init) # make sure options is abstract
+    opts, random_state, chi_init = safe_options(opts, random_state, chi_init) # make sure options isnt abstract
 
 
     if DIS isa DataIsRescaled{false}
@@ -422,7 +422,7 @@ function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::M
     num_classes = length(unique(y_train))
     W = generate_startingMPS(chi_init, sites; num_classes=num_classes, random_state=random_state, opts=opts)
 
-    return fitMPS(DIS, W, X_train, y_train, X_test, y_test; opts=opts, kwargs...)
+    return fitMPS(DIS, W, X_train, y_train, X_test, y_test, opts; kwargs...)
     
 end
 
@@ -432,7 +432,7 @@ function fitMPS(::DataIsRescaled{false}, W::MPS, X_train::Matrix, y_train::Vecto
     
     X_train_scaled, X_test_scaled, norms, oob_rescales = transform_data(permutedims(X_train), permutedims(X_test); opts=opts)
     
-    return fitMPS(DataIsRescaled{true}(), W, X_train_scaled, y_train, X_test_scaled, y_test; opts=opts, kwargs...)
+    return fitMPS(DataIsRescaled{true}(), W, X_train_scaled, y_train, X_test_scaled, y_test, opts, kwargs...)
 
 end
 
@@ -536,7 +536,7 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, y_train::Vector
         push!(extra_args, enc_args)
     end
 
-    return [fitMPS(W, training_states, testing_states; opts=opts, test_run=test_run)..., extra_args... ]
+    return [fitMPS(W, training_states, testing_states, opts, test_run=test_run)..., extra_args... ]
 end
 
 function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet, opts::AbstractMPSOptions;
@@ -554,7 +554,7 @@ function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta:
     num_classes = length(unique([ps.label for ps in training_states]))
     W = generate_startingMPS(chi_init, sites; num_classes=num_classes, random_state=random_state, opts=opts)
 
-    fitMPS(W, training_states_meta, testing_states_meta; opts=opts, test_run=test_run)
+    fitMPS(W, training_states_meta, testing_states_meta, opts, test_run=test_run)
 
 end
 

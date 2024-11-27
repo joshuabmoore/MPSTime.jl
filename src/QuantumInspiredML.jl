@@ -50,8 +50,10 @@ import MLJTuning # Custom imputation tuning algorithm
 using MLJParticleSwarmOptimization # Used in hyperparameter tuning
 
 # Custom Data Structures and types - include first
-include("Structs/structs.jl")
-include("Structs/options.jl")
+include("Structs/structs.jl") # Structs used to hold data during training, useful value types, and wrapper types like "BBOpt"
+include("Encodings/basis_structs.jl") # Definition of "Encoding", "Basis", etc
+include("Structs/options.jl") # Options and MPSOptions types, require the "Encoding" type to be defined 
+
 
 # Functions and structs used to define basis functions / encodings
 include("Encodings/encodings.jl")
