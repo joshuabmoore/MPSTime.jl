@@ -25,7 +25,7 @@ function revise_history!(Xs_train::Matrix, ys_train::Vector, impute_sites::Vecto
             dec, mopts, W = e.fitted_params_per_fold[fold][1]
             # @show hi, fold, W[1][1], W[1][2]
             # @show mopts.eta, mopts.chi_max
-            opts, _... = safe_options(mopts, nothing, nothing) # make sure options is abstract
+            opts = safe_options(mopts) # make sure options isnt abstract
 
             train_idxs, val_idxs = e.train_test_rows[fold]
             Xs_train_fold, ys_train_fold = Xs_train[train_idxs, :], ys_train[train_idxs]

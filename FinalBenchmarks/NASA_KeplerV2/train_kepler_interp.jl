@@ -26,7 +26,7 @@ opts=MPSOptions(; nsweeps=1, chi_max=chi_max,  update_iters=1, verbosity=verbosi
     bbopt=:TSGO, track_cost=track_cost, eta=1.0, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
     encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
     exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4)
-opts_safe, _... = safe_options(opts, nothing, nothing)
+opts_safe = safe_options(opts)
 
 W, info, train_states, test_states = fitMPS(X_train, y_train, X_test, y_test, opts; chi_init=4,  test_run=false)
 fstyle=font("sans-serif", 23)

@@ -16,6 +16,7 @@ mutable struct ImputationProblem
     opts::Options
     enc_args::Vector{Any}
     x_guess_range::EncodedDataRange
+    class_map::Vector{Any}
 end
 
 # probably redundant if enc args are provided externally from training
@@ -59,7 +60,7 @@ function init_imputation_problem(
     issue is resolved."""
 
     if opts isa MPSOptions
-        _, _, opts = Options(opts)
+        opts = Options(opts)
     end
 
     if isnothing(guess_range)
@@ -87,7 +88,7 @@ function init_imputation_problem(
     xvals=collect(range(guess_range...; step=dx))
     site_index=Index(opts.d)
     if opts.encoding.istimedependent
-        println("Pre-computing possible encoded values of x_t, this may take a while... ")
+        verbosity > -2 && println("Pre-computing possible encoded values of x_t, this may take a while... ")
         # be careful with this variable, for d=20, length(mps)=100, this is nearly 1GB for a basis that returns complex floats
         xvals_enc = [[get_state(x, opts, j, enc_args) for x in xvals] for j in 1:length(mps)] # a proper nightmare of preallocation, but necessary
     else
@@ -98,14 +99,23 @@ function init_imputation_problem(
     x_guess_range = EncodedDataRange(dx, guess_range, xvals, site_index, xvals_enc)
     mpss, l_ind = expand_label_index(mps)
 
-    imp_prob = ImputationProblem(mpss, X_train, y_train, X_test, y_test, opts, enc_args, x_guess_range);
+    classes_unique = sort(unique(y_train))
+    class_map = {}
+    for (i, class) in enumerate(classes_unique)
+        class_map[i] = class
+    end
+    imp_prob = ImputationProblem(mpss, X_train, y_train, X_test, y_test, opts, enc_args, x_guess_range, class_map);
 
     verbosity > 0 && println("\n Created $num_classes ImputationProblem struct(s) containing class-wise mps and test samples.")
 
-
-
     return imp_prob
 
+end
+
+
+function init_imputation_problem(mps::TrainedMPS, args...; kwargs...)
+    y_train = [ts.label for ts in mps.train_data.timeseries]
+    return init_imputation_problem(mps.mps, mps.train_data.original_data, y_train, args..., mps.opts_concrete; kwargs...)
 end
 
 
@@ -117,7 +127,7 @@ function NN_impute(
         n_ts::Integer=1,
     )
 
-    mps = imp.mpss[which_class+1]
+    mps = imp.mpss[imp.class_map[which_class]]
     X_train = imp.X_train
     y_train = imp.y_train
 
@@ -166,7 +176,7 @@ function get_predictions(
     X_test = imp.X_test
     X_train = imp.X_train
 
-    mps = imp.mpss[which_class + 1]
+    mps = imp.mpss[imp.class_map[which_class]]
     cl_inds = (1:length(imp.y_test))[imp.y_test .== which_class] # For backwards compatibility reasons
     target_ts_raw = imp.X_test[cl_inds[which_sample], :]
     target_timeseries= deepcopy(target_ts_raw)
@@ -266,7 +276,7 @@ function MPS_impute(
     )
 
 
-    mps = imp.mpss[which_class + 1]
+    mps = imp.mpss[imp.class_map[which_class]]
     chi_mps = maxlinkdim(mps)
     d_mps = siteinds(mps)[1] |> ITensors.dim
     enc_name = imp.opts.encoding.name
@@ -350,7 +360,7 @@ function get_rdms(
     X_test = imp.X_test
     X_train = imp.X_train
 
-    mps = imp.mpss[which_class + 1]
+    mps = imp.mpss[imp.class_map[which_class]]
     cl_inds = (1:length(imp.y_test))[imp.y_test .== which_class] # For backwards compatibility reasons
     target_ts_raw = imp.X_test[cl_inds[which_sample], :]
     target_timeseries = deepcopy(target_ts_raw)

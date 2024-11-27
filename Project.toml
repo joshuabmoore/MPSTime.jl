@@ -1,7 +1,7 @@
 name = "QuantumInspiredML"
 uuid = "eb700b73-10a3-43ef-8a93-3d3908a35bf8"
 authors = ["Joshua Moore <joshua.moore@sydney.edu.au", "Hugo Stackhouse <hugo.stackhouse@sydney.edu.au>"]
-version = "0.8.0-DEV"
+version = "0.1.0-DEV"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"

@@ -159,7 +159,7 @@ end
 
 
 function transform_train_data(X_train::AbstractMatrix; opts::AbstractMPSOptions)
-    opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
+    opts = safe_options(opts) # make sure options is abstract
     # now let's handle the training/testing data
     # rescale using a robust sigmoid transform
     #  Assumes TS are cols 
@@ -203,7 +203,7 @@ function transform_test_data(X_test::AbstractMatrix, norms::Vector{<:Union{Nothi
     if isempty(X_test)
         return copy(X_test), []
     end
-    opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
+    opts = safe_options(opts) # make sure options is abstract
     # now let's handle the training/testing data
     # rescale using a robust sigmoid transform
     # Assumes TS are cols
@@ -295,7 +295,7 @@ function invert_test_transform(X_test_scaled::Matrix, oob_rescales::AbstractVect
     if isempty(X_test_scaled)
         return copy(X_test_scaled), []
     end
-    opts, _... = safe_options(opts, nothing, nothing) # make sure options is abstract
+    opts = safe_options(opts) # make sure options is abstract
     
     # map back from the domain of the encoding
     a,b = opts.encoding.range

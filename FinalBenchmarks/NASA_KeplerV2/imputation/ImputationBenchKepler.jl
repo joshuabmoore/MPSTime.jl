@@ -52,7 +52,7 @@ function run_folds(folds::Vector{Tuple{Vector{Any}, Vector{Any}}}, window_idxs::
         bbopt=:TSGO, track_cost=track_cost, eta=0.1, rescale=(false, true), d=d, aux_basis_dim=2, encoding=encoding,
         encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately,
         exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4)
-    opts_safe, _... = safe_options(opts, nothing, nothing)
+    opts_safe = safe_options(opts)
 
     dx = 5e-3
     mode_range = (-1, 1)

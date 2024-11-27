@@ -96,7 +96,7 @@ function yhat_phitilde_right(BT::Tensor, LEP::PCacheCol, REP::PCacheCol,
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
             # @show inds(phi_tilde)
-            @inbounds @fastmath phi_tilde =  conj(psl ⊗psr) ⊗ rc
+            @inbounds @fastmath phi_tilde =  conj(psl ⊗ psr) ⊗ rc
         end
        
     elseif rid == length(ps)

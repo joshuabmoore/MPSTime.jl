@@ -26,7 +26,7 @@ function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{In
 
 end
 
-function encode_dataset(ES::EncodeSeparate, X_norm::AbstractMatrix, y::AbstractVector, args...; kwargs...)
+function encode_dataset(ES::EncodeSeparate, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, args...; kwargs...)
     """Convert an entire dataset of normalised time series to a corresponding 
     dataset of product states"""
     # sort the arrays by class. This will provide a speedup if classes are trained/encoded separately
@@ -38,12 +38,12 @@ function encode_dataset(ES::EncodeSeparate, X_norm::AbstractMatrix, y::AbstractV
 
     order = sortperm(y)
 
-    return encode_safe_dataset(ES, X_norm[:,order], y[order], args...; kwargs...)
+    return encode_safe_dataset(ES, X_orig[order, :], X_norm[:,order], y[order], args...; kwargs...)
 end
 
 
 
-function encode_safe_dataset(::EncodeSeparate{true}, X_norm::AbstractMatrix, y::AbstractVector, type::String, site_indices::AbstractVector{Index{Int64}}; kwargs...)
+function encode_safe_dataset(::EncodeSeparate{true}, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, type::String, site_indices::AbstractVector{Index{Int64}}; kwargs...)
     # X_norm has dimension num_elements * numtimeseries
 
     classes = unique(y)
@@ -53,17 +53,17 @@ function encode_safe_dataset(::EncodeSeparate{true}, X_norm::AbstractMatrix, y::
 
     for c in classes
         cis = findall(y .== c)
-        ets, enc_as = encode_safe_dataset(EncodeSeparate{false}(), X_norm[:, cis], y[cis], type * " Sep Class", site_indices; kwargs...)
+        ets, enc_as = encode_safe_dataset(EncodeSeparate{false}(), X_orig[cis, :], X_norm[:, cis], y[cis], type * " Sep Class", site_indices; kwargs...)
         states[cis] .= ets.timeseries
         push!(enc_args, enc_as)
     end
     
     class_map = countmap(y)
     class_distribution = collect(values(class_map))[sortperm(collect(keys(class_map)))]  # return the number of occurances in each class sorted in order of class index
-    return EncodedTimeseriesSet(states, class_distribution), enc_args
+    return EncodedTimeseriesSet(states, X_orig, class_distribution), enc_args
 end
 
-function encode_safe_dataset(::EncodeSeparate{false}, X_norm::AbstractMatrix, y::AbstractVector, type::String, 
+function encode_safe_dataset(::EncodeSeparate{false}, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, type::String, 
     site_indices::AbstractVector{Index{Int64}}; opts::Options=Options(),
     rng=MersenneTwister(1234), class_keys::Dict{T, I}, training_encoding_args=nothing) where {T, I<:Integer}
     """"Convert an entire dataset of normalised time series to a corresponding 
@@ -128,7 +128,7 @@ function encode_safe_dataset(::EncodeSeparate{false}, X_norm::AbstractMatrix, y:
     class_map = countmap(y)
     class_distribution = collect(values(class_map))[sortperm(collect(keys(class_map)))] # return the number of occurances in each class sorted in order of class index
     
-    return EncodedTimeseriesSet(all_product_states, class_distribution), encoding_args
+    return EncodedTimeseriesSet(all_product_states, X_orig, class_distribution), encoding_args
 
 end
 

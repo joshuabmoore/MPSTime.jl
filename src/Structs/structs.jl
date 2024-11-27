@@ -20,14 +20,19 @@ end
 const TimeseriesIterable = Vector{PState}
 struct EncodedTimeseriesSet
     timeseries::TimeseriesIterable
+    original_data::Matrix{Float64}
     class_distribution::Vector{Integer}
 end
+
 function EncodedTimeseriesSet(class_dtype::DataType=Int64) # empty version
     tsi = TimeseriesIterable(undef, 0)
+    mtx = zeros(0,0)
     class_dist = Vector{class_dtype}(undef, 0) # pays to assume the worst and match types...
-    return EncodedTimeseriesSet(tsi, class_dist)
+    return EncodedTimeseriesSet(tsi, mtx, class_dist)
 end
-Base.isempty(e::EncodedTimeseriesSet) = isempty(e.timeseries) && isempty(class_dist)
+
+Base.isempty(e::EncodedTimeseriesSet) = isempty(e.timeseries) && isempty(e.original_data) && isempty(e.class_distribution)
+
 
 # Black box optimiser shell
 struct BBOpt 

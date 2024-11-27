@@ -95,6 +95,8 @@ struct Options <: AbstractMPSOptions
     sigmoid_transform::Bool # Whether to apply a sigmoid transform to the data before minmaxing
     log_level::Int # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
     data_bounds::Tuple{Float64, Float64} # the region to bound the data to if minmax=true, setting the bounds a bit away from [0,1] can help when the basis is poorly behaved at the boundaries
+    chi_init::Int # initial bond dimension of the mps (before any optimisation)
+    init_rng::Int # initial rng seed for generating the MPS
 end
 
 function Options(; 
@@ -119,7 +121,9 @@ function Options(;
         sigmoid_transform=true, 
         log_level=3, 
         projected_basis=false,
-        data_bounds::Tuple{Float64, Float64}=(0.,1.)
+        data_bounds::Tuple{Float64, Float64}=(0.,1.),
+        chi_init::Integer=4,
+        init_rng::Integer=1234
     )
 
     if encoding isa Symbol
@@ -138,7 +142,8 @@ function Options(;
         dtype, loss_grad, bbopt, track_cost, 
         eta, rescale, d, aux_basis_dim, encoding, train_classes_separately, 
         encode_classes_separately, return_encoding_meta_info, 
-        minmax, exit_early, sigmoid_transform, log_level, data_bounds
+        minmax, exit_early, sigmoid_transform, log_level, data_bounds, 
+        chi_init, init_rng
         )
 
 end
@@ -168,8 +173,13 @@ function model_encoding(s::Symbol, proj::Bool=false)
     return enc
 end
 
+function symbolic_encoding(E::Encoding)
+    str = E.name
+    return Symbol(replace(str," " => "_"))
+end
+
 function model_bbopt(s::Symbol)
-    if s == :GD
+    if s in [:GD, :CustomGD]
         opt = BBOpt("CustomGD")
     elseif s == :TSGO
         opt = BBOpt("CustomGD", "TSGO")
@@ -182,6 +192,7 @@ function model_bbopt(s::Symbol)
     return opt
 end
 
+
 function model_loss_func(s::Symbol)
     if s == :KLD
         lf = loss_grad_KLD
@@ -193,15 +204,37 @@ function model_loss_func(s::Symbol)
     return lf
 end
 
+function symbolic_loss_func(f::Function)
+    if f == loss_grad_KLD
+        s =  :KLD
+    elseif f == loss_grad_MSE
+        s = :MSE
+    elseif f == loss_grad_mixed 
+        s =  :Mixed
+    end
+    return s
+end
+
 """Convert the concrete MPSOpts to the abstract Options type that is needed for runtime but doesn't serialize as well"""
 function Options(m::MPSOptions)
     properties = propertynames(m)
-    properties = filter(s -> !(s in [:init_rng, :chi_init]), properties)
 
     # this is actually cool syntax I have to say
     opts = Options(; [field => getfield(m,field) for field in properties]...)
-    return m.init_rng, m.chi_init, opts
+    return opts
 
+end
+
+function MPSOptions(opts::Options,)
+    properties = propertynames(opts)
+    properties = filter(s -> !(s in [:encoding, :bbopt, :loss_grad]), properties)
+
+    sencoding = symbolic_encoding(opts.encoding)
+    sbbopt = Symbol(opts.bbopt.fl)
+    sloss_grad = symbolic_loss_func(opts.loss_grad)
+
+    mopts = MPSOptions(; [field => getfield(opts,field) for field in properties]..., encoding=sencoding, bbopt=sbbopt, loss_grad=sloss_grad)
+    return mopts
 end
 
 # ability to "modify" options. Useful in very specific cases.
@@ -226,24 +259,23 @@ end
 
 
 
-function safe_options(opts::MPSOptions, random_state, def_chi_init)
+function safe_options(opts::MPSOptions)
 
-    init_rng, chi_init, abs_opts = Options(opts)
+    abs_opts = Options(opts)
     if opts.verbosity >=5
-        println("converting MPSOptions to abstract Options object")
+        println("converting MPSOptions to concrete Options object")
     end
 
-    if !isnothing(random_state) && init_rng !== random_state
-        @warn("The option init_rng=$init_rng has been overridden by passing random_state=$random_state")
-        init_rng = random_state
-    end
-
-    if !isnothing(def_chi_init) && chi_init !== def_chi_init
-        @warn("The option chi_init=$m_chi_init has been overridden by passing chi_init=$chi_init")
-        chi_init=def_chi_init
-    end
-
-    return abs_opts, init_rng, chi_init
+    return abs_opts
 end
 
-safe_options(options::Options, args...) = options, args...
+safe_options(options::Options) = options
+
+
+# container for a trained MPS, options, and training data
+struct TrainedMPS
+    mps::MPS
+    opts::MPSOptions
+    opts_concrete::Options
+    train_data::EncodedTimeseriesSet
+end

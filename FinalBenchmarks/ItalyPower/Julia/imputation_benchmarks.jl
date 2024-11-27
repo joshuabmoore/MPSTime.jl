@@ -65,7 +65,7 @@ function run_folds(Xs::Matrix{Float64}, ys::Vector{Int64}, window_idxs::Dict,
             bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
             encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
             exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0)
-        opts_safe, _... = safe_options(opts, nothing, nothing)
+        opts_safe = safe_options(opts)
 
         num_folds = length(fold_idxs)
         dx = 5e-3

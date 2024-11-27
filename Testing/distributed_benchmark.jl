@@ -87,7 +87,7 @@ function benchmark(nfolds::Int, opts::AbstractMPSOptions, name::String, dloc::St
     println("Data loaded")
     
     # training related parameters
-    opts_safe, _... = safe_options(opts, nothing, nothing)
+    opts_safe = safe_options(opts)
     chi_max = opts_safe.chi_max
     d = opts_safe.d
 
