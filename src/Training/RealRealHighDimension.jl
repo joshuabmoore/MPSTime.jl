@@ -404,7 +404,7 @@ function fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::Abstra
 end
 
 
-function fitMPS(DIS::DataIsRescaled, X_train::Matrix, y_train::Vector, X_test::Matrix, y_test::Vector, opts::AbstractMPSOptions; kwargs...)
+function fitMPS(DIS::DataIsRescaled, X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions; kwargs...)
     # first, create the site indices for the MPS and product states 
     
 
@@ -450,7 +450,7 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
     # generate product states using rescaled data
     if opts.encoding.iscomplex
         if opts.dtype <: Real
-            error("Using a complex valued encoding but the MPS is real")
+            error("Using a complex valued encoding but the MPS is real. If using a complex-valued custom encoding, set 'dtype <: Complex' in MPSOptions")
         end
 
     elseif !(opts.dtype <: Real)

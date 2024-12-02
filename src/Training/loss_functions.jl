@@ -312,7 +312,7 @@ function MSE_iter(BT_c::ITensor, LEP::PCacheCol, REP::PCacheCol,
 
     # convert the label to ITensor
     label_idx = inds(yhat)[1]
-    y = onehot(label_idx => (product_state.label + 1))
+    y = onehot(label_idx => (product_state.label_index))
 
     diff_sq = abs2.(yhat - y)
     sum_of_sq_diff = sum(diff_sq)
@@ -353,7 +353,7 @@ function mixed_iter(BT_c::ITensor, LEP::PCacheCol, REP::PCacheCol,
 
     # convert the label to ITensor
     label_idx = inds(yhat)[1]
-    y = onehot(label_idx => (product_state.label + 1))
+    y = onehot(label_idx => (product_state.label_index))
     f_ln = (yhat *y)[1]
     log_loss = -log(abs2(f_ln))
 

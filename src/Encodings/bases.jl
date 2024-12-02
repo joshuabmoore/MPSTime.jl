@@ -286,7 +286,7 @@ function remove_zeros!(xs_samps::AbstractVector{<:Real}, f0::AbstractVector{<:Re
 end
 
 
-function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector{<:Integer}; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options) where {T <: Real}
+function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options) where {T <: Real}
     xs = Xs[:] 
     kdense = isnothing(bandwidth) ? kde(xs) : kde(xs; bandwidth=bandwidth) 
     xs_samps = range(-1,1,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
@@ -300,7 +300,7 @@ function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector{<:Integer}; max_
 end
 
 
-function init_sahand_legendre_time_dependent(Xs::Matrix{T}, ys::AbstractVector{<:Integer}; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options) where {T <: Real}
+function init_sahand_legendre_time_dependent(Xs::Matrix{T}, ys::AbstractVector; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options) where {T <: Real}
     ntimepoints = size(Xs, 1)
     
     kdenses = Vector{UnivariateKDE}(undef, ntimepoints)

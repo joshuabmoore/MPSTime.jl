@@ -13,7 +13,7 @@ struct PState
     """Create a custom structure to store product state objects, 
     along with their associated label and type (i.e, train, test or valid)"""
     pstate::MPS
-    label::Int # TODO make this a symbol for genericness
+    label::Any # TODO make this a fancy scientific type
     label_index::UInt
 end
 
@@ -21,7 +21,7 @@ const TimeseriesIterable = Vector{PState}
 struct EncodedTimeseriesSet
     timeseries::TimeseriesIterable
     original_data::Matrix{Float64}
-    class_distribution::Vector{Integer}
+    class_distribution::Vector{<:Integer}
 end
 
 function EncodedTimeseriesSet(class_dtype::DataType=Int64) # empty version

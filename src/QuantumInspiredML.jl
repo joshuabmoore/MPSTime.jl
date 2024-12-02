@@ -7,7 +7,6 @@ using MKL
 using Strided # strided array support
 using ITensors 
 using NDTensors # Library that ITensors is built on, used for some hacks
-import Base.* # Allows overloading of NDTensor * NDTensor in loss_functions
 
 using Random
 using StableRNGs # Used for some hyperparameter tuning/MLJ
@@ -26,14 +25,14 @@ using KernelDensity # Used for histogram-derived data-driven bases
 #TODO remove some of these
 using QuadGK # used to be used in imputation.jl, may be redundant
 using NumericalIntegration # Used extensively in imputation.jl
-using Integrals # Not sure if used
+using Integrals # Not sure if used (remove)
 import SciMLBase # used in encodings for SL coeffs, (remove)
 
 # allows converting BBOpt to string in structs.jl, and converting the abstract MPSOptions to a concrete Options type
 import Base.convert
 
 import MLBase # For some useful multivariate stats calculations
-using StatsBase: countmap, sample
+using StatsBase: countmap, sample, median, pweights
 using Distributions # Used to compute stats in stats.jl and the imputation library
 
 
@@ -44,7 +43,7 @@ import ProgressMeter
 
 using Tables # Used for MLJ
 using MLJ # Used for MLJ Integration
-import MLJModelInterface # MLJ Integration
+import MLJModelInterface # MLreturnJ Integration
 import MLJTuning # Custom imputation tuning algorithm
 using MLJParticleSwarmOptimization # Used in hyperparameter tuning
 
@@ -62,6 +61,9 @@ include("Encodings/splitbases.jl")
 
 include("summary.jl") # Some useful stats functions
 include("utils.jl") # Some utils used by the entire library
+
+# Visualisation utilities
+include("Vis/vis_encodings.jl")
 
 include("Training/loss_functions.jl") # Where loss functions and the LossFunction type are defined
 include("Training/RealRealHighDimension.jl"); # The training algorithm, fitMPS and co
@@ -99,6 +101,7 @@ export
     get_training_summary,
     get_predictions,
     plot_training_summary,
+    print_opts,
 
     # Training functions
     fitMPS, # gotta fit those MPSs somehow

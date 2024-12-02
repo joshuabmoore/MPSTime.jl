@@ -33,9 +33,9 @@ end
 function MPSOptions(;
     verbosity::Int=1, # Represents how much info to print to the terminal while optimising the MPS. Higher numbers mean more output
     nsweeps::Int=5, # Number of MPS optimisation sweeps to perform (Both forwards and Backwards)
-    chi_max::Int=15, # Maximum bond dimension allowed within the MPS during the SVD step
+    chi_max::Int=20, # Maximum bond dimension allowed within the MPS during the SVD step
     eta::Float64=0.01, # The gradient descent step size for CustomGD. For Optim and OptimKit this serves as the initial step size guess input into the linesearch
-    d::Int=2, # The dimension of the feature map or "Encoding". This is the true maximum dimension of the feature vectors. For a splitting encoding, d = num_splits * aux_basis_dim
+    d::Int=5, # The dimension of the feature map or "Encoding". This is the true maximum dimension of the feature vectors. For a splitting encoding, d = num_splits * aux_basis_dim
     encoding::Symbol=:Legendre_No_Norm, # The type of encoding to use, see structs.jl and encodings.jl for the various options. Can be just a time (in)dependent orthonormal basis, or a time (in)dependent basis mapped onto a number of "splits" which distribute tighter basis functions where the sites of a timeseries are more likely to be measured.  
     projected_basis::Bool=false, # whether to pass project=true to the basis
     aux_basis_dim::Int=2, # (NOT IMPLEMENTED) If encoding::SplitBasis, serves as the auxilliary dimension of a basis mapped onto the split encoding, so that num_bins = d / aux_basis_dim. Unused if encoding::Basis
@@ -109,9 +109,9 @@ function Options(;
         bbopt=BBOpt("CustomGD"),
         track_cost::Bool=(verbosity >=1), 
         eta=0.01, rescale = (false, true), 
-        d=2, 
+        d=5, 
         aux_basis_dim=1, 
-        encoding=stoudenmire(), 
+        encoding=legendre_no_norm(), 
         dtype::DataType=encoding.iscomplex ? ComplexF64 : Float64, 
         train_classes_separately::Bool=false, 
         encode_classes_separately::Bool=train_classes_separately, 

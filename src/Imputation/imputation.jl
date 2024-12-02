@@ -16,7 +16,7 @@ mutable struct ImputationProblem
     opts::Options
     enc_args::Vector{Any}
     x_guess_range::EncodedDataRange
-    class_map::Vector{Any}
+    class_map::Dict{Any, Int}
 end
 
 # probably redundant if enc args are provided externally from training
@@ -100,9 +100,9 @@ function init_imputation_problem(
     mpss, l_ind = expand_label_index(mps)
 
     classes_unique = sort(unique(y_train))
-    class_map = {}
+    class_map = Dict{Int, Any}()
     for (i, class) in enumerate(classes_unique)
-        class_map[i] = class
+        class_map[class] = i
     end
     imp_prob = ImputationProblem(mpss, X_train, y_train, X_test, y_test, opts, enc_args, x_guess_range, class_map);
 
@@ -121,7 +121,7 @@ end
 
 function NN_impute(
         imp::ImputationProblem,
-        which_class::Integer, 
+        which_class::Any, 
         which_sample::Integer, 
         which_sites::AbstractVector{<:Integer}; 
         n_ts::Integer=1,
@@ -163,7 +163,7 @@ end
 
 function get_predictions(
         imp::ImputationProblem,
-        which_class::Integer, 
+        which_class::Any, 
         which_sample::Integer, 
         which_sites::Vector{Int}, 
         method::Symbol=:directMean;
@@ -193,7 +193,6 @@ function get_predictions(
     sites = siteinds(mps)
     target_enc = MPS([itensor(get_state(x, imp.opts, j, imp.enc_args), sites[j]) for (j,x) in enumerate(target_timeseries)])
 
-    return [target_enc], [], target_timeseries
     pred_err = []
     if method == :directMean        
         ts, pred_err = impute_mean(mps, imp.opts, imp.x_guess_range, imp.enc_args, target_timeseries, target_enc, which_sites, kwargs...)
@@ -263,7 +262,7 @@ end
 
 function MPS_impute(
         imp::ImputationProblem,
-        which_class::Integer, 
+        which_class::Any, 
         which_sample::Integer, 
         which_sites::Vector{Int}, 
         method::Symbol=:directMedian;
@@ -283,7 +282,6 @@ function MPS_impute(
 
     ts, pred_err, target = get_predictions(imp, which_class, which_sample, which_sites, method; kwargs...)
 
-    return ts, pred_err, target
     if plot_fits
         p1 = plot(ts[1], ribbon=pred_err[1], xlabel="time", ylabel="x", 
             label="MPS imputed", ls=:dot, lw=2, alpha=0.8, legend=:outertopright,
@@ -341,7 +339,7 @@ function MPS_impute(
         end
     end
 
-    return ts, pred_err, metrics, ps
+    return ts, pred_err, target, metrics, ps
 end
 
 
@@ -350,7 +348,7 @@ end
 
 function get_rdms(
         imp::ImputationProblem,
-        which_class::Integer, 
+        which_class::Any, 
         which_sample::Integer, 
         which_sites::Vector{Int};
         kwargs... # method specific keyword arguments

@@ -281,6 +281,8 @@ function get_training_summary(mps::MPS, training_pss::TimeseriesIterable, testin
 
 end
 
+get_training_summary(mps::TrainedMPS, X_test::EncodedTimeseriesSet, args...; kwargs...) = get_training_summary(mps.mps, mps.train_data.timeseries, X_test.timeseries, args...; kwargs...)
+
 function sweep_summary(info;io::IO=stdin)
     """Print a pretty summary of what happened in every sweep"""
     nsweeps = length(info["time_taken"]) - 2
