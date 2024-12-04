@@ -1,9 +1,9 @@
 # timeseries encoding shell
 abstract type Encoding end
 
-struct Basis <: Encoding # probably should not be called directly
+struct Basis <: Encoding 
     name::String
-    init::Union{Function}
+    init::Function
     encode::Function
     iscomplex::Bool
     istimedependent::Bool
@@ -21,28 +21,28 @@ struct SplitBasis <: Encoding
     name::String
     init::Union{Function}
     splitmethod::Function
-    basis::Basis
+    aux_enc::Encoding
     encode::Function
     iscomplex::Bool
     istimedependent::Bool
     isdatadriven::Bool
     range::Tuple{Real, Real}
-    SplitBasis(s::String, init::Union{Function,Nothing}, spm::Function, basis::Basis, enc::Function, isc::Bool, istd::Bool, isdd::Bool, range::Tuple{Real, Real}) = begin
-        # spname = replace(s, Regex(" "*basis.name*"\$")=>"") # strip the basis name from the end
-        # if !(titlecase(spname) in ["Hist Split", "Histogram Split", "Hist Split Balanced", "Histogram Split Balanced", "Uniform Split Balanced", "Uniform Split"])
-        #     error("""Unkown split type "$spname", options are ["Hist Split", "Histogram Split", "Hist Split Balanced", "Histogram Split Balanced", "Uniform Split Balanced", "Uniform Split"]""")
-        # end
+    SplitBasis(s::String, init::Function, spm::Function, aux_enc::Encoding, encode_func::Function, isc::Bool, istd::Bool, isdd::Bool, range::Tuple{<:Real, <:Real}) = begin
 
-        if basis.iscomplex != isc
+        if aux_enc.iscomplex != isc
             error("The SplitBasis and its auxilliary basis must agree on whether they are complex!")
         end
 
-        if basis.range != range #TODO This is probably not actually necessary, likely could be handled in encode_TS?
+        if aux_enc.range != range #TODO This is probably not actually necessary, likely could be handled in encode_TS?
             error("The SplitBasis and its auxilliary basis must agree on the normalised timeseries range!")
         end
-        isdd |= basis.isdatadriven
+        if aux_enc.isdatadriven || aux_enc.istimedependent
+            error("Splitting up a data-driven encoding is not yet supported, sorry")
+        end
 
-        new(s, init, spm, basis, enc, isc, istd, isdd, range)
+        isdd |= aux_enc.isdatadriven
+
+        new(s, init, spm, aux_enc, encode_func, isc, istd, isdd, range)
     end
 end
 
@@ -60,7 +60,7 @@ function stoudenmire()
     istimedependent=false
     isdatadriven = false
     range = (0,1)
-    init = nothing
+    init = no_init
 
     return Basis(sl, init, enc, iscomplex, istimedependent, isdatadriven, range)
 end
@@ -159,37 +159,40 @@ function function_basis(
 end
 
 
-function hist_split(basis::Basis)
-    isc = basis.iscomplex
-    range = basis.range
+function histogram_split(aux_enc::Encoding)
+    isc = aux_enc.iscomplex
+    range = aux_enc.range
 
-    name = "Hist. Split $(basis.name)" 
+    name = "Hist Split $(aux_enc.name)" 
 
-    init = hist_split_init
+    init = split_init
     splitmethod = hist_split
     istd = true
     isdatadriven = true
-    enc = project_onto_hist_bins
+    encode_func = project_onto_bins
 
-    return SplitBasis(name, init, splitmethod, basis, enc, isc, istd, isdatadriven, range)
-
+    return SplitBasis(name, init, splitmethod, aux_enc, encode_func, isc, istd, isdatadriven, range)
 end
 
-function uniform_split(basis::Basis)
-    isc = basis.iscomplex
-    range = basis.range
+function uniform_split(aux_enc::Encoding)
+    isc = aux_enc.iscomplex
+    range = aux_enc.range
 
-    name = "Unif. Split $(basis.name)" 
+    name = "Unif Split $(aux_enc.name)" 
 
-    init = unif_split_init
+    init = split_init
     splitmethod = unif_split
-    istd = basis.istimedependent # if the aux. basis _is_ time dependent we have to treat the entire split as such
-    isdatadriven = basis.isdatadriven
-    enc = project_onto_unif_bins
+    istd = aux_enc.istimedependent # if the aux.enc _is_ time dependent we have to treat the entire split as such
+    isdatadriven = aux_enc.isdatadriven
+    encode_func = project_onto_bins
 
-    return SplitBasis(name, init, splitmethod, basis, enc, isc, istd, isdatadriven, range)
+    return SplitBasis(name, init, splitmethod, aux_enc, encode_func, isc, istd, isdatadriven, range)
 
 end
 
-hist_split() = hist_split(uniform())
+histogram_split(s::Symbol) = symbolic_encoding(histogram_split(model_encoding(s)))
+uniform_split(s::Symbol) = symbolic_encoding(uniform_split(model_encoding(s)))
+
+
+histogram_split() = histogram_split(uniform())
 uniform_split() = uniform_split(uniform())

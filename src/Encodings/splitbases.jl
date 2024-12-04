@@ -1,124 +1,55 @@
 ################## Splitting Initialisers
-
-function unif_split_init(X_norm::AbstractMatrix, y::AbstractVector{Int}; opts::Options)
-    nbins = get_nbins_safely(opts)
-
-    bins = opts.encoding.splitmethod(X_norm, nbins, opts.encoding.range...)
-    split_args = [bins, opts.aux_basis_dim, opts.encoding.basis]
-
-    basis_args = isnothing(opts.encoding.basis.init) ? [] : opts.encoding.basis.init(X_norm, y; opts=opts)
-
-    return [basis_args, split_args]
-end
-
-function hist_split_init(X_norm::AbstractMatrix, y::AbstractVector{Int}; opts::Options)
-    
-    nbins = get_nbins_safely(opts)
-    bins = opts.encoding.splitmethod(X_norm, nbins, opts.encoding.range...)
-    split_args = [bins, opts.aux_basis_dim, opts.encoding.basis]
-
-    if isnothing(opts.encoding.basis.init)
-        basis_args = [[] for b in bins]
-    end
-
-    basis_args = isnothing(opts.encoding.basis.init) ? [] : opts.encoding.basis.init(X_norm, y; opts=opts)
-    
-    return [basis_args, split_args]
-end
-
 function get_nbins_safely(opts)
     nbins = opts.d / opts.aux_basis_dim
-    try
-        convert(Int, nbins)
-    catch e
-        if e isa InexactError
-            error("The auxilliary basis dimension ($(opts.aux_basis_dim)) must evenly divide the total feature dimension ($(opts.d))")
-        else
-            throw(e)
-        end
+    if opts.d % opts.aux_basis_dim !== 0
+        throw(ArgumentError("The auxilliary basis dimension ($(opts.aux_basis_dim)) must evenly divide the total feature dimension ($(opts.d))"))
     end
 
     return convert(Int, nbins) # try blocks have their own scope
 end
 
-################## Splitting encoding helpers
-function rect(x)
-    # helper used to construct the split basis. It is important that rect(0.5) returns 0.5 because if an encoded point lies exactly on a bin boundary we want enc(x) = (0,...,0, 0.5, 0.5, 0,...0)
-    # (Having two 1s instead of two 0.5s would violate our normalised encoding assumption)
-    return  abs(x) == 0.5 ? 0.5 : 1. * float(-0.5 <= x <= 0.5)
-end
 
-function project_onto_unif_bins(x::Float64, d::Int, basis_args::AbstractVector, split_args::AbstractVector; norm=true)
-    bins::AbstractVector{Float64}, aux_dim::Int, basis::Basis = split_args
-    widths = diff(bins)
+function split_init(X_norm::AbstractMatrix, y::AbstractVector; opts::Options, range::Tuple{Real, Real}=opts.encoding.range)
+    nbins = get_nbins_safely(opts)
 
-    encoding = []
-    for i = 1:Int(d/aux_dim)
-        auxvec = xx -> basis.encode(xx, aux_dim, basis_args...)
-        #auxvec = xx -> ones(aux_dim)
-        
-        dx = widths[i]
-        y = norm ? 1. : 1/widths[i]
+    bins = opts.encoding.splitmethod(X_norm, nbins, range...)
+    split_args = [bins, opts.aux_basis_dim, opts.encoding.aux_enc]
 
-        select = y * rect((x - bins[i])/dx - 0.5)
-        aux_enc = select == 0 ? zeros(aux_dim) : select .* auxvec((x-bins[i])/dx) # necessary so that we don't evaluate aux basis function out of its domain
-        push!(encoding, aux_enc)
-    end
-
-
-    return vcat(encoding...)
-end
-
-
-function project_onto_unif_bins(x::Float64, d::Int, ti::Int, basis_args::AbstractVector, split_args::AbstractVector; norm=true)
-    # time dep version in case the aux basis is time dependent
-    bins::AbstractVector{Float64}, aux_dim::Int, basis::Basis = split_args
-    widths = diff(bins)
-
-    encoding = []
-    for i = 1:Int(d/aux_dim)
-        auxvec = xx -> basis.encode(xx, aux_dim, ti, basis_args...) # we know it's time dependent
-
-        dx = widths[i]
-        y = norm ? 1. : 1/widths[i]
-        select = y * rect((x - bins[i])/dx - 0.5)
-        aux_enc = select == 0 ? zeros(aux_dim) : select .* auxvec((x-bins[i])/dx) # necessary so that we don't evaluate aux basis function out of its domain
-        push!(encoding, aux_enc)
-    end
-
-
-    return vcat(encoding...)
-end
-
-
-function project_onto_hist_bins(x::Float64, d::Int, ti::Int, basis_args::AbstractVector, split_args::AbstractVector; norm=true)
-    all_bins::AbstractVector{<:AbstractVector{Float64}}, aux_dim::Int, basis::Basis = split_args
-    bins = all_bins[ti]
-    widths = diff(bins)
-
-    encoding = []
-    for i = 1:Int(d/aux_dim)
-        if basis.istimedependent
-            auxvec = xx -> basis.encode(xx, aux_dim, ti, basis_args...)
-        else
-            auxvec = xx -> basis.encode(xx, aux_dim, basis_args...)
+    if opts.encoding.aux_enc isa SplitBasis 
+        # This loop is to handle deciding the aux_dim of nested split bases. #TODO make aux_dim a parameter of split_basis instead
+        aux_aux_dim = 1
+        i = 2
+        while opts.aux_basis_dim > i
+            if opts.aux_basis_dim % i == 0
+                aux_aux_dim = i
+            end
+            i += 1
         end
+        aux_opts=_set_options(opts; encoding = opts.encoding.aux_enc, d=opts.aux_basis_dim, aux_basis_dim=aux_aux_dim)
+    else
+        aux_opts=_set_options(opts; encoding = opts.encoding.aux_enc, d=opts.aux_basis_dim)
 
-        dx = widths[i]
-        y = norm ? 1. : 1/widths[i]
-        select = y * rect((x - bins[i])/dx - 0.5)
-        aux_enc = select == 0 ? zeros(aux_dim) : select .* auxvec((x-bins[i])/dx) # necessary so that we don't evaluate aux basis function out of its domain
-        push!(encoding, aux_enc)
+    end        
+
+    if opts.encoding.aux_enc.isdatadriven #TODO, implement this properly, currently forbidden
+        if eltype(bins) <: Number
+            aux_enc_args = [opts.encoding.aux_enc.init(X_norm, y; opts=aux_opts, range=(bins[i], bins[i+1])) for i in 1:nbins]
+
+        else
+            aux_enc_args = [[opts.encoding.aux_enc.init(X_norm, y; opts=aux_opts, range=(bins[ti][i], bins[ti][i+1])) for i in 1:nbins] for ti in eachindex(bins) ]
+        end
+    else
+        enc_arg = opts.encoding.aux_enc.init(X_norm, y; opts=aux_opts)
+        aux_enc_args = [enc_arg for _ in 1:nbins]
     end
 
 
-    return vcat(encoding...)
+    return [aux_enc_args, split_args]
 end
-
 
 ##################### Splitting methods
 function unif_split(data::AbstractMatrix, nbins::Integer, a::Real, b::Real)
-    dx = 1/nbins# width of one interval
+    dx = (b-a)/nbins# width of one interval
     return collect(a:dx:b)
 end
 
@@ -135,7 +66,7 @@ function hist_split(samples::AbstractVector, nbins::Integer, a::Real, b::Real) #
     
     #bins[1] = a # lower bound
     j = 2
-    ds = sort(samples)
+    ds = sort(samples[@. a <=  samples <= b]) # only consider samples between a and b, this makes nested splitbases work
     for (i,x) in enumerate(ds)
         if i % bin_pts == 0 && i < length(samples)
             if j == nbins + 1
@@ -159,3 +90,76 @@ end
 function hist_split(X_norm::AbstractMatrix, nbins::Integer, a::Real, b::Real)
     return [hist_split(samples,nbins, a, b) for samples in eachrow(X_norm)]
 end
+
+
+################## Splitting encoding helpers
+function rect(x::Real, lbound::Real=0.5, rbound::Real=0.5)
+    # helper used to construct the split basis. It is important that rect(0.5) returns 0.5 because if an encoded point lies exactly on a bin boundary we want enc(x) = (0,...,0, 0.5, 0.5, 0,...0)
+    # (Having two 1s instead of two 0.5s would violate our normalised encoding assumption)
+    if x == -0.5
+        return lbound
+    elseif x == 0.5
+        return rbound
+    elseif (-0.5 <= x <= 0.5)
+        return 1.
+    else
+        return 0.
+    end
+end
+
+# x: timepoints
+# aux_vec: function that takes x -> aux_encoding(x)
+# bins: the bin edges
+function project_onto_bins(x::Float64, aux_dim::Int, aux_encoder::Function, bins::AbstractVector; norm::Bool=true)
+    widths = diff(bins)
+    a,b = bins[1], bins[end] # there will always be at least two bin edges 
+    scale = b-a
+
+    encoding = []
+    for (i, dx) in enumerate(widths)
+
+        y = norm ? 1. : 1/dx
+        lbound = i == 1 ? 1. : 0.5
+        rbound = i == length(widths) ? 1. : 0.5
+        x_prop = scale*(x - bins[i]) / dx
+        select = y * rect(x_prop/scale - 0.5, lbound, rbound )
+        aux_encoding = select == 0 ? zeros(aux_dim) : select .* aux_encoder(a+x_prop, i) # short circuit eval is necessary so that we don't evaluate aux enc function out of its domain
+        push!(encoding, aux_encoding)
+    end
+
+
+    return vcat(encoding...)
+end
+
+
+function project_onto_bins(x::Float64, d::Int, aux_enc_args::AbstractVector, split_args::AbstractVector; norm::Bool=true)
+    bins::AbstractVector{Float64}, aux_dim::Int, aux_enc::Encoding = split_args
+
+    aux_encoder = (xx, bin_num) -> aux_enc.encode(xx, aux_dim, aux_enc_args[bin_num]...)
+
+    return project_onto_bins(x, aux_dim, aux_encoder, bins; norm=norm)
+
+end
+
+function project_onto_bins(x::Float64, d::Int, ti::Int, all_aux_enc_args::AbstractVector, split_args::AbstractVector; norm::Bool=true)
+    all_bins::AbstractVector, aux_dim::Int, aux_enc::Encoding = split_args
+
+    if eltype(all_bins) <: Number
+        bins = all_bins
+    else
+        bins = all_bins[ti]
+    end
+
+    if aux_enc.istimedependent
+        aux_enc_args = all_aux_enc_args[ti]
+        aux_encoder = (xx, bin_num) -> aux_enc.encode(xx, aux_dim, ti, aux_enc_args[bin_num]...)
+    else
+        aux_enc_args = all_aux_enc_args
+        aux_encoder = (xx, bin_num) -> aux_enc.encode(xx, aux_dim, aux_enc_args[bin_num]...)
+    end
+
+    return project_onto_bins(x, aux_dim, aux_encoder, bins; norm=norm)
+
+end
+
+

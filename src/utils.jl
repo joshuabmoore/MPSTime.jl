@@ -182,7 +182,7 @@ function transform_train_data(X_train::AbstractMatrix; opts::AbstractMPSOptions)
         minmax = Normalization.fit(MinMax, X_train_scaled)
         normalize!(X_train_scaled, minmax)
 
-        #TODO introducing the data_bounds parameter broke the nice implementation of normalize.jl :(((, consolidate or go make brendan fix his library
+        #TODO introducing the data_bounds parameter broke the nice implementation of normalize.jl :(((, consolidate or go make brendan change his library
         lb, ub = opts.data_bounds
         interval_width = ub - lb
 

@@ -38,6 +38,7 @@ using Distributions # Used to compute stats in stats.jl and the imputation libra
 
 using JLD2 # for save/load
 using StatsPlots, Plots, Plots.PlotMeasures # Plotting in imputation.jl
+using LaTeXStrings # Equation formatting in plot titles/axes
 using PrettyTables # Nicely formatted training / imputation text output 
 import ProgressMeter 
 
@@ -94,7 +95,7 @@ export
     sahand,
     uniform,
     function_basis,
-    hist_split,
+    histogram_split,
     uniform_split,
 
     # nicley formatted training summaries
@@ -102,6 +103,9 @@ export
     get_predictions,
     plot_training_summary,
     print_opts,
+
+    # vis
+    plot_encoding,
 
     # Training functions
     fitMPS, # gotta fit those MPSs somehow

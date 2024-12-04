@@ -57,6 +57,7 @@ function precondition(
 
     mps_cond_idx = 1
     # condition the mps on the known values
+    # normalisation is ignored here, it is assumed that orthogonalize!() will be called on the first missing site after this function is used
     i = 1
     while i <= original_mps_length
         if mps_cond_idx == total_impute_sites

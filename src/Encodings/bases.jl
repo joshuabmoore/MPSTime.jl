@@ -267,12 +267,17 @@ function smooth_zero_intervals(xs::AbstractArray{<:Real}, f0::AbstractArray{<:Re
 end
 
 function remove_zeros!(xs_samps::AbstractVector{<:Real}, f0::AbstractVector{<:Real})
-    tol = maximum(f0)*1e-2
+    tol = maximum(abs.(f0))*1e-2
 
     # set zero prob to a minimum value
     bad_regions = @. abs(f0) <= tol
+ 
+    non_bad = f0[@. !(bad_regions)]
+    if isempty(non_bad) # something has gone terribly wrong, most likely its that f0 is all zero because there werent enough points provided to kdense
+        return 0., 1.
+    end
 
-    minval = minimum(f0[@. !(bad_regions)])
+    minval = minimum(abs.(non_bad))
     f0[bad_regions] .= minval
 
     # rescale so the norm is one
@@ -286,12 +291,14 @@ function remove_zeros!(xs_samps::AbstractVector{<:Real}, f0::AbstractVector{<:Re
 end
 
 
-function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options) where {T <: Real}
+function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options, range::Tuple=opts.encoding.range) where {T <: Real}
     xs = Xs[:] 
+    a, b = range
+    xs = xs[@. a <= xs <= b]
     kdense = isnothing(bandwidth) ? kde(xs) : kde(xs; bandwidth=bandwidth) 
-    xs_samps = range(-1,1,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
+    xs_samps = Base.range(-a,b,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
     
-    f0_oversampled = sqrt.(pdf(kdense, xs_samps))
+    f0_oversampled  = sqrt.(pdf(kdense, xs_samps)) 
     # smoothing = smooth_zero_intervals!(xs_samps, f0_oversampled)
     minx, scale = remove_zeros!(xs_samps, f0_oversampled)
     cVecs = sahand_legendre_coeffs(xs_samps, f0_oversampled, opts.d)
@@ -300,7 +307,7 @@ function init_sahand_legendre(Xs::Matrix{T}, ys::AbstractVector; max_samples=max
 end
 
 
-function init_sahand_legendre_time_dependent(Xs::Matrix{T}, ys::AbstractVector; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options) where {T <: Real}
+function init_sahand_legendre_time_dependent(Xs::Matrix{T}, ys::AbstractVector; max_samples=max(200,size(Xs,1)), bandwidth=nothing, opts::Options, range::Tuple=opts.encoding.range) where {T <: Real}
     ntimepoints = size(Xs, 1)
     
     kdenses = Vector{UnivariateKDE}(undef, ntimepoints)
@@ -308,16 +315,24 @@ function init_sahand_legendre_time_dependent(Xs::Matrix{T}, ys::AbstractVector; 
     minxs = Vector{Float64}(undef, ntimepoints)
     scales = Vector{Float64}(undef, ntimepoints)
 
-
-    xs_samps = range(-1,1,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
-
-    for (i, xs) in enumerate(eachrow(Xs))
+    a, b = range
+    
+    xs_samps = Base.range(a,b,max_samples) # sample the KDE more often than xs does, this helps with the frequency limits on the series expansion
+    for (i, xs_full) in enumerate(eachrow(Xs))
+        xs = xs_full[@. a <= xs_full <= b]
+        if isempty(xs)
+            cVecs[i] = zeros(T, opts.d, opts.d)
+            continue
+        end
         kdense = isnothing(bandwidth) ? kde(xs) : kde(xs; bandwidth=bandwidth) 
         kdenses[i] = kdense
 
-
-        f0_oversampled = sqrt.(max.(pdf(kdense, xs_samps), 0))
+        f0_oversampled = sqrt.(max.(pdf(kdense, xs_samps), 0)) 
         minxs[i], scales[i] = remove_zeros!(xs_samps, f0_oversampled)
+        if minxs[i] == 0.
+            cVecs[i] = zeros(T, opts.d, opts.d)
+            continue
+        end
 
         cVecs[i] = sahand_legendre_coeffs(xs_samps, f0_oversampled, opts.d)
     end
@@ -352,8 +367,9 @@ function project_fourier(Xs::Matrix{T}, d::Integer; kwargs...) where {T <: Real}
     return [[project_fourier(xs, d; kwargs...) for xs in eachrow(Xs)]]
 end
 
-function project_fourier(xs::AbstractVector{T}, d; max_series_terms=10*d, max_samples=max(200, 2*length(xs)), bandwidth=nothing, kwargs...) where {T <: Real}
-    xs_samps, wf = construct_kerneldensity_wavefunction(xs, (-1,1); max_samples=max_samples, bandwidth=bandwidth)
+function project_fourier(xs::AbstractVector{T}, d; max_series_terms=10*d, max_samples=max(200, 2*length(xs)), bandwidth=nothing, range::Tuple{Real,Real}=(-1.,1.), kwargs...) where {T <: Real}
+    a,b = range
+    xs_samps, wf = construct_kerneldensity_wavefunction(xs[@. a <= xs <= b], (-1,1); max_samples=max_samples, bandwidth=bandwidth)
 
     basis = [x -> cispi(n * x) for n in get_fourier_freqs(max_series_terms)]
     return series_expand(basis, xs_samps, wf, d)
@@ -371,8 +387,9 @@ function project_legendre(Xs::AbstractMatrix{T}, d::Integer; kwargs...) where {T
     return [[project_legendre(xs, d; kwargs...) for xs in eachrow(Xs)]]
 end
 
-function project_legendre(xs::AbstractVector{T}, d::Integer; max_series_terms::Integer=7*d, max_samples=max(200, 2*length(xs)), bandwidth=nothing, kwargs...) where {T <: Real}
-    xs_samps, wf = construct_kerneldensity_wavefunction(xs, (-1,1); max_samples=max_samples, bandwidth=bandwidth)
+function project_legendre(xs::AbstractVector{T}, d::Integer; max_series_terms::Integer=7*d, max_samples=max(200, 2*length(xs)), range::Tuple{Real, Real}=(-1.,1.), bandwidth=nothing, kwargs...) where {T <: Real}
+    a,b = range
+    xs_samps, wf = construct_kerneldensity_wavefunction(xs[@. a <= xs <= b], (-1,1); max_samples=max_samples, bandwidth=bandwidth)
     basis= [x -> Pl(x,l; norm = Val(:normalized)) for l in 0:(max_series_terms-1)]
     return series_expand(basis, xs_samps, wf, d)
 end

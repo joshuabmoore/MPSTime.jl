@@ -33,7 +33,7 @@ end
 function MPSOptions(;
     verbosity::Int=1, # Represents how much info to print to the terminal while optimising the MPS. Higher numbers mean more output
     nsweeps::Int=5, # Number of MPS optimisation sweeps to perform (Both forwards and Backwards)
-    chi_max::Int=20, # Maximum bond dimension allowed within the MPS during the SVD step
+    chi_max::Int=25, # Maximum bond dimension allowed within the MPS during the SVD step
     eta::Float64=0.01, # The gradient descent step size for CustomGD. For Optim and OptimKit this serves as the initial step size guess input into the linesearch
     d::Int=5, # The dimension of the feature map or "Encoding". This is the true maximum dimension of the feature vectors. For a splitting encoding, d = num_splits * aux_basis_dim
     encoding::Symbol=:Legendre_No_Norm, # The type of encoding to use, see structs.jl and encodings.jl for the various options. Can be just a time (in)dependent orthonormal basis, or a time (in)dependent basis mapped onto a number of "splits" which distribute tighter basis functions where the sites of a timeseries are more likely to be measured.  
@@ -94,7 +94,7 @@ struct Options <: AbstractMPSOptions
     exit_early::Bool # whether to stop training when train_acc = 1
     sigmoid_transform::Bool # Whether to apply a sigmoid transform to the data before minmaxing
     log_level::Int # 0 for nothing, >0 to save losses, accs, and conf mat. #TODO implement finer grain control
-    data_bounds::Tuple{Float64, Float64} # the region to bound the data to if minmax=true, setting the bounds a bit away from [0,1] can help when the basis is poorly behaved at the boundaries
+    data_bounds::Tuple{<:Real, <:Real} # the region to bound the data to if minmax=true, setting the bounds a bit away from [0,1] can help when the basis is poorly behaved at the boundaries
     chi_init::Int # initial bond dimension of the mps (before any optimisation)
     init_rng::Int # initial rng seed for generating the MPS
 end
@@ -103,10 +103,10 @@ function Options(;
         nsweeps=5, 
         chi_max=25, 
         cutoff=1E-10, 
-        update_iters=10, 
+        update_iters=1, 
         verbosity=1, 
         loss_grad=loss_grad_KLD, 
-        bbopt=BBOpt("CustomGD"),
+        bbopt=BBOpt("CustomGD", "TSGO"),
         track_cost::Bool=(verbosity >=1), 
         eta=0.01, rescale = (false, true), 
         d=5, 
@@ -121,7 +121,7 @@ function Options(;
         sigmoid_transform=true, 
         log_level=3, 
         projected_basis=false,
-        data_bounds::Tuple{Float64, Float64}=(0.,1.),
+        data_bounds::Tuple{<:Real, <:Real}=(0.,1.),
         chi_init::Integer=4,
         init_rng::Integer=1234
     )
@@ -148,34 +148,47 @@ function Options(;
 
 end
 
-function model_encoding(s::Symbol, proj::Bool=false)
-    if s in [:Legendre_No_Norm, :legendre_no_norm, :Legendre, :legendre]
+function model_encoding(symb::Symbol, proj::Bool=false)
+    s = symb |> String |> lowercase
+    if s in ["legendre_no_norm", "legendre"]
         enc = legendre_no_norm(project=proj)
-    elseif s in [:Legendre_Norm, :legendre_norm]
-        enc = legendre(project=proj)
-    elseif s in [:Stoudenmire, :stoudenmire]
+    elseif s == "legendre_norm"
+        enc = legendre(project=proj, norm=true)
+    elseif s == "stoudenmire"
         enc = stoudenmire()
-    elseif s in [:Fourier, :fourier]
+    elseif s == "fourier"
         enc = fourier(project=proj)
-    elseif s in [:Sahand, :sahand]
+    elseif s == "sahand"
         enc = sahand()
-    elseif s in [:SL, :Sahand_Legendre, :sahand_legendre]
+    elseif s in ["sl", "sahand_legendre", "sahand_legendre_time_independent", "sahand-legendre_time_independent"]
         enc = sahand_legendre(false)
-    elseif s in [:SLTD, :Sahand_Legendre_Time_Dependent, :sahand_legendre_time_dependent]
+    elseif s in ["sltd", "sahand_legendre_time_dependent", "sahand-_legendre_time_dependent"]
         enc = sahand_legendre(true)
-    elseif s in [:Uniform, :uniform]
+    elseif s == "uniform"
         enc = uniform()
-    elseif s in [:Custom, :custom]
+    elseif startswith(s, "hist_split_") || startswith(s, "hist._split_") || startswith(s, "histogram_split_")
+        i = 6
+        while s[i-5:i] !== "split_"
+            i += 1
+        end
+        enc = histogram_split(model_encoding(Symbol(s[i+1:end])))
+    elseif startswith(s, "unif_split_") || startswith(s, "unif._split_") || startswith(s, "uniform_split_")
+        i = 6
+        while s[i-5:i] !== "split_"
+            i += 1
+        end
+        enc = uniform_split(model_encoding(Symbol(s[i+1:end])))
+    elseif s  == "custom"
         enc = erf()  # placeholder
     else
-        raise(ArgumentError("Unknown encoding function. Please use one of :Legendre, Stoudenmire, :Fourier, Sahand_Legendre, etc."))
+        throw(ArgumentError("Unknown encoding function \"$s\". Please use one of :Legendre, Stoudenmire, :Fourier, Sahand_Legendre, etc."))
     end
     return enc
 end
 
 function symbolic_encoding(E::Encoding)
     str = E.name
-    return Symbol(replace(str," " => "_"))
+    return Symbol(replace(str," " => "_", "-" => "_"))
 end
 
 function model_bbopt(s::Symbol)
