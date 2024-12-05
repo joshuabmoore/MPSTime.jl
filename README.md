@@ -1,1 +1,1 @@
-# QuantumInspiredML
+# MPSTime

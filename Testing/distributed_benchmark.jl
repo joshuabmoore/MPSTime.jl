@@ -1,19 +1,16 @@
 using Distributed
+using MPSTime
 using SharedArrays
-include("../LogLoss/RealRealHighDimension.jl")
+using GenericLinearAlgebra
 
 
 @everywhere begin
-    if Base.active_project() !== (pwd() * "/Project.toml")
-        using Pkg
-        Pkg.activate(pwd())
-    end
-    include("../LogLoss/RealRealHighDimension.jl")
-    include("../Imputation/imputation.jl");
+    
+    using MPSTime
     using JLD2
     using DelimitedFiles
     using Plots
-
+    using  GenericLinearAlgebra
     GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
 end
 

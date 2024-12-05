@@ -1,4 +1,4 @@
-module QuantumInspiredML
+module MPSTime
 
 # Import these two libraries First and in this order
 using GenericLinearAlgebra
