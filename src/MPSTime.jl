@@ -114,6 +114,7 @@ export
     init_imputation_problem, # generate and collect data necessary for imputation
     MPS_impute, # The main imputation function, all functionality can be accessed hyperparameter
     get_rdms, # compute the reduced density matrix (as a cdf) at every site. Useful for data vis/debugging weird imputations
+    ImputationProblem,
     
     # MLJ 
     MPSClassifier

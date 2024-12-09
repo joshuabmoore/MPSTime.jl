@@ -7,10 +7,11 @@ using GenericLinearAlgebra
 @everywhere begin
     
     using MPSTime
+    import MPSTime: AbstractMPSOptions, ImputationProblem, safe_options, Options
     using JLD2
     using DelimitedFiles
     using Plots
-    using  GenericLinearAlgebra
+    using GenericLinearAlgebra
     GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
 end
 
@@ -42,7 +43,7 @@ println("Libraries loaded!")
             nn_scores = Vector{Float64}(undef, num_wins)
             for it in 1:num_wins
                 impute_sites = window_idxs[pm][it]
-                ts, pred_err, stats, _ = MPS_impute(imp, 0, instance, impute_sites, :directMedian; invert_transform=true, NN_baseline=true, n_baselines=1, plot_fits=false)
+                ts_ecg, _, _, stats, _ = MPS_impute(imp, 0, instance, impute_sites, :directMedian; invert_transform=true, NN_baseline=true, n_baselines=1, plot_fits=false)
                 mps_scores[it] = stats[1][:MAE]
                 nn_scores[it] = stats[1][:NN_MAE]
             end
@@ -55,7 +56,7 @@ println("Libraries loaded!")
 
 end
 
-function benchmark(nfolds::Int, opts::AbstractMPSOptions, name::String, dloc::String, resample_folds_path::String, windows_path::String, max_instances_per_fold::Integer=typemax(Int))
+function benchmark(nfolds::Int, opts::MPSTime.AbstractMPSOptions, name::String, dloc::String, resample_folds_path::String, windows_path::String, max_instances_per_fold::Integer=typemax(Int))
     
 
     # load the original ECG200 split
@@ -122,10 +123,10 @@ function benchmark(nfolds::Int, opts::AbstractMPSOptions, name::String, dloc::St
                 train_start = time()
                 GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(nworkers())
 
-                W, _, _, _ = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts; chi_init=4,test_run=false)
+                W, _...  = fitMPS(X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts)
                 println("training took $(round(time() - train_start; digits=3))s")
                 # begin imputation
-                imp = init_imputation_problem(W, X_train_fold, y_train_fold, X_test_fold, y_test_fold, opts_safe; verbosity=0, dx=dx)
+                imp = init_imputation_problem(W, X_test_fold, y_test_fold; verbosity=0, dx=dx)
 
                 println("Finished training, beginning evaluation of imputed values...")
                 GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
@@ -185,18 +186,18 @@ ecg_resamp_folds_path = "FinalBenchmarks/ECG200/Julia/resample_folds_julia_idx.j
 ecg_windows_path = "FinalBenchmarks/ECG200/Julia/windows_julia_idx.jld2"
 
 
-# low d, chi
-d = 3
-chi_max = 15 # 
+# # low d, chi
+# d = 3
+# chi_max = 15 # 
 
-opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max, update_iters=1, verbosity=verbosity, loss_grad=:KLD,
-    bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
-    encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
-    exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0
-)
+# opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max, update_iters=1, verbosity=verbosity, loss_grad=:KLD,
+#     bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
+#     encode_classes_separately=encode_classes_separately, train_classes_separately=train_classes_separately, 
+#     exit_early=false, sigmoid_transform=false, init_rng=4567, chi_init=4, log_level=0
+# )
 
-benchmark(nfolds, opts, "ECG", ecg_dloc, ecg_resamp_folds_path, ecg_windows_path)
-benchmark(nfolds, opts, "IPD", ipd_dloc, ipd_resamp_folds_path, ipd_windows_path)
+# benchmark(nfolds, opts, "IPD", ipd_dloc, ipd_resamp_folds_path, ipd_windows_path)
+# benchmark(nfolds, opts, "ECG", ecg_dloc, ecg_resamp_folds_path, ecg_windows_path)
 
 
 # mid d, chi
@@ -214,7 +215,7 @@ benchmark(nfolds, opts, "ECG", ecg_dloc, ecg_resamp_folds_path, ecg_windows_path
 
 # high d, chi
 d = 20
-chi_max = 40 # 
+chi_max = 30 # 
 
 opts=MPSOptions(; nsweeps=nsweeps, chi_max=chi_max, update_iters=1, verbosity=verbosity, loss_grad=:KLD,
     bbopt=:TSGO, track_cost=track_cost, eta=eta, rescale = (false, true), d=d, aux_basis_dim=2, encoding=encoding, 
