@@ -1,4 +1,43 @@
-# timeseries encoding shell
+# encoding_names = [:uniform, :stoudenmire, :legendre, :fourier, :legendre_norm, histogram_split(:fourier), uniform_split(:legendre), :sahand_legendre, :SLTD]
+"""
+    Encoding
+
+Abstract supertype of all encodings. To specify an encoding for MPS training, set the `encoding` keyword when calling `MPSOptions`.
+# Example
+```
+Julia> opts = MPSOptions(; encoding=:Legendre);
+Julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
+```
+# Encodings
+- `:Legendre`: The first *d* L2-normalised [Legendre Polynomials](https://en.wikipedia.org/wiki/Legendre_polynomials). Real valued, and supports passing `projected_basis=true` to `MPSOptions`.
+- `:Fourier`: Complex valued Fourier coefficients
+
+    ``
+     \\Phi(x; d) = \\Left[1. + 0i, e^{i \\pi x}, e^{-i \\pi x}, e^{2i \\pi x}, e^{-2i \\pi x}, \\ldots \\right] / \\sqrt{d} 
+    ``
+
+    Supports passing `projected_basis=true` to `MPSOptions`.
+
+- `:Stoudenmire`: The original complex valued "Spin-1/2" encoding from Stoudenmire & Schwab, 2017 [arXiv](http://arxiv.org/abs/1605.05775). Only supports *d* = 2
+
+    ``
+    Phi(x) = \\Left[ e^{3 i \\pi x / 2} \\cos(\\frac{\\pi}{2} x),  e^{-3 i \\pi x / 2} \\sin(\\frac{\\pi}{2} x)\\Right]
+    ``
+
+- `:Sahand_Legendre_Time_Dependent`:  (:SLTD) A custom, real-valued encoding constructed as a data-driven adaptation of the Legendre Polynomials. At each time point, ``t``, the training data is used to construct a probability density function that describes the distribution of the time-series amplitude ``x_t``. This is the first basis function. 
+
+    ``b_1(x; t) = pdf_{x_t}(x_t)``. This is computed with KernelDensity.jl:
+    ```
+Julia> Using KernelDensity
+Julia> b1(xs,t) = pdf(kde(X_train[:,t]), xs)
+    ```
+    The second basis function is the first order polynomial that is L2-orthogonal to this pdf on the interval [-1,1]. 
+    
+    ``b_2(x;t) = a_1 x + a_0`` where ``\\int_{-1}^1 b_1(x;t) b_2^*(x; t) \\textrm{d} x = 0``, ``\\lvert\\lvert b_2(x; t) \\rvert\\rvert_{L2} = 1``
+    
+        The third basis function is the second order polynomial that is L2-orthogonal to the first two basis functions on [-1,1], etc.
+    In 
+"""
 abstract type Encoding end
 
 struct Basis <: Encoding 

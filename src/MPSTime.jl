@@ -84,8 +84,9 @@ include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputati
 
 
 export 
-    # Options struct
+    # Structs
     MPSOptions,
+    Encoding, # so help(Encoding) gives useful information
 
     # functions to construct Bases
     stoudenmire,
