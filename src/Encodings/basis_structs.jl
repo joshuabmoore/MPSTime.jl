@@ -10,33 +10,36 @@ Julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 ```
 # Encodings
 - `:Legendre`: The first *d* L2-normalised [Legendre Polynomials](https://en.wikipedia.org/wiki/Legendre_polynomials). Real valued, and supports passing `projected_basis=true` to `MPSOptions`.
-- `:Fourier`: Complex valued Fourier coefficients
+- `:Fourier`: Complex valued Fourier coefficients. Supports passing `projected_basis=true` to `MPSOptions`.
 
-    ``
-     \\Phi(x; d) = \\Left[1. + 0i, e^{i \\pi x}, e^{-i \\pi x}, e^{2i \\pi x}, e^{-2i \\pi x}, \\ldots \\right] / \\sqrt{d} 
-    ``
 
-    Supports passing `projected_basis=true` to `MPSOptions`.
+```math
+    \\Phi(x; d) = \\left[1. + 0i, e^{i \\pi x}, e^{-i \\pi x}, e^{2i \\pi x}, e^{-2i \\pi x}, \\ldots \\right] / \\sqrt{d} 
+```
 
 - `:Stoudenmire`: The original complex valued "Spin-1/2" encoding from Stoudenmire & Schwab, 2017 [arXiv](http://arxiv.org/abs/1605.05775). Only supports *d* = 2
 
-    ``
-    Phi(x) = \\Left[ e^{3 i \\pi x / 2} \\cos(\\frac{\\pi}{2} x),  e^{-3 i \\pi x / 2} \\sin(\\frac{\\pi}{2} x)\\Right]
-    ``
+```math
+    \\Phi(x) = \\left[ e^{3 i \\pi x / 2} \\cos(\\frac{\\pi}{2} x),  e^{-3 i \\pi x / 2} \\sin(\\frac{\\pi}{2} x)\\right]
+```
 
 - `:Sahand_Legendre_Time_Dependent`:  (:SLTD) A custom, real-valued encoding constructed as a data-driven adaptation of the Legendre Polynomials. At each time point, ``t``, the training data is used to construct a probability density function that describes the distribution of the time-series amplitude ``x_t``. This is the first basis function. 
 
-    ``b_1(x; t) = pdf_{x_t}(x_t)``. This is computed with KernelDensity.jl:
-    ```
+    ``b_1(x; t) = \\text{pdf}_{x_t}(x_t)``. This is computed with KernelDensity.jl:
+```
 Julia> Using KernelDensity
-Julia> b1(xs,t) = pdf(kde(X_train[:,t]), xs)
-    ```
-    The second basis function is the first order polynomial that is L2-orthogonal to this pdf on the interval [-1,1]. 
-    
-    ``b_2(x;t) = a_1 x + a_0`` where ``\\int_{-1}^1 b_1(x;t) b_2^*(x; t) \\textrm{d} x = 0``, ``\\lvert\\lvert b_2(x; t) \\rvert\\rvert_{L2} = 1``
-    
-        The third basis function is the second order polynomial that is L2-orthogonal to the first two basis functions on [-1,1], etc.
-    In 
+Julia> xs_samps = range(-1,1, max(200,size(X_train,2)))
+Julia> b1(xs,t) = pdf(kde(X_train[t,:]), xs_samps)
+```
+The second basis function is the first order polynomial that is L2-orthogonal to this pdf on the interval [-1,1]. 
+
+```math
+b_2(x;t) = a_1 x + a_0 \\text{ where } \\int_{-1}^1 b_1(x;t) b_2^*(x; t) \\textrm{d} x = 0, \\ \\lvert\\lvert b_2(x; t) \\rvert\\rvert_{L2} = 1
+```
+
+The third basis function is the second order polynomial that is L2-orthogonal to the first two basis functions on [-1,1], etc.
+
+-`:Custom`: For use when using a custom basis passed directly into fitMPS.
 """
 abstract type Encoding end
 
@@ -179,13 +182,51 @@ function erf()
 end
 
 
-# constructs a time-dependent encoding from a function
-# For a time independent basis, the input function must have the signature :
-# b(x::Float64, d::Integer, init_args...) and return a d-dimensional Numerical Vector
-# A vector [x_1, x_2, x_3, ..., x_N] will be encoded as [b(x_1), b(x_2), b(x_3),..., b(x_N)]
-# To use a time dependent basis, set is_time_dependent to true. The input function must have the signature 
-# b(x::Float64, d::Integer, ti::Int, init_args...) and return a d-dimensional Numerical Vector
-# A vector [x_1, x_2, x_3, ..., x_N] will be encoded as  [b_1(x_1), b_2(x_2), b_3(x_3),..., b_N(x_N)]
+"""
+
+    function_basis(basis::Function, is_complex::Bool, range::Tuple{<:Real,<:Real}, <args>; name::String="Custom")
+
+Constructs a time-(in)dependent encoding from the function `basis`, which is either real or complex, and has support on the interval `range`.
+
+For a time independent basis, the input function must have the signature :
+
+    basis(x::Float64, d::Integer, init_args...) 
+    
+and return a d-dimensional numerical Vector. 
+A vector ``[x_1, x_2, x_3, ..., x_N]`` will be encoded as ``[b(x_1), b(x_2), b(x_3),..., b(x_N)]``
+
+To use a time dependent basis, set `is_time_dependent` to true. The input function must have the signature 
+
+    basis(x::Float64, d::Integer, ti::Int, init_args...) 
+
+and return a d-dimensional numerical Vector.
+A vector ``[x_1, x_2, x_3, ..., x_N]`` will be encoded as  ``[b_1(x_1), b_2(x_2), b_3(x_3),..., b_N(x_N)]``
+
+# Optional Arguments
+- `is_time_dependent::Bool=false`: Whether the basis is time dependent 
+- `is_data_driven::Bool=false`: Whether functional form of the basis depends on the training data
+- `init::Function=no_init`: The initialiser function for the basis. This is used to compute arguments for the function that are not known in advance,
+for example, the polynomial coefficients for the Sahand-Legendre basis. This function should have the form
+
+    init_args = opts.encoding.init(X_normalised::AbstractMatrix, y::AbstractVector; opts::MPSTime.Options=opts)
+
+`X_normalised` will be preprocessed (with sigmoid transform and MinMax transform pre-applied), **with Time series as columns**
+
+# Example
+The Legendre Polynomial Basis:
+
+```
+Julia> Using LegendrePolynomials
+Julia> function legendre_encode(x::Float64, d::Int)
+    # default legendre encoding: choose the first n-1 legendre polynomials
+
+    leg_basis = [Pl(x, i; norm = Val(:normalized)) for i in 0:(d-1)] 
+    
+    return leg_basis
+Julia> custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+```
+
+"""
 function function_basis(
     basis::Function, 
     is_complex::Bool, 

@@ -375,6 +375,22 @@ end
 # This is the intended entrypoint for calls to fitMPS, so input sanitisation can be done here
 # If you call a method further down it's assumed you know what you're doing
 #TODO fix the opts so it isnt such a disaster
+
+
+"""
+    MPS, training_info, encoded_test_states = fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions())    
+    
+Train an MPS on the data `X_train`. The number of classes are determined by the entries of `y_train`, using the hyperparameters `opts`.
+
+Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty.
+
+    MPS, training_info, encoded_test_states = fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), custom_encoding::Union{Encoding, Nothing}=nothing)    
+
+Train an MPS on the data `X_train`, using the user defined `custom_encoding`. The number of classes are determined by the entries of `y_train`, using the hyperparameters `opts`.
+
+Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty.
+
+"""
 function fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), custom_encoding::Union{Encoding, Nothing}=nothing;  kwargs...)    
     # handle how the encoding is specified
     if opts isa Options
