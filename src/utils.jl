@@ -199,7 +199,13 @@ function transform_train_data(X_train::AbstractMatrix; opts::AbstractMPSOptions)
     return X_train_scaled, [sig_trans, minmax]
 end
 
-function transform_test_data(X_test::AbstractMatrix, norms::Vector{<:Union{Nothing, AbstractNormalization}}; opts::AbstractMPSOptions, rescale_out_of_bounds::Bool=true)
+function transform_test_data(
+        X_test::AbstractMatrix, 
+        norms::Vector{<:Union{Nothing, AbstractNormalization}}; 
+        opts::AbstractMPSOptions, 
+        rescale_out_of_bounds::Bool=true,
+        test_print_threshold::Real=0.01
+    )
     if isempty(X_test)
         return copy(X_test), []
     end
@@ -238,24 +244,23 @@ function transform_test_data(X_test::AbstractMatrix, norms::Vector{<:Union{Nothi
             trans = Real[i, 0.,1.] # the "Real" is to stop a conversion to Vector{Float}, as this will cause an indexerror later
             lb, ub = extrema(ts)
             if lb < 0
-                if opts.verbosity > 5 && abs(lb) > 0.01 
+                if opts.verbosity > 5 && abs(lb) > test_print_threshold
                     @warn "Test series has a value more than 1% below lower bound after train normalization! lb=$lb"
                 end
-                num_ts_scaled += 1
                 ts .-= lb
                 ub = maximum(ts)
                 trans[2] = lb
             end
 
             if ub > 1
-                if opts.verbosity > 5 && abs(ub-1) > 0.01 
+                if opts.verbosity > 5 && abs(ub-1) > test_print_threshold
                     @warn "Test series has a value more than 1% above upper bound after train normalization! ub=$ub"
                 end
-                num_ts_scaled += 1
                 ts  ./= ub
                 trans[3] = ub
             end
             if !all(trans[2:3] .== [0.,1.])
+                num_ts_scaled += 1
                 push!(oob_rescales, trans)
             end
         end
@@ -279,12 +284,12 @@ function transform_test_data(X_test::AbstractVector, args...; kwargs...)
 end
 
 
-function transform_data(X_train::AbstractMatrix, X_test::AbstractMatrix; opts::AbstractMPSOptions)
+function transform_data(X_train::AbstractMatrix, X_test::AbstractMatrix; opts::AbstractMPSOptions, test_print_threshold::Real=0.01)
     if isempty(X_train) && isempty(X_test)
         return copy(X_train), copy(X_test)
     end
     X_train_scaled, norms = transform_train_data(X_train; opts=opts)
-    X_test_scaled, oob_rescales = transform_test_data(X_test, norms; opts=opts)
+    X_test_scaled, oob_rescales = transform_test_data(X_test, norms; opts=opts, test_print_threshold=test_print_threshold)
 
     return X_train_scaled, X_test_scaled, norms, oob_rescales 
 end
