@@ -71,15 +71,15 @@ include("Training/RealRealHighDimension.jl"); # The training algorithm, fitMPS a
 
 # Imputation
 include("Imputation/imputation.jl") # Some structs, and scaffolds for setting up and solving ImpuationProblems
-include("Imputation/imputationMetrics.jl"); # Metrics used to measure imputation performance
-include("Imputation/imputationUtils.jl"); # contains the functions to project states onto an MPS / get most likely states for a region
-include("Imputation/samplingUtils.jl"); # contains functions to compute a rdm matrix from an MPS, and pretty much every way you can think of to sample from it
+include("Imputation/metrics.jl"); # Metrics used to measure imputation performance
+include("Imputation/MPS_methods.jl"); # contains the functions to project states onto an MPS / get most likely states for a region
+include("Imputation/sampling_utils.jl"); # contains functions to compute a rdm matrix from an MPS, and pretty much every way you can think of to sample from it
 
 
 
 # MLJ
 include("MLJIntegration/MLJ_integration.jl") # MLJ Integration
-include("MLJIntegration/MLJUtils.jl")
+include("MLJIntegration/MLJ_utils.jl")
 include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputation using MAE. MLJ was not designed for this at all 
 
 

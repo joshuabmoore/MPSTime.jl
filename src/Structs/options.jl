@@ -36,8 +36,17 @@ Object containing training options for fitMPS. Construct using the MPSOptions(; 
 
 
 ## Data Preprocessing and MPS initialisation
-- `sigmoid_transform::Bool`: Whether to apply a sigmoid transform to the data before minmaxing
-- `minmax::Bool`: Whether to apply a minmax norm to *data_bounds* before encoding.
+- `sigmoid_transform::Bool`: Whether to apply a sigmoid transform to the data before minmaxing. This has the form
+```math
+\\boldsymbol{X'} = \\left(1 + \\exp{-\\frac{\\boldsymbol{X}-m_{\\boldsymbol{X}}}{r_{\\boldsymbol{X}} / 1.35}}\\right)^{-1}
+```
+    where ``\\boldsymbol{X}`` is the un-normalized time-series data matrix, ``m_{\\boldsymbol{X}}`` is the median of ``\\boldsymbol{X}`` and ``r_{\\boldsymbol{X}}``is its interquartile range.
+
+    - `minmax::Bool`: Whether to apply a minmax norm to `[0,1]` before encoding. This has the form
+```math
+\\boldsymbol{X'} =  \\frac{\\boldsymbol{X} - x'_{\\text{min}}}{x'_{\\text{max}} - x'_{\\text{min}}},
+```
+    where ``\\boldsymbol{X''}`` is the scaled robust-sigmoid transformed data matrix, ``x'_\\text{min}`` and ``x'_\\text{max}`` are the minimum and maximum of ``\\boldsymbol{X'}``.
 - `data_bounds::Tuple{Float64, Float64} = (0.,1.)`: The region to bound the data to if minmax=true. This is separate from the encoding domain. All encodings expect data to be scaled scaled between 0 and 1. Setting the data bounds a bit away from [0,1] can help when your basis has poor support near its boundaries.
 
 - `init_rng::Int`: Random seed used to generate the initial MPS

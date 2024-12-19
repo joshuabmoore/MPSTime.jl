@@ -111,4 +111,34 @@ function plot_encoding(
     return basis_per_time, ps
 end
 
+"""
+```Julia
+plot_encoding(E::Union(Symbol, MPSTime.Encoding), 
+              d::Integer, 
+              X_train::Matrix{Float64}=zeros(0,0), 
+              y_train::Vector{Any}=[];
+              <keyword arguments>) -> encoding::Vector, plot::Plots.Plot
+```
+
+Plot the first `d` terms of the encoding `E` across its entire domain.
+
+`X_train` and `y_train` are only needed if `E` is data driven or time dependent, or `plot_hist` is true.
+
+# Keyword Arguments
+- `plot_hist::Bool=E.isdatadriven`: Whether to plot the histogram of the traing data at several time points. Useful for understanding the behviour of data-driven bases.
+- `tis::Vector{<:Integer} = Int[]`: Time(s) to plot the Encoding at.
+- `ds::Vector{<:Integer} = collect(1:d)`: Enables plotting of a subset of a d-dimensional Encoding, e.g. `ds=[1,3,5]` plots the first, third and fifth basis functions.
+- `num_xvals::Integer=500`: 
+- `size::Tuple=(1200, 800)`: 
+- `padding::Real=6.`: 
+## Used for data-driven Encodings
+- `sigmoid_transform::Bool=false`: Whether to apply a robust sigmoid transform to the training data, see [`MPSOptions`](@ref)
+- `minmax::Bool=true`: Whether to apply a minmax normalsation to the training data after the sigmoid, see [`MPSOptions`](@ref)
+- `data_bounds::Tuple{<:Real, <:Real}=(0.,1.)`: Whether to apply a robust sigmoid transform to the X data, see [`MPSOptions`](@ref)
+- `project_basis::Bool=false`: Whether to project the basis onto the data. Supported only by :legendre and :Fourier basis when `E` has type Symbol
+- `aux_basis_dim::Integer=2`: Dimension of each auxilliary basis. Only relevent when `E` is a `MPSTime.SplitBasis`. 
+## Misc
+- `kwargs`: Passed to Plots.Plot()
+
+"""
 plot_encoding(s::Symbol, args...; project_basis::Bool=false, kwargs...) = plot_encoding(model_encoding(s, project_basis), args...; kwargs...)
