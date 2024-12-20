@@ -10,5 +10,5 @@ pkg> add https://github.com/jmoo2880/MPSTime.jl.git
 ```
 
 ## Usage
-See the Tutorial section and other sidebars for a basic usage examples. We're continually adding more features and documentation as we go.
+See the [Tutorial](@ref) section and other sidebars for a basic usage examples. We're continually adding more features and documentation as we go.
 

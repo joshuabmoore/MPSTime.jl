@@ -1,6 +1,6 @@
 # Tutorial
 
-This tutorial for MPSTime will take you through the basic steps needed to fit an MPS to a timeseries dataset.
+This tutorial for MPSTime will take you through the basic steps needed to fit an MPS to a time-series dataset.
 
 ## Demo dataset
 
