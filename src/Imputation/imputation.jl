@@ -113,11 +113,11 @@ function init_imputation_problem(
 end
 
 """
-    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray; <keyword arguments>) -> imp::ImputationProblem
+    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray=zeros(Int, size(X_test,1)); <keyword arguments>) -> imp::ImputationProblem
 
 Initialise an imputation problem using a trained MPS and relevent test data.
 
-This involves a lot of pre-computation, which can be quite time intensive for data-driven bases.
+This involves a lot of pre-computation, which can be quite time intensive for data-driven bases. For unclassed/unsupervised data `y_test` may be omitted.
 
 # Keyword Arguments
 - `guess_range::Union{Nothing, Tuple{<:Real,<:Real}}=nothing`: The range of values that guesses are allowed to take. This range is applied to normalised, encoding-adjusted time-series data. To allow any guess, leave as nothing, or set to encoding.range (e.g. [(-1., 1.) for the legendre encoding]).
@@ -125,10 +125,11 @@ This involves a lot of pre-computation, which can be quite time intensive for da
     range(guess_range...; step=dx)
 - `verbosity::Integer=1`: The verbosity of the initialisation process. Useful for debugging, or to completely suppress output.
 """
-function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray; verbosity::Integer=1)
+function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractVector=zeros(Int, size(X_test,1)); verbosity::Integer=1)
     y_train = [ts.label for ts in mps.train_data.timeseries]
     return init_imputation_problem(mps.mps, mps.train_data.original_data, y_train, X_test, y_test, mps.opts_concrete; verbosity=verbosity)
 end
+
 
 
 """
@@ -245,7 +246,7 @@ function get_predictions(
         end
 
     else
-        error("Invalid method. Choose :directMean (Expect/Var), :directMode, :directMedian, :nearestNeighbour, :ITS, et. al")
+        error("Invalid method. Choose :mean (Expect/Var), :mode, :median, :kNearestNeighbour, :ITS, et. al")
     end
 
 
@@ -294,8 +295,8 @@ MPS_impute(imp::ImputationProblem,
 ```
 Impute the `missing_sites` using an MPS-based approach, selecting the trajectory from the conditioned distribution with `method`
 
-See [`init_imputation_problem`](@ref) for constructing an ImputationProblem instance. The `instance` number is relative to the class, so
-class 1, instance 2 would be distinct from class 2, instance 2. The available methods are
+See [`init_imputation_problem`](@ref) for constructing an `ImputationProblem`` instance out of a trained MPS. The `instance` number is relative to the class, so
+class 1, instance 2 would be distinct from class 2, instance 2. 
 
 # Imputation Methods
 - `:median`: For each missing value, compute the probability density function of the possible outcomes from the MPS, and choose the median. This method is the most robust to outliers. Keywords:
@@ -314,7 +315,7 @@ class 1, instance 2 would be distinct from class 2, instance 2. The available me
     * `max_trials::Integer=10`: Number of attempts allowed to make guesses conform to rejection_threshold before giving up.
 
 - `:kNearestNeighbour`: Select the `k` nearest neighbours in the training set using Euclidean distance to the known data. Keyword:
-    * `k`: Number of nearest neighbours to return. See [`kNearestNeighbour`](@ref)
+    * `k`: Number of nearest neighbours to return. See [`kNN_impute`](@ref)
 
 # Keyword Arguments
 - `impute_order::Symbol=:forwards`: Whether to impute the missing values `:forwards` (left to right) or `:backwards` (right to left)
@@ -332,9 +333,9 @@ function MPS_impute(
         class::Any, 
         instance::Integer, 
         missing_sites::Vector{Int}, 
-        method::Symbol=:directMedian;
+        method::Symbol=:median;
         invert_transform::Bool=true,
-        impute_order::Symbol=forwards,
+        impute_order::Symbol=:forwards,
         NN_baseline::Bool=true, 
         n_baselines::Integer=1,
         plot_fits=true,
@@ -384,7 +385,7 @@ function MPS_impute(
     end
 
     if NN_baseline
-        mse_ts, _... = get_predictions(imp, class, instance, missing_sites, :nearestNeighbour; invert_transform=invert_transform, k=n_baselines, kwargs...)
+        mse_ts, _... = get_predictions(imp, class, instance, missing_sites, :kNearestNeighbour; invert_transform=invert_transform, k=n_baselines)
 
         if plot_fits 
             for (i,t) in enumerate(mse_ts)

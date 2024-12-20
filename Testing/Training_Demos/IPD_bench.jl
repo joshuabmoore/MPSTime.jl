@@ -45,7 +45,7 @@ opts=MPSOptions(; nsweeps=nsweeps, chi_max=50,  update_iters=1, verbosity=verbos
 print_opts(opts)
 nsplits = 30
 
-W, info, train_states, test_states = MPS(), Dict(), EncodedTimeseriesSet(), EncodedTimeseriesSet()
+W, info, train_states, test_states = MPS(), Dict(), EncodedTimeSeriesSet(), EncodedTimeSeriesSet()
 @profilehtml begin
     outs = fitMPS(X_train, y_train, X_test, y_test, opts);
     global W = outs[1];

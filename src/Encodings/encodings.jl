@@ -33,7 +33,7 @@ function encode_dataset(ES::EncodeSeparate, X_orig::AbstractMatrix, X_norm::Abst
     # the loss grad function assumes the timeseries are sorted! Removing the sorting now breaks the algorithm
     if size(X_norm, 2) == 0
         encoding_args = []
-        return EncodedTimeseriesSet(eltype(y)), encoding_args
+        return EncodedTimeSeriesSet(eltype(y)), encoding_args
     end
 
     order = sortperm(y)
@@ -60,7 +60,7 @@ function encode_safe_dataset(::EncodeSeparate{true}, X_orig::AbstractMatrix, X_n
     
     class_map = countmap(y)
     class_distribution = collect(values(class_map))[sortperm(collect(keys(class_map)))]  # return the number of occurances in each class sorted in order of class index
-    return EncodedTimeseriesSet(states, X_orig, class_distribution), enc_args
+    return EncodedTimeSeriesSet(states, X_orig, class_distribution), enc_args
 end
 
 function encode_safe_dataset(::EncodeSeparate{false}, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, type::String, 
@@ -114,7 +114,7 @@ function encode_safe_dataset(::EncodeSeparate{false}, X_orig::AbstractMatrix, X_
         throw(ArgumentError("Can't encode a test or val set without training encoding arguments!"))
     end
 
-    all_product_states = TimeseriesIterable(undef, num_ts)
+    all_product_states = TimeSeriesIterable(undef, num_ts)
     for i=1:num_ts
         sample_pstate = encode_TS(X_norm[:, i], site_indices, encoding_args; opts=opts)
         sample_label = y[i]
@@ -128,7 +128,7 @@ function encode_safe_dataset(::EncodeSeparate{false}, X_orig::AbstractMatrix, X_
     class_map = countmap(y)
     class_distribution = collect(values(class_map))[sortperm(collect(keys(class_map)))] # return the number of occurances in each class sorted in order of class index
     
-    return EncodedTimeseriesSet(all_product_states, X_orig, class_distribution), encoding_args
+    return EncodedTimeSeriesSet(all_product_states, X_orig, class_distribution), encoding_args
 
 end
 

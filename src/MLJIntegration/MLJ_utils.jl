@@ -41,7 +41,7 @@ end
 encoderows(sites::AbstractVector{<:Index{<:Integer}}, opts::Options, Xs::AbstractMatrix) = encoderows(sites, opts, Xs, -ones(Int, size(Xs,2)))
 encoderows(opts::Options, Xs::AbstractMatrix, args...; kwargs...) = encoderows( siteinds(opts.d, size(Xs, 1)), opts, Xs, args...; kwargs...)
 
-function MPSpredict(W::MPS, X::EncodedTimeseriesSet)
+function MPSpredict(W::MPS, X::EncodedTimeSeriesSet)
     pss = X.timeseries
     yhat::Vector{UInt} = [argmax(abs.(vector(contractMPS(W, ps)))) for ps in pss]
 

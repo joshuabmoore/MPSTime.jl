@@ -6,66 +6,8 @@ Abstract supertype of "MPSOptions", a collection of concrete types which is used
 abstract type AbstractMPSOptions end
 
 #  New code should use MPSOptions, which is composed of purely concrete types (aside from maybe an abstractRNG object) and won't have the JLD2 serialisation issues
-"""
-    MPSOptions(; <Keyword Arguments>)
-
-Object containing training options for fitMPS. Construct using the MPSOptions(; ) Function
-
-# Fields
-## Logging
-- `verbosity::Int=1`: How much debug/progress info to print to the terminal while optimising the MPS. Higher numbers mean more output
-- `log_level::Int=3`: How much statistical output. 0 for nothing, >0 to print losses, accuracies, and confusion matrix at each step (noticeable) computational overhead) #TODO implement finer grain control
-- `track_cost::Bool=false`: Whether to print the cost at each Bond tensor site to the terminal while training, mostly useful for debugging new cost functions or optimisers (**HUGE** computational overhead)
 
 
-## MPS Training Hyperparameters
-- `nsweeps::Int=5`: Number of MPS optimisation sweeps to perform (Both forwards and Backwards)
-- `chi_max::Int=25`: Maximum bond dimension allowed within the MPS during the SVD step
-- `eta::Float64=0.01`: The learning rate. For gradient descent methods, this is the step size. For Optim and OptimKit this serves as the initial step size guess input into the linesearch
-- `d::Int=5`: The dimension of the feature map or "Encoding". This is the true maximum dimension of the feature vectors. For a splitting encoding, d = num_splits * aux_basis_dim
-- `cutoff::Float64=1E-10`: Size based cutoff for the number of singular values in the SVD (See Itensors SVD documentation)
-- `dtype::DataType=Float64 or ComplexF64 depending on encoding`: The datatype of the elements of the MPS. Supports the arbitrary precsion types such as BigFloat and Complex{BigFloat}
-- `exit_early::Bool=false`: Stops training if training accuracy is 1 at the end of any sweep.
-
-
-## Encoding Options
-- `encoding::Symbol=:Legendre`: The encoding to use, including :Stoudenmire, :Fourier, :Legendre, :SLTD, :Custom, etc. see Encoding docs for a complete list. Can be just a time (in)dependent orthonormal basis, or a time (in)dependent basis mapped onto a number of "splits" which distribute tighter basis functions where the sites of a timeseries are more likely to be measured.  
-- `projected_basis::Bool=false`: Whether toproject a basis onto the training data at each time. Normally, when specifying a basis of dimension *d*, the first *d* lowest order terms are used. When project=true, the training data is used to construct a pdf of the possible timeseries amplitudes at each time point. The first *d* largest terms of this pdf expanded in a series are used to select the basis terms.
-- `aux_basis_dim::Int=2`: Unused for standard encodings. If the encoding is a SplitBasis, serves as the auxilliary dimension of a basis mapped onto the split encoding, so that the number of histogram bins = *d* / *aux_basis_dim*. 
-- `encode_classes_separately::Bool=false`: Only relevant for data driven bases. If true, then data is split up by class before being encoded. Functionally, this causes the encoding method to vary depending on the class
-
-
-## Data Preprocessing and MPS initialisation
-- `sigmoid_transform::Bool`: Whether to apply a sigmoid transform to the data before minmaxing. This has the form
-```math
-\\boldsymbol{X'} = \\left(1 + \\exp{-\\frac{\\boldsymbol{X}-m_{\\boldsymbol{X}}}{r_{\\boldsymbol{X}} / 1.35}}\\right)^{-1}
-```
-    where ``\\boldsymbol{X}`` is the un-normalized time-series data matrix, ``m_{\\boldsymbol{X}}`` is the median of ``\\boldsymbol{X}`` and ``r_{\\boldsymbol{X}}``is its interquartile range.
-
-    - `minmax::Bool`: Whether to apply a minmax norm to `[0,1]` before encoding. This has the form
-```math
-\\boldsymbol{X'} =  \\frac{\\boldsymbol{X} - x'_{\\text{min}}}{x'_{\\text{max}} - x'_{\\text{min}}},
-```
-    where ``\\boldsymbol{X''}`` is the scaled robust-sigmoid transformed data matrix, ``x'_\\text{min}`` and ``x'_\\text{max}`` are the minimum and maximum of ``\\boldsymbol{X'}``.
-- `data_bounds::Tuple{Float64, Float64} = (0.,1.)`: The region to bound the data to if minmax=true. This is separate from the encoding domain. All encodings expect data to be scaled scaled between 0 and 1. Setting the data bounds a bit away from [0,1] can help when your basis has poor support near its boundaries.
-
-- `init_rng::Int`: Random seed used to generate the initial MPS
-- `chi_init::Int`: Initial bond dimension of the random MPS
-
-
-## Loss Functions and Optimisation Methods
-- `loss_grad::Symbol=:KLD`: The type of cost function to use for training the MPS, typically Mean Squared Error (:MSE) or KL Divergence (:MSE), but can also be a weighted sum of the two (:Mixed)
-- `bbopt::Symbol=:TSGO`: Which local Optimiser to use, builtin options are symbol gradient descent (:GD), or gradient descent with a TSGO rule (:TSGO). Other options are Conjugate Gradient descent using either the Optim or OptimKit packages (:Optim or :OptimKit respectively). The CGD methods work well for MSE based loss functions, but seem to perform poorly for KLD base loss functions.
-
-- `rescale::Tuple{Bool,Bool}=(false,true)`: Has the form `rescale = (before::Bool, after::Bool)`. Where to enforce the normalisation of the MPS during training, either calling normalise!(*Bond Tensor*) before or after BT is updated. Note that for an MPS that starts in canonical form, rescale = (true,true) will train identically to rescale = (false, true) but may be less performant.
-- `update_iters::Int=1`: Maximum number of optimiser iterations to perform for each bond tensor optimisation. E.G. The number of steps of (Conjugate) Gradient Descent used by TSGO, Optim or OptimKit
-- `train_classes_separately::Bool=false`: Whether the the trainer optimises the total MPS loss over all classes or whether it considers each class as a separate problem. Should make very little diffence
-
-
-## Debug
-- `return_encoding_meta_info::Bool=false`: Debug flag: Whether to return the normalised data as well as the histogram bins for the splitbasis types
-
-"""
 struct MPSOptions <: AbstractMPSOptions
     verbosity::Int # Represents how much info to print to the terminal while optimising the MPS. Higher numbers mean more output
     nsweeps::Int # Number of MPS optimisation sweeps to perform (Both forwards and Backwards)
@@ -98,9 +40,9 @@ end
 """
     MPSOptions(; <Keyword Arguments>)
 
-Initialises the training options for fitMPS.
+Set the hyperparameters and other options for fitMPS. 
 
-# Fields
+# Fields:
 ## Logging
 - `verbosity::Int=1`: How much debug/progress info to print to the terminal while optimising the MPS. Higher numbers mean more output
 - `log_level::Int=3`: How much statistical output. 0 for nothing, >0 to print losses, accuracies, and confusion matrix at each step (noticeable) computational overhead) #TODO implement finer grain control
@@ -125,8 +67,19 @@ Initialises the training options for fitMPS.
 
 
 ## Data Preprocessing and MPS initialisation
-- `sigmoid_transform::Bool`: Whether to apply a sigmoid transform to the data before minmaxing
-- `minmax::Bool`: Whether to apply a minmax norm to *data_bounds* before encoding.
+- `sigmoid_transform::Bool`: Whether to apply a sigmoid transform to the data before minmaxing. This has the form
+```math
+\\boldsymbol{X'} = \\left(1 + \\exp{-\\frac{\\boldsymbol{X}-m_{\\boldsymbol{X}}}{r_{\\boldsymbol{X}} / 1.35}}\\right)^{-1}
+```
+
+where ``\\boldsymbol{X}`` is the un-normalized time-series data matrix, ``m_{\\boldsymbol{X}}`` is the median of ``\\boldsymbol{X}`` and ``r_{\\boldsymbol{X}}``is its interquartile range.
+
+- `minmax::Bool`: Whether to apply a minmax norm to `[0,1]` before encoding. This has the form
+```math
+\\boldsymbol{X'} =  \\frac{\\boldsymbol{X} - x'_{\\text{min}}}{x'_{\\text{max}} - x'_{\\text{min}}},
+```
+
+where ``\\boldsymbol{X''}`` is the scaled robust-sigmoid transformed data matrix, ``x'_\\text{min}`` and ``x'_\\text{max}`` are the minimum and maximum of ``\\boldsymbol{X'}``.
 - `data_bounds::Tuple{Float64, Float64} = (0.,1.)`: The region to bound the data to if minmax=true. This is separate from the encoding domain. All encodings expect data to be scaled scaled between 0 and 1. Setting the data bounds a bit away from [0,1] can help when your basis has poor support near its boundaries.
 
 - `init_rng::Int`: Random seed used to generate the initial MPS
@@ -166,7 +119,7 @@ function MPSOptions(;
     encode_classes_separately::Bool=false, # only relevant for a histogram splitbasis. If true, then the histogram used to determine the bin widths for encoding class A is composed of only data from class A, etc. Functionally, this causes the encoding method to vary depending on the class
     return_encoding_meta_info::Bool=false, # Debug flag: Whether to return the normalised data as well as the histogram bins for the splitbasis types
     minmax::Bool=true, # Whether to apply a minmax norm to the encoded data after it's been SigmoidTransformed
-    exit_early::Bool=true, # whether to stop training when train_acc = 1
+    exit_early::Bool=false, # whether to stop training when train_acc = 1
     sigmoid_transform::Bool=true, # Whether to apply a sigmoid transform to the data before minmaxing
     init_rng::Int=1234, # SEED ONLY IMPLEMENTED (Itensors fault) random number generator or seed Can be manually overridden by calling fitMPS(...; random_seed=val)
     chi_init::Int=4, # Initial bond dimension of the randomMPS fitMPS(...; chi_init=val)
@@ -443,11 +396,11 @@ Container for a trained MPS and its associated Options and training data.
 - `mps::MPS`: A trained Matrix Product state.
 - `opts::MPSOptions`: User defined MPSOptions used to create the MPS.
 - `opts_concrete::MPSTime.Options`: Internal Options struct. Necessary to preserve custom encodings passed to fitMPS.
-- `train_data::EncodedTimeseriesSet`: Stores both the raw and encoded data used to train the mps.
+- `train_data::EncodedTimeSeriesSet`: Stores both the raw and encoded data used to train the mps.
 """
 struct TrainedMPS
     mps::MPS
     opts::MPSOptions
     opts_concrete::Options
-    train_data::EncodedTimeseriesSet
+    train_data::EncodedTimeSeriesSet
 end

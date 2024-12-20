@@ -8,7 +8,7 @@ function compute_missing_windows(pm::Real, num_samples::Int, num_windows::Int, s
     return [collect(i:(i+num_missing-1)) for i in starting_inds]
 end
 
-function impute_instance_MLJ(instance::Integer, num_instances::Integer, fold_idx::Integer, pms::AbstrasctVector, max_windows::Int, imp::ImputationProblem)
+function impute_instance_MLJ(instance::Integer, num_instances::Integer, fold_idx::Integer, pms::AbstractVector, max_windows::Int, imp::ImputationProblem)
     bt = time()
     # loop over windows
     pm_scores = Vector{WindowScores}(undef, length(pms))

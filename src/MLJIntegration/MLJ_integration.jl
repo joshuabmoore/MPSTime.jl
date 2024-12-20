@@ -47,7 +47,7 @@ function MMI.fit(m::MPSClassifier, verbosity::Int, X, y, decode)
 
     X_enc = encoderows(enc_opt, X, y) # I would love to use MMI.reformat for this but I the sigmoid transform depends on the choice of samples in selectrows and that isn't called for predict
     @show eltype(y)
-    W, info, _, _ = fitMPS(X_enc, EncodedTimeseriesSet(eltype(y)), opts)
+    W, info, _, _ = fitMPS(X_enc, EncodedTimeSeriesSet(eltype(y)), opts)
     cache = nothing
     report = (info = info,)
     return ((decode, enc_opt, W), cache, report)
