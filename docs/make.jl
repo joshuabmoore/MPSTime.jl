@@ -4,7 +4,7 @@ using MPSTime
 
 makedocs(
     sitename = "MPSTime",
-    format = Documenter.HTML(),
+    format = Documenter.HTML(sidebar_sitename=false),
     modules = [MPSTime],
     pages = [
     "Home" => "index.md",
