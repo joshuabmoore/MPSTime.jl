@@ -5,8 +5,8 @@
 Abstract supertype of all encodings. To specify an encoding for MPS training, set the `encoding` keyword when calling `MPSOptions`.
 # Example
 ```
-Julia> opts = MPSOptions(; encoding=:Legendre);
-Julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
+julia> opts = MPSOptions(; encoding=:Legendre);
+julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 ```
 # Encodings
 - `:Legendre`: The first *d* L2-normalised [Legendre Polynomials](https://en.wikipedia.org/wiki/Legendre_polynomials). Real valued, and supports passing `projected_basis=true` to `MPSOptions`.
@@ -27,9 +27,9 @@ Julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
 
     ``b_1(x; t) = \\text{pdf}_{x_t}(x_t)``. This is computed with KernelDensity.jl:
 ```
-Julia> Using KernelDensity
-Julia> xs_samps = range(-1,1, max(200,size(X_train,2)))
-Julia> b1(xs,t) = pdf(kde(X_train[t,:]), xs_samps)
+julia> Using KernelDensity
+julia> xs_samps = range(-1,1, max(200,size(X_train,2)))
+julia> b1(xs,t) = pdf(kde(X_train[t,:]), xs_samps)
 ```
 The second basis function is the first order polynomial that is L2-orthogonal to this pdf on the interval [-1,1]. 
 
@@ -39,7 +39,7 @@ b_2(x;t) = a_1 x + a_0 \\text{ where } \\int_{-1}^1 b_1(x;t) b_2^*(x; t) \\textr
 
 The third basis function is the second order polynomial that is L2-orthogonal to the first two basis functions on [-1,1], etc.
 
--`:Custom`: For use when using a custom basis passed directly into fitMPS.
+-`:Custom`: For use with user-defined custom bases. See [`function_basis`](@ref)
 """
 abstract type Encoding end
 
@@ -216,14 +216,14 @@ for example, the polynomial coefficients for the Sahand-Legendre basis. This fun
 The Legendre Polynomial Basis:
 
 ```
-Julia> Using LegendrePolynomials
-Julia> function legendre_encode(x::Float64, d::Int)
+julia> Using LegendrePolynomials
+julia> function legendre_encode(x::Float64, d::Int)
     # default legendre encoding: choose the first n-1 legendre polynomials
 
     leg_basis = [Pl(x, i; norm = Val(:normalized)) for i in 0:(d-1)] 
     
     return leg_basis
-Julia> custom_basis = function_basis(legendre_encode, false, (-1., 1.))
+julia> custom_basis = function_basis(legendre_encode, false, (-1., 1.))
 ```
 
 """

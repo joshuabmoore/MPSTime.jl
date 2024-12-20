@@ -39,7 +39,7 @@ function MSE_loss_acc_iter(W::MPS, PS::PState, label_idx::Index)
 
 end
 
-function MSE_loss_acc(W::MPS, PSs::TimeseriesIterable)
+function MSE_loss_acc(W::MPS, PSs::TimeSeriesIterable)
     """Compute the MSE loss and accuracy for an entire dataset"""
     pos, label_idx = find_label(W)
     loss, acc = reduce(+, MSE_loss_acc_iter(W, PS,label_idx) for PS in PSs)
@@ -78,7 +78,7 @@ function MSE_loss_acc_conf_iter!(W::MPS, PS::PState, label_idx::Index, conf::Mat
 
 end
 
-function MSE_loss_acc_conf(W::MPS, PSs::TimeseriesIterable)
+function MSE_loss_acc_conf(W::MPS, PSs::TimeSeriesIterable)
     pos, label_idx = find_label(W)
     nc = ITensors.dim(label_idx)
     conf = zeros(Int, nc,nc)
@@ -91,7 +91,7 @@ function MSE_loss_acc_conf(W::MPS, PSs::TimeseriesIterable)
 
 end
 
-function get_predictions(Ws::Vector{MPS}, pss::TimeseriesIterable)
+function classify_overlap(Ws::Vector{MPS}, pss::TimeSeriesIterable)
     # mps0 overlaps with ORIGINAL class 0 and mps1 overlaps with ORIGINAL class 1
     # preds are in terms of label_index not label!
     @assert all(length(Ws[1]) .== length.(Ws)) "MPS lengths do not match!"
@@ -117,7 +117,75 @@ function get_predictions(Ws::Vector{MPS}, pss::TimeseriesIterable)
 end
 
 
-function overlap_confmat(mps0::MPS, mps1::MPS, pstates::TimeseriesIterable; plot=false)
+function classify(mps::TrainedMPS, test_states::EncodedTimeSeriesSet)
+
+    pss = test_states.timeseries
+    Ws, l_ind = expand_label_index(mps.mps)
+
+    pss_train = mps.train_data.timeseries
+
+    labels = sort(unique([ps.label for ps in pss_train]))
+
+
+    preds = Vector{Int64}(undef, length(pss))
+    for i in eachindex(pss)
+        psc = conj(pss[i].pstate)
+        overlaps = [ITensor(1) for _ in Ws]
+        for (wi,w) in enumerate(Ws), j in eachindex(Ws[1])
+            overlaps[wi] *= w[j] * psc[j]
+        end
+        overlaps = abs2.(first.(overlaps))
+        pred = argmax(overlaps)
+        preds[i] = labels[pred]
+
+    end
+
+    # return overlaps as well for inspection
+    return preds
+        
+end
+
+"""
+```Julia
+classify(mps::TrainedMPS, X_test::AbstractMatrix, opts::AbstractMPSOptions)) -> (predictions::Vector)
+```
+Use the `mps` to predict the class of the rows of `X_test` by computing the maximum overlap.
+
+# Example
+```
+julia> W, info, test_states = fitMPS( X_train, y_train, opts);
+julia> preds  = classify(W, X_test, opts); # make some predictions
+julia> mean(preds .== y_test)
+0.9504373177842566
+```
+
+"""
+function classify(mps::TrainedMPS, X_test::AbstractMatrix, opts::AbstractMPSOptions)
+    opts = safe_options(opts) # make sure options is abstract
+    opts = _set_options(opts; verbosity=-10)
+
+    X_train = mps.train_data.original_data
+    X_train_scaled, X_test_scaled, norms, oob_rescales = transform_data(permutedims(X_train), permutedims(X_test); opts=opts)
+
+    sites = get_siteinds(mps.mps)
+    pss_train = mps.train_data.timeseries
+
+    y_train = [ps.label for ps in pss_train]
+    classes = sort(unique(y_train))
+    num_classes = length(classes)
+    
+    sort!(classes)
+    class_keys = Dict(zip(classes, 1:num_classes))
+    n_tests = size(X_test_scaled,2)
+
+    s = EncodeSeparate{opts.encode_classes_separately}()
+    _, enc_args_tr = encode_dataset(s, X_train, X_train_scaled, y_train, "train", sites; opts=opts, class_keys=class_keys)
+    test_states, _ = encode_dataset(s, X_test, X_test_scaled, fill(-1, n_tests), "test", sites; opts=opts, class_keys=Dict(-1=> n_tests), training_encoding_args=enc_args_tr)
+    return classify(mps, test_states)
+end
+
+
+function overlap_confmat(mps0::MPS, mps1::MPS, pstates::TimeSeriesIterable; plot=false)
     """(2 CLASSES ONLY) Something like a confusion matrix but for median overlaps.
     Here, mps0 is the mps which overlaps with class 0 and mps1 overlaps w/ class 1"""
     gt_class_0_idxs = [ps.label_index .== 1 for ps in pstates]
@@ -194,20 +262,20 @@ function plot_conf_mat(confmat::Matrix)
 end
 
 
-function get_training_summary(mps::MPS, training_pss::TimeseriesIterable, testing_pss::TimeseriesIterable; print_stats=false,io::IO=stdin)
+function get_training_summary(mps::MPS, training_pss::TimeSeriesIterable, testing_pss::TimeSeriesIterable; print_stats=false,io::IO=stdin)
     # get final traing acc, final training loss
 
     Ws, l_ind = expand_label_index(mps)
     nclasses = length(Ws)
 
-    preds_training, overlaps = get_predictions(Ws, training_pss)
+    preds_training, overlaps = classify_overlap(Ws, training_pss)
     true_training = [x.label_index for x in training_pss] # get ground truths
     acc_training = sum(true_training .== preds_training)/length(training_pss)
     
     labels = sort(unique([x.label for x in training_pss]))
 
     # get final testing acc
-    preds_testing, overlaps = get_predictions(Ws, testing_pss)
+    preds_testing, overlaps = classify_overlap(Ws, testing_pss)
     true_testing = [x.label_index for x in testing_pss] # get ground truths
 
     # get overlap between mps classes
@@ -280,18 +348,36 @@ function get_training_summary(mps::MPS, training_pss::TimeseriesIterable, testin
     return stats
 
 end
+"""
+```Julia
+get_training_summary(mps::TrainedMPS, 
+                     test_states::EncodedTimeSeriesSet;  
+                     print_stats::Bool=false, 
+                     io::IO=stdin) -> stats::Dict
+```
 
-get_training_summary(mps::TrainedMPS, X_test::EncodedTimeseriesSet, args...; kwargs...) = get_training_summary(mps.mps, mps.train_data.timeseries, X_test.timeseries, args...; kwargs...)
+Print a summary of the training process of `mps`, with performane evaluated on `test_states`.
+"""
+get_training_summary(mps::TrainedMPS, X_test::EncodedTimeSeriesSet;  print_stats::Bool=false, io::IO=stdin) = get_training_summary(mps.mps, mps.train_data.timeseries, X_test.timeseries; print_stats=print_stats, io=io)
 
+
+"""
+```Julia
+sweep_summary(info; io::IO=stdin)
+```
+
+Print a pretty summary of what happened in every sweep
+
+"""
 function sweep_summary(info;io::IO=stdin)
-    """Print a pretty summary of what happened in every sweep"""
+    
     nsweeps = length(info["time_taken"]) - 2
-    row_labels = ["Train Accuracy", "Test Accuracy", "Train KL Div.", "Test KL Div.", "Test MSE", "Time taken"]
+    row_labels = ["Train Accuracy", "Test Accuracy", "Train KL Div.", "Test KL Div.", "Time taken"]
     header = vcat(["Initial"],["After Sweep $n" for n in 1:(nsweeps)], ["After Norm"], "Mean")
 
     data = Matrix{Float64}(undef, length(row_labels), nsweeps+3)
 
-    for (i, key) in enumerate(["train_acc", "test_acc", "train_KL_div", "test_KL_div", "test_loss", "time_taken"])
+    for (i, key) in enumerate(["train_acc", "test_acc", "train_KL_div", "test_KL_div", "time_taken"])
         data[i,:] = vcat(info[key], [mean(info[key][2:end-1])])
     end
 
@@ -314,13 +400,19 @@ function sweep_summary(info;io::IO=stdin)
 
 end
 
+"""
+    print_opts(opts::AbstractMPSOptions; io::IO=stdin)
+
+Print the MPSOptions struct in a table.
+
+"""
 function print_opts(opts::AbstractMPSOptions; io::IO=stdin)
     optsD = Dict(String(key)=>[getfield(opts, key)] for key in  fieldnames(typeof(opts)))
     return pretty_table(io, optsD)
 end
 
 
-function KL_div(W::MPS, test_states::TimeseriesIterable)
+function KL_div(W::MPS, test_states::TimeSeriesIterable)
     """Computes KL divergence of TS on MPS"""
     Ws, l_ind = expand_label_index(W)
 

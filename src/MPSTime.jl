@@ -86,6 +86,8 @@ include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputati
 export 
     # Structs
     MPSOptions,
+    TrainedMPS,
+    EncodedTimeSeriesSet,
     Encoding, # so help(Encoding) gives useful information
 
     # functions to construct Bases
@@ -101,9 +103,10 @@ export
 
     # nicley formatted training summaries
     get_training_summary,
-    get_predictions,
-    plot_training_summary,
+    sweep_summary,
     print_opts,
+
+    classify, # classify unseen data
 
     # vis
     plot_encoding,
@@ -114,7 +117,7 @@ export
     # Imputation
     init_imputation_problem, # generate and collect data necessary for imputation
     MPS_impute, # The main imputation function, all functionality can be accessed hyperparameter
-    get_rdms, # compute the reduced density matrix (as a cdf) at every site. Useful for data vis/debugging weird imputations
+    get_cdfs, # compute the reduced density matrix (as a cdf) at every site. Useful for data vis/debugging weird imputations
     ImputationProblem,
     
     # MLJ 

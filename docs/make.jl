@@ -5,7 +5,14 @@ using MPSTime
 makedocs(
     sitename = "MPSTime",
     format = Documenter.HTML(),
-    modules = [MPSTime]
+    modules = [MPSTime],
+    pages = [
+    "Home" => "index.md",
+    "Tutorial: Classification" => "tutorial.md",
+    "Imputation" => "imputation.md",
+    "Encodings" => "encodings.md",
+    "Docstrings" => "docstrings.md"
+    ]
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
@@ -15,5 +22,7 @@ makedocs(
     repo = "<repository url>"
 )=#
 
-# julia -e 'using LiveServer; serve(dir="docs/build")'
+# testing locally
 # julia --color=yes --project make.jl
+
+# julia -e 'using LiveServer; serve(dir="docs/build")'

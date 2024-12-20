@@ -40,7 +40,7 @@ end
 
 
 
-function construct_caches(W::MPS, training_pstates::TimeseriesIterable; going_left=true, dtype::DataType=ComplexF64)
+function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_left=true, dtype::DataType=ComplexF64)
     """Function to pre-compute tensor contractions between the MPS and the product states. """
 
     # get the num of training samples to pre-allocate a caching matrix
@@ -120,7 +120,7 @@ end
 
 
 function loss_grad_enforce_real(tsep::TrainSeparate, BT::ITensor, LE::PCache, RE::PCache,
-    ETSs::EncodedTimeseriesSet, lid::Int, rid::Int, C_index::Union{Index{Int64},Nothing}; dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD)
+    ETSs::EncodedTimeSeriesSet, lid::Int, rid::Int, C_index::Union{Index{Int64},Nothing}; dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD)
     """Function for computing the loss function and the gradient over all samples using a left and right cache. 
         Takes a real itensor and will convert it to complex before calling loss_grad if dtype is complex. Returns a real gradient. """
     
@@ -142,7 +142,7 @@ function loss_grad_enforce_real(tsep::TrainSeparate, BT::ITensor, LE::PCache, RE
 end
 
 function loss_grad!(tsep::TrainSeparate, F,G,B_flat::AbstractArray, b_inds::Tuple{Vararg{Index{Int64}}}, LE::PCache, RE::PCache,
-    ETSs::EncodedTimeseriesSet, lid::Int, rid::Int, C_index::Union{Index{Int64},Nothing}; dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD)
+    ETSs::EncodedTimeSeriesSet, lid::Int, rid::Int, C_index::Union{Index{Int64},Nothing}; dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD)
 
     """Calculates the loss and gradient in a way compatible with Optim. Takes a flat, real array and converts it into an itensor before it passes it loss_grad """
     BT = itensor(real(dtype), B_flat, b_inds) # convert the bond tensor from a flat array to an itensor
@@ -159,7 +159,7 @@ function loss_grad!(tsep::TrainSeparate, F,G,B_flat::AbstractArray, b_inds::Tupl
 
 end
 
-function custGD(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeseriesSet;
+function custGD(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
     iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
     BT = copy(BT_init)
 
@@ -179,7 +179,7 @@ function custGD(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, l
     return BT
 end
 
-function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeseriesSet;
+function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
     iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
     BT = copy(BT_init) # perhaps not necessary?
     for i in 1:iters
@@ -206,7 +206,7 @@ function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid
 end
 
 function apply_update(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int,
-    ETSs::EncodedTimeseriesSet; iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, bbopt::BBOpt=BBOpt("Optim"),
+    ETSs::EncodedTimeSeriesSet; iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, bbopt::BBOpt=BBOpt("Optim"),
     track_cost::Bool=false, eta::Real=0.01, rescale::Tuple{Bool,Bool} = (false, true))
     """Apply update to bond tensor using the method specified by BBOpt. Will normalise B before and/or after it computes the update B+dB depending on the value of rescale [before::Bool,after::Bool]"""
 
@@ -341,7 +341,7 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
 end
 
 function update_caches!(left_site_new::ITensor, right_site_new::ITensor, 
-    LE::PCache, RE::PCache, lid::Int, rid::Int, product_states::TimeseriesIterable; going_left::Bool=true)
+    LE::PCache, RE::PCache, lid::Int, rid::Int, product_states::TimeSeriesIterable; going_left::Bool=true)
     """Given a newly updated bond tensor, update the caches."""
     num_train = length(product_states)
     num_sites = size(LE)[1]
@@ -378,18 +378,128 @@ end
 
 
 """
-    MPS, training_info, encoded_test_states = fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions())    
-    
-Train an MPS on the data `X_train`. The number of classes are determined by the entries of `y_train`, using the hyperparameters `opts`.
+```Julia
+fitMPS(X_train::AbstractMatrix, 
+       y_train::AbstractVector=zeros(Int, size(X_train, 1)), 
+       X_test::AbstractMatrix=zeros(0,0), 
+       y_test::AbstractVector=zeros(Int, 0), 
+       opts::AbstractMPSOptions=MPSOptions(),
+       custom_encoding::Union{Encoding, Nothing}=nothing) -> (MPS::TrainedMPS, training_info::Dict, encoded_test_states::EncodedTimeSeriesSet)
+```
 
-Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty.
+Train an MPS on the data `X_train` using the hyperparameters `opts`, see [`MPSOptions`](@ref). The number of classes are determined by the entries of `y_train`. Fo
 
-    MPS, training_info, encoded_test_states = fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), custom_encoding::Union{Encoding, Nothing}=nothing)    
+Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty. 
+The return value `encoded_test_states` will be sorted by class, so predictions shouldn't be compared directly to `y_test`. The `custom_encoding` argument allows the use of user defined custom encodings, see [`function_basis`](@ref). This requires that `encoding=:Custom` is specified in [`MPSOptions`](@ref)
 
-Train an MPS on the data `X_train`, using the user defined `custom_encoding`. The number of classes are determined by the entries of `y_train`, using the hyperparameters `opts`.
+See also: [`Encoding`](@ref)
 
-Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty.
+# Example
+See ??fitMPS to for a more verbose example
 
+```
+julia> opts = MPSOptions(; d=5, chi_max=30, encoding=:Legendre, eta=0.05);
+julia> print_opts(opts) # Prints options as a table
+       ...
+julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
+Generating initial weight MPS with bond dimension χ_init = 4
+        using random state 1234.
+Initialising train states.
+Using 1 iterations per update.
+Training KL Div. 28.213032851945012 | Training acc. 0.31343283582089554.
+Using optimiser CustomGD with the "TSGO" algorithm
+Starting backward sweeep: [1/5]
+        ...
+
+Starting forward sweep: [5/5]
+Finished sweep 5. Time for sweep: 0.76s
+Training KL Div. -12.577920427063361 | Training acc. 1.0.
+
+MPS normalised!
+
+Training KL Div. -12.57792042706337 | Training acc. 1.0.
+Test KL Div. -9.815236609211746 | Testing acc. 0.9504373177842566.
+
+Test conf: [497 16; 35 481].
+
+julia> 
+
+```
+
+# Extended help
+```
+julia> Using JLD2 # load some data
+julia> dloc = "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2"
+julia> f = jldopen(dloc, "r") 
+           X_train = read(f, "X_train")
+           y_train = read(f, "y_train")
+           X_test = read(f, "X_test")
+           y_test = read(f, "y_test")
+       close(f);
+julia> opts = MPSOptions(; d=5, chi_max=30, encoding=:Legendre, eta=0.05);
+julia> print_opts(opts) # Prints options as a table
+       ...
+julia> W, info, test_states = fitMPS( X_train, y_train, X_test, y_test, opts);
+Generating initial weight MPS with bond dimension χ_init = 4
+        using random state 1234.
+Initialising train states.
+Using 1 iterations per update.
+Training KL Div. 28.213032851945012 | Training acc. 0.31343283582089554.
+Using optimiser CustomGD with the "TSGO" algorithm
+Starting backward sweeep: [1/5]
+        ...
+
+Starting forward sweep: [5/5]
+Finished sweep 5. Time for sweep: 0.76s
+Training KL Div. -12.577920427063361 | Training acc. 1.0.
+
+MPS normalised!
+
+Training KL Div. -12.57792042706337 | Training acc. 1.0.
+Test KL Div. -9.815236609211746 | Testing acc. 0.9504373177842566.
+
+Test conf: [497 16; 35 481].
+
+julia> get_training_summary(W, test_states; print_stats=true);
+         Overlap Matrix
+┌──────┬───────────┬───────────┐
+│      │   |ψ0⟩    │   |ψ1⟩    │
+├──────┼───────────┼───────────┤
+│ ⟨ψ0| │ 5.074e-01 │ 1.463e-02 │
+├──────┼───────────┼───────────┤
+│ ⟨ψ1| │ 1.463e-02 │ 4.926e-01 │
+└──────┴───────────┴───────────┘
+          Confusion Matrix
+┌──────────┬───────────┬───────────┐
+│          │ Pred. |0⟩ │ Pred. |1⟩ │
+├──────────┼───────────┼───────────┤
+│ True |0⟩ │       497 │        16 │
+├──────────┼───────────┼───────────┤
+│ True |1⟩ │        35 │       481 │
+└──────────┴───────────┴───────────┘
+┌───────────────────┬───────────┬──────────┬──────────┬─────────────┬──────────┬───────────┐
+│ test_balanced_acc │ train_acc │ test_acc │ f1_score │ specificity │   recall │ precision │
+│           Float64 │   Float64 │  Float64 │  Float64 │     Float64 │  Float64 │   Float64 │
+├───────────────────┼───────────┼──────────┼──────────┼─────────────┼──────────┼───────────┤
+│          0.950491 │       1.0 │ 0.950437 │ 0.950425 │    0.950491 │ 0.950491 │  0.951009 │
+└───────────────────┴───────────┴──────────┴──────────┴─────────────┴──────────┴───────────┘
+
+julia> sweep_summary(info)
+┌────────────────┬──────────┬───────────────┬───────────────┬───────────────┬───────────────┬───────────────┬────────────┬──────────┐
+│                │ Initial  │ After Sweep 1 │ After Sweep 2 │ After Sweep 3 │ After Sweep 4 │ After Sweep 5 │ After Norm │   Mean   │
+├────────────────┼──────────┼───────────────┼───────────────┼───────────────┼───────────────┼───────────────┼────────────┼──────────┤
+│ Train Accuracy │ 0.313433 │      1.0      │      1.0      │      1.0      │      1.0      │      1.0      │    1.0     │   1.0    │
+├────────────────┼──────────┼───────────────┼───────────────┼───────────────┼───────────────┼───────────────┼────────────┼──────────┤
+│  Test Accuracy │ 0.409135 │   0.947522    │   0.951409    │   0.948494    │   0.948494    │   0.950437    │  0.950437  │ 0.949271 │
+├────────────────┼──────────┼───────────────┼───────────────┼───────────────┼───────────────┼───────────────┼────────────┼──────────┤
+│  Train KL Div. │  28.213  │   -11.7855    │    -12.391    │   -12.4831    │   -12.5466    │   -12.5779    │  -12.5779  │ -12.3568 │
+├────────────────┼──────────┼───────────────┼───────────────┼───────────────┼───────────────┼───────────────┼────────────┼──────────┤
+│   Test KL Div. │ 27.7435  │   -9.12893    │   -9.73479    │   -9.79248    │    -9.8158    │   -9.81524    │  -9.81524  │ -9.65745 │
+├────────────────┼──────────┼───────────────┼───────────────┼───────────────┼───────────────┼───────────────┼────────────┼──────────┤
+│     Time taken │   0.0    │   0.658366    │    0.75551    │   0.719035    │   0.718444    │    1.16256    │    NaN     │ 0.802783 │
+└────────────────┴──────────┴───────────────┴───────────────┴───────────────┴───────────────┴───────────────┴────────────┴──────────┘
+
+```
 """
 function fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), custom_encoding::Union{Encoding, Nothing}=nothing;  kwargs...)    
     # handle how the encoding is specified
@@ -418,6 +528,13 @@ function fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, X_test::Abstra
 
     return fitMPS(DataIsRescaled{false}(), X_train, y_train, X_test, y_test, opts; kwargs...) 
 end
+
+
+# empty test data
+fitMPS(X_train::AbstractMatrix, y_train::AbstractVector, opts::AbstractMPSOptions=MPSOptions(), custom_encoding::Union{Encoding, Nothing}=nothing; kwargs...) = fitMPS(X_train, y_train, zeros(0,0), zeros(Int, 0), opts, custom_encoding;  kwargs...)    
+
+# completely unsupervised
+fitMPS(X_train::AbstractMatrix, opts::AbstractMPSOptions=MPSOptions(), custom_encoding::Union{Encoding, Nothing}=nothing; kwargs...) = fitMPS(X_train, zeros(Int, size(X_train, 1)), zeros(0,0), zeros(Int, 0), opts, custom_encoding;  kwargs...)    
 
 
 function fitMPS(DIS::DataIsRescaled, X_train::AbstractMatrix, y_train::AbstractVector, X_test::AbstractMatrix, y_test::AbstractVector, opts::AbstractMPSOptions; kwargs...)
@@ -555,7 +672,7 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
     return [fitMPS(W, training_states, testing_states, opts; test_run=test_run)..., extra_args... ]
 end
 
-function fitMPS(training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet, opts::AbstractMPSOptions; test_run=false) # optimise bond tensor)
+function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions; test_run=false) # optimise bond tensor)
     # first, create the site indices for the MPS and product states 
     opts = safe_options(opts) # make sure options is abstract
 
@@ -575,7 +692,7 @@ end
 
 
 
-function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_states_meta::EncodedTimeseriesSet, opts::AbstractMPSOptions=Options(); test_run=false) # optimise bond tensor)
+function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions=Options(); test_run=false) # optimise bond tensor)
      opts = safe_options(opts) # make sure options is abstract
 
 
@@ -617,7 +734,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
 
     has_test = !isempty(y_test)
 
-    verbosity > -1 && println("Using $opts.update_iters iterations per update.")
+    verbosity > -1 && println("Using $(opts.update_iters) iterations per update.")
     # construct initial caches
     LE, RE = construct_caches(W, training_states; going_left=true, dtype=opts.dtype)
 
@@ -670,10 +787,10 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
 
         #print loss and acc
         if verbosity > -1
-            println("Training KL Div. $train_KL_div | Training acc. $init_train_acc | Training MSE: $init_train_loss." )
+            println("Training KL Div. $train_KL_div | Training acc. $init_train_acc.")# | Training MSE: $init_train_loss." )
 
             if has_test 
-                println("Test KL Div. $init_KL_div | Testing acc. $init_test_acc | Testing MSE: $init_test_loss." )
+                println("Test KL Div. $init_KL_div | Testing acc. $init_test_acc.")#  | Testing MSE: $init_test_loss." )
                 println("")
                 println("Test conf: $conf.")
             end
@@ -795,10 +912,10 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
         
 
             if verbosity > -1
-                println("Training KL Div. $train_KL_div | Training acc. $train_acc | Training MSE: $train_loss." )
+                println("Training KL Div. $train_KL_div | Training acc. $train_acc.")#  | Training MSE: $train_loss." )
 
                 if has_test 
-                    println("Test KL Div. $test_KL_div | Testing acc. $test_acc | Testing MSE: $test_loss." )
+                    println("Test KL Div. $test_KL_div | Testing acc. $test_acc.")#  | Testing MSE: $test_loss." )
                     println("")
                     println("Test conf: $conf.")
                 end
@@ -838,10 +955,10 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeseriesSet, testing_stat
     
 
         if verbosity > -1
-            println("Training KL Div. $train_KL_div | Training acc. $train_acc | Training MSE: $train_loss." )
+            println("Training KL Div. $train_KL_div | Training acc. $train_acc.")#  | Training MSE: $train_loss." )
 
             if has_test 
-                println("Test KL Div. $test_KL_div | Testing acc. $test_acc | Testing MSE: $test_loss." )
+                println("Test KL Div. $test_KL_div | Testing acc. $test_acc.")#  | Testing MSE: $test_loss." )
                 println("")
                 println("Test conf: $conf.")
             end
