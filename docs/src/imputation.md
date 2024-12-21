@@ -51,10 +51,8 @@ The necessary options are:
 - `instance_idx`: The time-series instance from the chosen class in the test set.
 - `method`: The imputation method to use. Can be either trajectories (ITS), median, mode, mean etc...
 
-In this example, we will consider a single block of contiguous missing values, starting at $t = 10$ through to $t = 90$ 
-
-encompassing __81\%__ of the original time-series (i.e., 81\% data missingness).
-
+In this example, we will consider a single block of contiguous missing values, from $t = 10$ through to $t = 90$ inclusive (i.e., 81\% missing data).
+We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) baseline for comparison:   
 
 ```Julia
 class = 0
@@ -68,13 +66,20 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     instance_idx, 
     impute_sites, 
     method; 
-    NN_baseline=true, # whether to also do a baseline imputation using 1-NN
+    NN_baseline=true, # whether to also do a baseline imputation using 1-NNI
     plot_fits=true, # whether to plot the fits
 )
 ```
+Several outputs are returned from `MPS_impute`:
+- `imputed_ts`: The imputed time-series instance, containing the original data points and the predicted values.
+- `pred_err`: The prediction error for each imputed value, given a known ground-truth.
+- `target_ts`: The original time-series instance containing missing values.
+- `stats`: A collection of statistical metrics (e.g., MAE) evaluating imputation performance with respect to a ground truth. Includes baseline performance when `NN_baseline=true`.
+- `plots`: Stores plot object(s) in an array for visualization when `plot_fits=true`.
 
+We can inspect the imputation performance in a summary table:
 ```Julia
-julia> using PrettyTables, Plots
+julia> using PrettyTables
 julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon= crayon"yellow bold", tf = tf_unicode_rounded);
 ╭────────┬───────────╮
 │ Metric │     Value │
@@ -82,13 +87,16 @@ julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon= crayon"
 │    MAE │ 0.0817192 │
 │ NN_MAE │  0.127104 │
 ╰────────┴───────────╯
-
-plot(plots...)
+```
+To plot the imputed time series, we can call the plot function as follows: 
+```Julia
+julia> using Plots
+julia> plot(plots...)
 ```
 ![](./figures/median_impute.svg)
+The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
 
-
-There are a lot of other options, and many more impution methods to choose from! See[`MPS_impute`](@ref) for more details.
+There are a lot of other options, and many more impution methods to choose from! See [`MPS_impute`](@ref) for more details.
 
 
 

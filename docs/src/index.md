@@ -7,8 +7,9 @@ A Julia package for time-series machine learning (ML) using Matrix-Product State
 
 __MPSTime__ is a Julia package for learning the joint probability distribution of time series directly from data using [matrix product state (MPS)](https://en.wikipedia.org/wiki/Matrix_product_state) methods inspired by quantum many-body physics. 
 It provides a unified formalism for:
-- Time-series classification.
+- Time-series classification (inferring the class of unseen time-series).
 - Univariate time-series imputation across fixed-length time series.
+- Synthetic data generation (coming soon).
 
 !!! info "Info"
     MPSTime is currently under active development. Many features are in an experimental stage and may undergo significant changes, refinements, or removals.
