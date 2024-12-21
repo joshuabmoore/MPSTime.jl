@@ -4,6 +4,8 @@ MPSTime supports univriate time-series imputation with __three__ key missingness
 1. Single contiguous blocks (e.g., values missing from $t = 10-90$)
 1. Multiple contiguous blocks (e.g., values missing from $t = 20-30$, and $t = 80-90$)
 
+![](./figures/imputation/impute_settings.svg)
+
 MPSTime can also handle any combination of these patterns.
 For instance, you might need to impute a single contiguous block from $t = 10-30$, plus individual missing points at $t = 50$ and $t=80$.
 ## Setup
@@ -54,7 +56,7 @@ For __multi-class__ data, you can pass `y_test` to `init_imputation_problem` in 
 Now, decide how you want to impute the missing data.
 The necessary options are:
 - `class::Integer`: The class of the time-series instance we are going to impute, leave as zero for "unlabelled" data (i.e., all data belong to the same class).
-- `impute_sites`: The sites that are missing (__inclusive__).
+- `impute_sites`: The MPS sites (time points) that are missing (inclusive).
 - `instance_idx`: The time-series instance from the chosen class in the test set.
 - `method`: The imputation method to use. Can be trajectories (ITS), median, mode, mean, etc...
 
