@@ -7,7 +7,7 @@ makedocs(
     format = Documenter.HTML(sidebar_sitename=false),
     modules = [MPSTime],
     pages = [
-    "Home" => "index.md",
+    "Introduction" => "index.md",
     "Tutorial: Classification" => "tutorial.md",
     "Imputation" => "imputation.md",
     "Encodings" => "encodings.md",
