@@ -9,7 +9,7 @@ bib = CitationBibliography(
 
 makedocs(
     sitename = "MPSTime",
-    format = Documenter.HTML(sidebar_sitename=false),
+    format = Documenter.HTML(sidebar_sitename=false, assets=String["assets/citations.css"]),
     modules = [MPSTime],
     plugins = [bib],
     pages = [
