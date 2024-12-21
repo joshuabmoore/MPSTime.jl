@@ -12,6 +12,9 @@ It provides a unified formalism for:
 - Time-series classification.
 - Univariate time-series imputation across fixed-length time series.
 
+!!! info "Info"
+    MPSTime is currently under active development. Many features are in an experimental stage and may undergo significant changes, refinements, or removals.
+
 ## Installation
 This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from github:
 
