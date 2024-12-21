@@ -109,7 +109,24 @@ The blue shading indicates the uncertainty due to encoding error.
 There are a lot of other options, and many more impution methods to choose from! See [`MPS_impute`](@ref) for more details.
 
 ### Multi-block imputation
-MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
+Building on the previous example of single-block imputation, MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
+For example, consider missing points between $t = 10-25$, $t = 40-60$ and $t = 75-90$:
+```Julia
+class = 0
+impute_sites = vcat(collect(10:25), collect(40:60), collect(65:90))
+instance_idx = 32
+method = :median
+
+imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
+    imp,
+    class, 
+    instance_idx, 
+    impute_sites, 
+    method; 
+    NN_baseline=true, # whether to also do a baseline imputation using 1-NNI
+    plot_fits=true, # whether to plot the fits
+)
+```
 ![](./figures/median_impute_nblocks.svg)
 
 
