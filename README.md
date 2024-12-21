@@ -13,9 +13,7 @@
   <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?style=flat-square" alt="docs - latest">
   </a>
-  <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?style=flat-square" alt="version - 0.1.0-DEV">
-  </a>
 </p>
 
 
