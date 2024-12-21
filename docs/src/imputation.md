@@ -1,9 +1,15 @@
 # [Imputation](@id Imputation_top)
+MPSTime supports univriate time-series imputation with __three__ key missingness patterns:
+1. Individual missing points (e.g., values missing at $t = 10, 15, 30$)
+1. Single contiguous blocks (e.g., values missing from $t = 10-90$)
+1. Multiple contiguous blocks (e.g., values missing from $t = 20-30$, and $t = 80-90$)
 
+MPSTime can also handle any combination of these patterns.
+For instance, you might need to impute a single contiguous block from $t = 10-30$, plus individual missing points at $t = 50$ and $t=80$.
 ## Setup
 
 The first step is to train an MPS (see [Tutorial](@ref)). 
-Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sine.
+Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid.
 
 ```Julia
 # Fix rng seed
@@ -44,14 +50,15 @@ A summary of the imputation problem setup is printed to verify the model paramet
 For __multi-class__ data, you can pass `y_test` to `init_imputation_problem` in order to exploit the labels / class information while doing imputation.
 
 ## Imputing missing values
+### Single-block imputation
 Now, decide how you want to impute the missing data.
 The necessary options are:
 - `class::Integer`: The class of the time-series instance we are going to impute, leave as zero for "unlabelled" data (i.e., all data belong to the same class).
 - `impute_sites`: The sites that are missing (__inclusive__).
 - `instance_idx`: The time-series instance from the chosen class in the test set.
-- `method`: The imputation method to use. Can be either trajectories (ITS), median, mode, mean etc...
+- `method`: The imputation method to use. Can be trajectories (ITS), median, mode, mean, etc...
 
-In this example, we will consider a single block of contiguous missing values, from $t = 10$ through to $t = 90$ inclusive (i.e., 81\% missing data).
+In this example, we will consider a single block of contiguous missing values, from $t = 10$ through to $t = 90$ inclusive (i.e., 81% missing data).
 We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) baseline for comparison:   
 
 ```Julia
@@ -95,9 +102,12 @@ julia> plot(plots...)
 ```
 ![](./figures/median_impute.svg)
 The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
+The blue shading indicates the uncertainty due to encoding error.
 
 There are a lot of other options, and many more impution methods to choose from! See [`MPS_impute`](@ref) for more details.
 
+### Multi-block imputation
+MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
 
 
 ## Plotting Trajectories
