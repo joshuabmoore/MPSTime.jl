@@ -1,9 +1,9 @@
 # MPSTime.jl
 A Julia package for time-series machine learning (ML) using Matrix-Product States (MPS) built on the [ITensors.jl](https://github.com/ITensor/ITensors.jl) framework [ITensor, ITensor-r0.3](@cite).
 
-<p align="center">
-    <img src=./assets/logo.svg>
-</p>
+
+<img src=./assets/logo.svg>
+
 
 ## Overview
 
