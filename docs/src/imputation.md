@@ -1,8 +1,8 @@
 # [Imputation](@id Imputation_top)
-MPSTime supports univriate time-series imputation with __three__ key missingness patterns:
-1. Individual missing points (e.g., values missing at $t = 10, 15, 30$)
-1. Single contiguous blocks (e.g., values missing from $t = 10-90$)
-1. Multiple contiguous blocks (e.g., values missing from $t = 20-30$, and $t = 80-90$)
+MPSTime supports univriate time-series imputation with three key missingness patterns:
+1. Individual missing points (e.g., values missing at $t = 10, 20, 80$)
+1. Single contiguous blocks (e.g., values missing from $t = 25-70$)
+1. Multiple contiguous blocks (e.g., values missing from $t = 5-10$, $t = 25-50$ and $t = 80-90$)
 
 ![](./figures/imputation/impute_settings.svg)
 
@@ -32,7 +32,7 @@ opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false);
 mps, info, test_states= fitMPS(X_train, opts);
 ```
 
-Next, we initialise an imputation problem. This does a lot of necessary precomputation:
+Next, we initialize an imputation problem. This does a lot of necessary precomputation:
 ```Julia
 julia> imp = init_imputation_problem(mps, X_test);
 
