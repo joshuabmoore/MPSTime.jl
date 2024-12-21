@@ -1,7 +1,7 @@
 <p align="center">
   <picture>
-    <source srcset="/Users/joshua/Desktop/MPSTime/MPSTime.jl/docs/src/assets/logo-dark.svg" media="(prefers-color-scheme: dark)">
-    <img src="/Users/joshua/Desktop/MPSTime/MPSTime.jl/docs/src/assets/logo.svg" alt="mpstime logo" height="200"/>
+    <source srcset="docs/src/assets/logo-dark.svg" media="(prefers-color-scheme: dark)">
+    <img src="docs/src/assets/logo.svg" alt="mpstime logo" height="200"/>
   </picture>
 </p>
 
