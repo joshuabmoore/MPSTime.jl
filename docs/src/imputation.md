@@ -110,6 +110,7 @@ There are a lot of other options, and many more impution methods to choose from!
 
 ### Multi-block imputation
 MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
+![](./figures/median_impute_nblocks.svg)
 
 
 ## Plotting Trajectories
