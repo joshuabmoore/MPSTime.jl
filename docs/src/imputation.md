@@ -52,7 +52,7 @@ A summary of the imputation problem setup is printed to verify the model paramet
 For __multi-class__ data, you can pass `y_test` to `init_imputation_problem` in order to exploit the labels / class information while doing imputation.
 
 ## Imputing missing values
-### Single-block imputation
+### Single-block Imputation
 Now, decide how you want to impute the missing data.
 The necessary options are:
 - `class::Integer`: The class of the time-series instance we are going to impute, leave as zero for "unlabelled" data (i.e., all data belong to the same class).
@@ -108,7 +108,7 @@ The blue shading indicates the uncertainty due to encoding error.
 
 There are a lot of other options, and many more impution methods to choose from! See [`MPS_impute`](@ref) for more details.
 
-### Multi-block imputation
+### Multi-block Imputation
 Building on the previous example of single-block imputation, MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
 For example, consider missing points between $t = 10-25$, $t = 40-60$ and $t = 75-90$:
 ```Julia
@@ -128,6 +128,13 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
 )
 ```
 ![](./figures/median_impute_nblocks.svg)
+
+### Individual Point Imputation
+To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
+```Julia
+impute_sites = [10] # only impute t = 10
+impute_sites = [10, 25, 50] # impute multiple individual points
+```
 
 
 ## Plotting Trajectories
