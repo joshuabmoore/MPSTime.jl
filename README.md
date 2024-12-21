@@ -9,9 +9,14 @@
 <h1 align="center"><em>MPSTime.jl</em>: Matrix-Product States for Time-Series Analysis</h1>
 
 
-
-
-[![docs - latest](https://img.shields.io/badge/docs-latest-2ea44f)](https://jmoo2880.github.io/MPSTime.jl/dev/)
+<div style="text-align: center;">
+  <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
+    <img src="https://img.shields.io/badge/docs-latest-2ea44f?style=flat-square" alt="docs - latest">
+  </a>
+  <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
+    <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?style=flat-square" alt="version - 0.1.0-DEV">
+  </a>
+</div>
 
 
 __MPSTime__ is a Julia package for learning the joint probability distribution of time series directly from data using matrix-product state (MPS) methods inspired by quantum many-body physics. 
@@ -36,5 +41,5 @@ This software is citable via Coming Soon (TM). Please cite as:
 ## Contributing to MPSTime
 We welcome contributions from the community! 
 MPSTime is under active development and resarch, making it an exciting opprtunity for collaboration.
-Whether you are interested in adding new features, impriving existing documentation, fixing bugs, or sharing ideas, your input is valuable.
-Feel free to submit a pull request or open an issue for discussion.
+Whether you are interested in adding new features, improving existing documentation, fixing bugs, or sharing ideas, your input is valuable.
+Feel free to submit a [PR](https://github.com/jmoo2880/MPSTime.jl/pulls) or open an [issue](https://github.com/jmoo2880/MPSTime.jl/issues) for discussion.
