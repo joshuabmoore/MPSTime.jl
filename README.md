@@ -9,14 +9,14 @@
 <h1 align="center"><em>MPSTime.jl</em>: Matrix-Product States for Time-Series Analysis</h1>
 
 
-<div style="text-align: center;">
+<p align="center">
   <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?style=flat-square" alt="docs - latest">
   </a>
   <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?style=flat-square" alt="version - 0.1.0-DEV">
   </a>
-</div>
+</p>
 
 
 __MPSTime__ is a Julia package for learning the joint probability distribution of time series directly from data using matrix-product state (MPS) methods inspired by quantum many-body physics. 
