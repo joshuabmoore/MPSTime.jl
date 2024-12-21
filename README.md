@@ -6,7 +6,7 @@
 </p>
 
 
-<h1 align="center"><em>MPSTime.jl</em>: Matrix-Product State for Time-Series Analysis</h1>
+<h1 align="center"><em>MPSTime.jl</em>: Matrix-Product States for Time-Series Analysis</h1>
 
 
 
@@ -19,10 +19,13 @@ __MPSTime__ is a Julia package for learning the joint probability distribution o
 This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from github:
 
 ```Julia
+julia> ]
 pkg> add https://github.com/jmoo2880/MPSTime.jl.git
 ```
 
 ## Documentation
 - [LATEST DOCS](https://jmoo2880.github.io/MPSTime.jl/) -- the latest documentation.
+
+## Citation
 
 
