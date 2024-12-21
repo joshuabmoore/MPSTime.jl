@@ -1,17 +1,24 @@
 using Documenter
+using DocumenterCitations
 using MPSTime
 
+bib = CitationBibliography(
+    joinpath(@__DIR__, "src", "refs.bib");
+    style=:numeric
+)
 
 makedocs(
     sitename = "MPSTime",
     format = Documenter.HTML(sidebar_sitename=false),
     modules = [MPSTime],
+    plugins = [bib],
     pages = [
     "Introduction" => "index.md",
     "Tutorial: Classification" => "tutorial.md",
     "Imputation" => "imputation.md",
     "Encodings" => "encodings.md",
-    "Docstrings" => "docstrings.md"
+    "Docstrings" => "docstrings.md",
+    "References" => "references.md"
     ]
 )
 

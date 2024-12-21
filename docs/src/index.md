@@ -1,11 +1,11 @@
 # MPSTime.jl
-A Julia package for time-series machine learning (ML) using Matrix-Product States (MPS) built on [ITensors.jl](https://github.com/ITensor/ITensors.jl).
+A Julia package for time-series machine learning (ML) using Matrix-Product States (MPS) built on the [ITensors.jl](https://github.com/ITensor/ITensors.jl) framework.
 
 ![](./assets/logo.svg)
 
-## What is MPSTime?
+## Overview
 
-__MPSTime__ is a Julia package for learning the joint probability distribution of time series directly from data in a model-free framework using [matrix product state (MPS)](https://en.wikipedia.org/wiki/Matrix_product_state) methods inspired by quantum many-body physics. 
+__MPSTime__ is a Julia package for learning the joint probability distribution of time series directly from data using [matrix product state (MPS)](https://en.wikipedia.org/wiki/Matrix_product_state) methods inspired by quantum many-body physics. 
 It provides a unified formalism for classifying time-series, as well as imputing gaps in time-series data, which regularly occur in real-world datasets due to sensor failure, routine maintenance, or other problems.
 
 ## Installation
