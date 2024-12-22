@@ -6,7 +6,7 @@ To use MPS methods on time-series data, the continuous time-series amplitudes mu
 Encoding
 ```
 
-Encodings can be visualsed with the [`plot_encoding`](@ref) function.
+Encodings can be visualized with the [`plot_encoding`](@ref) function.
 
 ```Julia
 basis, p = plot_encoding(:legendre, 4)
@@ -32,7 +32,7 @@ basis, p = plot_encoding(uniform_split(:legendre), 8, X_train; tis=[1,20], aux_b
 
 ![](./figures/encodings/usplit.svg)
 
-And the histogram-split encoding, which narrows the bins in frequently occuring regions.
+And the histogram-split encoding, which narrows the bins in frequently occurring regions.
 
 ```Julia
 basis, p = plot_encoding(histogram_split(:legendre), 8, X_train; tis=[1,20], aux_basis_dim=4);

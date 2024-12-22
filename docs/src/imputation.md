@@ -1,5 +1,6 @@
 # [Imputation](@id Imputation_top)
-MPSTime supports univriate time-series imputation with three key missingness patterns:
+#### Imputation Scenarios
+MPSTime supports univariate time-series imputation with three key patterns of missing data:
 1. Individual missing points (e.g., values missing at $t = 10, 20, 80$)
 1. Single contiguous blocks (e.g., values missing from $t = 25-70$)
 1. Multiple contiguous blocks (e.g., values missing from $t = 5-10$, $t = 25-50$ and $t = 80-90$)
@@ -8,6 +9,10 @@ MPSTime supports univriate time-series imputation with three key missingness pat
 
 MPSTime can also handle any combination of these patterns.
 For instance, you might need to impute a single contiguous block from $t = 10-30$, plus individual missing points at $t = 50$ and $t=80$.
+
+#### Imputation Methods
+
+
 ## Setup
 
 The first step is to train an MPS (see [Tutorial](@ref)). 
@@ -32,7 +37,7 @@ opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false);
 mps, info, test_states= fitMPS(X_train, opts);
 ```
 
-Next, we initialize an imputation problem. This does a lot of necessary precomputation:
+Next, we initialize an imputation problem. This does a lot of necessary pre-computation:
 ```Julia
 julia> imp = init_imputation_problem(mps, X_test);
 
@@ -106,7 +111,7 @@ julia> plot(plots...)
 The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
 The blue shading indicates the uncertainty due to encoding error.
 
-There are a lot of other options, and many more impution methods to choose from! See [`MPS_impute`](@ref) for more details.
+There are a lot of other options, and many more imputation methods to choose from! See [`MPS_impute`](@ref) for more details.
 
 ### Multi-block Imputation
 Building on the previous example of single-block imputation, MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
@@ -166,7 +171,8 @@ plot(plots...)
 
 ## Plotting cumulative distribution functions
 
-It can be interesting to inspect the probability distribution being sampled from at each missing time point. To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarlary to [`MPS_impute`](@ref), only it returns the CDF at each missing time point.
+It can be interesting to inspect the probability distribution being sampled from at each missing time point. 
+To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain.
 
 ```Julia
 cdfs, ts, pred_err, target = get_cdfs(
