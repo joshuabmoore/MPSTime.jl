@@ -66,6 +66,9 @@ include("utils.jl") # Some utils used by the entire library
 # Visualisation utilities
 include("Vis/vis_encodings.jl")
 
+# Analysis utilities
+include("Analysis/analyse.jl")
+
 include("Training/loss_functions.jl") # Where loss functions and the LossFunction type are defined
 include("Training/RealRealHighDimension.jl"); # The training algorithm, fitMPS and co
 
@@ -110,6 +113,10 @@ export
 
     # vis
     plot_encoding,
+
+    # analysis
+    bipartite_spectrum,
+    single_site_spectrum,
 
     # Training functions
     fitMPS, # gotta fit those MPSs somehow
