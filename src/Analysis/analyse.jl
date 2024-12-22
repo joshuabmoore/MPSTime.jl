@@ -1,6 +1,11 @@
-
-function von_neumann_entropy(mps::MPS)
-    # make a deepcopy of the mps so we don't alter it
+"""
+Compute the [von Neumann entanglement entropy](https://en.wikipedia.org/wiki/Entropy_of_entanglement) of the MPS.
+Specify either log, log2 or log10. 
+"""
+function von_neumann_entropy(mps::MPS, logfn::Function=log)
+    if !(logfn in (log, log2, log10))
+        throw(ArgumentError("logfn must be one of: log, log2, or log10"))
+    end
     N = length(mps)
     entropy = zeros(Float64, N)
     for i in eachindex(entropy)
@@ -16,7 +21,7 @@ function von_neumann_entropy(mps::MPS)
         for n in 1:ITensors.dim(S, 1)
             p = S[n, n]^2
             if (p > 1E-12) # avoid log 0
-                SvN += -p * log(p) 
+                SvN += -p * logfn(p) 
             end
         end
         entropy[i] = SvN
@@ -35,12 +40,15 @@ where α are the eigenvalues obtained from the shmidt decomposition.
 ```
 Compute the bipartite entanglement entropy (BEE) of a trained MPS.
 """
-function bipartite_spectrum(mps::TrainedMPS)
+function bipartite_spectrum(mps::TrainedMPS; logfn::Function=log)
+    if !(logfn in (log, log2, log10))
+        throw(ArgumentError("logfn must be one of: log, log2, or log10"))
+    end
     # expand the label index 
     mpss, _ = expand_label_index(mps.mps);
     bees = Vector{Vector{Float64}}(undef, length(mpss))
     for i in eachindex(bees)
-        bees[i] = von_neumann_entropy(mpss[i]);
+        bees[i] = von_neumann_entropy(mpss[i], logfn);
     end
     return bees
 end
@@ -77,13 +85,23 @@ function rho_correct(rho::Matrix, eigtol::Float64=eps(), abstol::Float64=5*eps()
 end
 
 function one_site_rdm(mps::MPS, site::Int)
-
     s = siteinds(mps)
     orthogonalize!(mps, site)
     psi_dag = dag(mps) # conjugate transpose of MPS
     rho = matrix(prime(mps[site], s[site]) * psi_dag[site]) # compute the reduced density matrix
     rho_corrected = rho_correct(rho) # clamp negative eigenvalues
     return rho_corrected
+end
+
+function single_site_entropy(mps::MPS)
+    N = length(mps)
+    entropy = zeros(Float64, N)
+    for i in 1:N
+        rho = one_site_rdm(mps, i)
+        rho_log_rho = rho * log(rho)
+        entropy[i] = -tr(rho_log_rho)
+    end
+    return entropy
 end
 
 """
@@ -97,13 +115,15 @@ Where ρ is the single-site reduced density matrix (RDM).
 ```
 Compute the single-site entanglement entropy (SEE) of a trained MPS.
 """
-function single_site_spectrum(mps::MPS)
-    N = length(mps)
-    entropy = zeros(Float64, N)
-    for i in 1:N
-        rho = one_site_rdm(mps, i)
-        rho_log_rho = rho * log(rho)
-        entropy[i] = -tr(rho_log_rho)
+function single_site_spectrum(mps::TrainedMPS)
+    # expand the label index 
+    mpss, _ = expand_label_index(mps.mps);
+    sees = Vector{Vector{Float64}}(undef, length(mpss))
+    for i in eachindex(sees)
+        sees[i] = single_site_entropy(mpss[i]);
     end
-    return entropy
+    return sees
 end
+
+
+
