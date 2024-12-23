@@ -6,6 +6,10 @@ using TestItems
     include("basis_tests.jl")
 end
 
-@testset "QuantumInspiredML.jl" begin
-    # Write your tests here.
+@testset "Analysis" begin
+    include("analysis_tests.jl")
 end
+
+# @testset "QuantumInspiredML.jl" begin
+#     # Write your tests here.
+# end

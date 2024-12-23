@@ -161,5 +161,3 @@ function project_onto_bins(x::Float64, d::Int, ti::Int, all_aux_enc_args::Abstra
     return project_onto_bins(x, aux_dim, aux_encoder, bins; norm=norm)
 
 end
-
-

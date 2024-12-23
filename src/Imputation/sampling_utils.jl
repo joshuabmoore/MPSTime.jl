@@ -361,5 +361,3 @@ function compute_entanglement_entropy_profile(class_mps::MPS)
     return entropy_vals
 
 end
-
-
