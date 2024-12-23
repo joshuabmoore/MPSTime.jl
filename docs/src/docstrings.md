@@ -25,5 +25,10 @@ MPSTime.symbolic_encoding
 MPSTime.model_loss_func
 MPSTime.model_bbopt
 ```
-
-
+# Analysis
+```@docs
+MPSTime.von_neumann_entropy
+MPSTime.rho_correct
+MPSTime.bipartite_spectrum
+MPSTime.single_site_spectrum
+```

@@ -969,4 +969,3 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     return TrainedMPS(W, MPSOptions(opts), opts, training_states_meta), training_information, testing_states_meta
 
 end
-
