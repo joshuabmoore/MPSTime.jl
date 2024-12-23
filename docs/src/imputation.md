@@ -1,8 +1,29 @@
 # [Imputation](@id Imputation_top)
+## Overview 
+#### Imputation Scenarios
+MPSTime supports univariate time-series imputation with three key patterns of missing data:
+1. Individual missing points (e.g., values missing at $t = 10, 20, 80$)
+1. Single contiguous blocks (e.g., values missing from $t = 25-70$)
+1. Multiple contiguous blocks (e.g., values missing from $t = 5-10$, $t = 25-50$ and $t = 80-90$)
+
+![](./figures/imputation/impute_settings.svg)
+
+MPSTime can also handle any combination of these patterns.
+For instance, you might need to impute a single contiguous block from $t = 10-30$, plus individual missing points at $t = 50$ and $t=80$.
+
+#### Imputation Methods
+We offer several options for imputing missing data points, based on how we estimate their values from the conditional probability distribution:
+| __Method__      | Description | Type|
+| ----------- | ----------- | ----------- | 
+| Mean      | `:mean`       |Deterministic | 
+| Median   | `:median`        |Deterministic|
+| Mode   | `:mode`        |Deterministic| 
+| Inverse Transform Sampling   | `:ITS`        |Stochastic|  
 
 ## Setup
 
-The first step is to train an MPS (see [Tutorial](@ref)). Here, we'll train an unsupervised MPS (no class labels) using the the noisy trendy sine from the tutorial.
+The first step is to train an MPS (see [Tutorial](@ref)). 
+Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid.
 
 ```Julia
 # Fix rng seed
@@ -23,10 +44,10 @@ opts = MPSOptions(d=10, chi_max=40, sigmoid_transform=false);
 mps, info, test_states= fitMPS(X_train, opts);
 ```
 
-Next, we initialise an imputation problem. This does a lot of necessary precomputation
+Next, we initialize an imputation problem. This does a lot of necessary pre-computation:
 ```Julia
 julia> imp = init_imputation_problem(mps, X_test);
-imp = init_imputation_problem(mps, X_test);
+
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
                          Summary:
 
@@ -39,20 +60,25 @@ Re-encoding the training data to get the encoding arguments...
 
  Created 1 ImputationProblem struct(s) containing class-wise mps and test samples.
 ```
-For multiclass data, you can pass in `y_test` to exploit the labels / class information while doing imputation.
+A summary of the imputation problem setup is printed to verify the model parameters and dataset information.
+For __multi-class__ data, you can pass `y_test` to `init_imputation_problem` in order to exploit the labels / class information while doing imputation.
 
-## Imputation with the median
-Now decide what you want to impute. The necessary options are:
-- `class::Integer`: The class of the timeseries instance we are going to impute, leave as zero for "unlabelled" data
-- `impute_sites`: The sites that are missing (inclusive). In this example we'll consider 81% of the data to be missing values
-- `instance_idx`: The instance from the chosen class in the test set.
-- `method`: The method to use  trajectories, or median, mode, mean etc...
+## Imputing missing values
+### Single-block Imputation
+Now, decide how you want to impute the missing data.
+The necessary options are:
+- `class::Integer`: The class of the time-series instance we are going to impute, leave as zero for "unlabelled" data (i.e., all data belong to the same class).
+- `impute_sites`: The MPS sites (time points) that are missing (inclusive).
+- `instance_idx`: The time-series instance from the chosen class in the test set.
+- `method`: The imputation method to use. Can be trajectories (ITS), median, mode, mean, etc...
 
+In this example, we will consider a single block of contiguous missing values, from $t = 10$ through to $t = 90$ inclusive (i.e., 81% missing data).
+We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) baseline for comparison:   
 
 ```Julia
 class = 0
-impute_sites = collect(10:90)
-instance_idx = 59
+impute_sites = collect(10:90) # impute time pts. 10-90 inclusive
+instance_idx = 59 # time series instance in test set
 method = :median
 
 imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
@@ -61,13 +87,20 @@ imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
     instance_idx, 
     impute_sites, 
     method; 
-    NN_baseline=true, # whether to also do a baseline imputation using 1-NN
+    NN_baseline=true, # whether to also do a baseline imputation using 1-NNI
     plot_fits=true, # whether to plot the fits
 )
 ```
+Several outputs are returned from `MPS_impute`:
+- `imputed_ts`: The imputed time-series instance, containing the original data points and the predicted values.
+- `pred_err`: The prediction error for each imputed value, given a known ground-truth.
+- `target_ts`: The original time-series instance containing missing values.
+- `stats`: A collection of statistical metrics (e.g., MAE) evaluating imputation performance with respect to a ground truth. Includes baseline performance when `NN_baseline=true`.
+- `plots`: Stores plot object(s) in an array for visualization when `plot_fits=true`.
 
+We can inspect the imputation performance in a summary table:
 ```Julia
-julia> using PrettyTables, Plots
+julia> using PrettyTables
 julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon= crayon"yellow bold", tf = tf_unicode_rounded);
 ╭────────┬───────────╮
 │ Metric │     Value │
@@ -75,14 +108,45 @@ julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon= crayon"
 │    MAE │ 0.0817192 │
 │ NN_MAE │  0.127104 │
 ╰────────┴───────────╯
-
-plot(plots...)
+```
+To plot the imputed time series, we can call the plot function as follows: 
+```Julia
+julia> using Plots
+julia> plot(plots...)
 ```
 ![](./figures/median_impute.svg)
+The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
+The blue shading indicates the uncertainty due to encoding error.
 
+There are a lot of other options, and many more imputation methods to choose from! See [`MPS_impute`](@ref) for more details.
 
-There are a lot of other options, and many more impution methods to choose from! See[`MPS_impute`](@ref) for more details.
+### Multi-block Imputation
+Building on the previous example of single-block imputation, MPSTime can also be used to impute missing values in multiple blocks of contiguous points. 
+For example, consider missing points between $t = 10-25$, $t = 40-60$ and $t = 75-90$:
+```Julia
+class = 0
+impute_sites = vcat(collect(10:25), collect(40:60), collect(65:90))
+instance_idx = 32
+method = :median
 
+imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
+    imp,
+    class, 
+    instance_idx, 
+    impute_sites, 
+    method; 
+    NN_baseline=true, # whether to also do a baseline imputation using 1-NNI
+    plot_fits=true, # whether to plot the fits
+)
+```
+![](./figures/median_impute_nblocks.svg)
+
+### Individual Point Imputation
+To impute individual points rather than ranges of consecutive points (blocks), we can simply pass their respective time points into the imputation function as a vector:
+```Julia
+impute_sites = [10] # only impute t = 10
+impute_sites = [10, 25, 50] # impute multiple individual points
+```
 
 
 ## Plotting Trajectories
@@ -114,7 +178,8 @@ plot(plots...)
 
 ## Plotting cumulative distribution functions
 
-It can be interesting to inspect the probability distribution being sampled from at each missing time point. To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarlary to [`MPS_impute`](@ref), only it returns the CDF at each missing time point.
+It can be interesting to inspect the probability distribution being sampled from at each missing time point. 
+To enable this, we provide the [`get_cdfs`](@ref) function, which works very similarly to [`MPS_impute`](@ref), only it returns the CDF at each missing time point in the encoding domain.
 
 ```Julia
 cdfs, ts, pred_err, target = get_cdfs(

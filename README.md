@@ -33,8 +33,18 @@ We provide [tutorials](https://jmoo2880.github.io/MPSTime.jl/dev/tutorial/) and 
 - [LATEST DOCS](https://jmoo2880.github.io/MPSTime.jl/) -- the latest documentation.
 
 ## Citation
-This software is citable via Coming Soon (TM). Please cite as:
-> arXiv preprint
+If you use this software in your work, please read and cite the ([arXiv preprint](https://arxiv.org/abs/2412.15826)):
+```
+@misc{MPSTime2024,
+      title={Using matrix-product states for time-series machine learning}, 
+      author={Joshua B. Moore and Hugo P. Stackhouse and Ben D. Fulcher and Sahand Mahmoodian},
+      year={2024},
+      eprint={2412.15826},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML},
+      url={https://arxiv.org/abs/2412.15826}, 
+}
+```
 
 ## Contributing to MPSTime
 We welcome contributions from the community! 

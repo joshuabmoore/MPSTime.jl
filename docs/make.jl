@@ -16,9 +16,10 @@ makedocs(
     "Introduction" => "index.md",
     "Tutorial: Classification" => "tutorial.md",
     "Imputation" => "imputation.md",
+    "Synthetic Data Generation" => "synthdatagen.md",
     "Encodings" => "encodings.md",
     "Docstrings" => "docstrings.md",
-    "References" => "references.md"
+    "References" => "references.md",
     ]
 )
 
