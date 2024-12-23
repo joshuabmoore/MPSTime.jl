@@ -33,7 +33,7 @@ We provide [tutorials](https://jmoo2880.github.io/MPSTime.jl/dev/tutorial/) and 
 - [LATEST DOCS](https://jmoo2880.github.io/MPSTime.jl/) -- the latest documentation.
 
 ## Citation
-If you use this software in your work, please read and cite the ([arXiv preprint](https://arxiv.org/abs/2412.15826)):
+If you use this software in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):
 ```
 @misc{MPSTime2024,
       title={Using matrix-product states for time-series machine learning}, 

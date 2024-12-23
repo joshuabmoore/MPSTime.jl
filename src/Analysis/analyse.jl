@@ -46,13 +46,14 @@ end
 
 """
 ```Julia
+bipartite_spectrum(mps::TrainedMPS; logfn::Function=log) -> Vector{Vector{Float64}}
+```
 Compute the bipartite entanglement entropy (BEE) of a trained MPS across each bond.
 Given a single unlabeled MPS the BEE is defined as:
 
 ∑ α^2 log(α^2)
 where α are the eigenvalues obtained from the shmidt decomposition. 
     
-```
 Compute the bipartite entanglement entropy (BEE) of a trained MPS.
 """
 function bipartite_spectrum(mps::TrainedMPS; logfn::Function=log)
@@ -67,12 +68,6 @@ function bipartite_spectrum(mps::TrainedMPS; logfn::Function=log)
     return bees
 end
 
-"""
-Check whether the reduced density matrix (rho) is positive semidefinite by
-eigendecomposition.
-\nIf the eigenvalue decomp of ρ yields negative but small (< tol) eigenvalues, 
-clamp to them to range [threshold, ∞] and reconstruct ρ. 
-"""
 function rho_correct(rho::Matrix, eigentol::Float64=sqrt(eps()))
     
     eigvals, eigvecs = eigen(rho) # do an eigendecomp on the rdm
@@ -118,8 +113,9 @@ function single_site_entropy(mps::MPS)
 end
 
 """
-    single_site_spectrum(mps::TrainedMPS) -> Vector{Vector{Float64}}
-
+```Julia
+single_site_spectrum(mps::TrainedMPS) -> Vector{Vector{Float64}}
+```
 Compute the single-site entanglement entropy (SEE) spectrum of a trained MPS.
 
 The single-site entanglement entropy (SEE) quantifies the entanglement at each site of the MPS. It is computed as:

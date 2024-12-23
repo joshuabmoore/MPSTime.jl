@@ -11,15 +11,6 @@ MPSTime supports univariate time-series imputation with three key patterns of mi
 MPSTime can also handle any combination of these patterns.
 For instance, you might need to impute a single contiguous block from $t = 10-30$, plus individual missing points at $t = 50$ and $t=80$.
 
-#### Imputation Methods
-We offer several options for imputing missing data points, based on how we estimate their values from the conditional probability distribution:
-| __Method__      | Description | Type|
-| ----------- | ----------- | ----------- | 
-| Mean      | `:mean`       |Deterministic | 
-| Median   | `:median`        |Deterministic|
-| Mode   | `:mode`        |Deterministic| 
-| Inverse Transform Sampling   | `:ITS`        |Stochastic|  
-
 ## Setup
 
 The first step is to train an MPS (see [Tutorial](@ref)). 
