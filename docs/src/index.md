@@ -26,7 +26,15 @@ pkg> add https://github.com/jmoo2880/MPSTime.jl.git
 See the [Tutorial](@ref) section and other sidebars for a basic usage examples. We're continually adding more features and documentation as we go.
 
 ## Citation
-If you use MPSTime in your research, please cite the MPSTime Paper:
+If you use MPSTime in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):
 ```
-Coming soon (TM).
+@misc{MPSTime2024,
+      title={Using matrix-product states for time-series machine learning}, 
+      author={Joshua B. Moore and Hugo P. Stackhouse and Ben D. Fulcher and Sahand Mahmoodian},
+      year={2024},
+      eprint={2412.15826},
+      archivePrefix={arXiv},
+      primaryClass={stat.ML},
+      url={https://arxiv.org/abs/2412.15826}, 
+}
 ```
