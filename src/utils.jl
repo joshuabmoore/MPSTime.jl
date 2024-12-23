@@ -365,9 +365,6 @@ function expand_label_index(mps::MPS; lstr="f(x)")
     return Vector{MPS}(weights_by_class), l_ind
 end
 
-
-
-
 function saveMPS(mps::MPS, path::String; id::String="W")
     """Saves an MPS as a .h5 file"""
     file = path[end-2:end] == ".h5" ? path[1:end-3] : path
@@ -376,7 +373,6 @@ function saveMPS(mps::MPS, path::String; id::String="W")
     close(f)
     println("Succesfully saved mps $id at $file.h5")
 end
-
 
 function get_siteinds(W::MPS)
     W1 = deepcopy(W)

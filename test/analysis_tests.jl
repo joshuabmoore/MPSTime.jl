@@ -11,7 +11,7 @@ y_test = read(f, "y_test");
 opts = MPSOptions(d=4, chi_max=25;nsweeps=1, log_level=-5)
 mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
 
-"""Basic Functionality tests"""
+"""Basic functionality tests"""
 # test the von_neumann_entropy function 
 class_mpss, _ = MPSTime.expand_label_index(mps.mps)
 
@@ -97,7 +97,9 @@ end
     # toy rdm with large negative eigenvalue inside tolerance
     @test_throws DomainError MPSTime.rho_correct(toy_rdm_oot, 1.0)
     # toy rdm with small negative eigenvalue inside tolerance
-    
+    toy_rdm_iot = [1.0 0; 0 -1e-10]
+    corrected_toy_iot = MPSTime.rho_correct(toy_rdm_iot)
+    @test !isnothing(corrected_toy_iot)
 end
 
 

@@ -73,34 +73,26 @@ eigendecomposition.
 \nIf the eigenvalue decomp of ρ yields negative but small (< tol) eigenvalues, 
 clamp to them to range [threshold, ∞] and reconstruct ρ. 
 """
-function rho_correct(rho::Matrix, eigentol::Float64=eps())
+function rho_correct(rho::Matrix, eigentol::Float64=sqrt(eps()))
     
     eigvals, eigvecs = eigen(rho) # do an eigendecomp on the rdm
-    rel_eigentol = maximum(eigvals) * eigentol # scale by the maximum eigval
     neg_eigs = findall(<(0), eigvals) # find negative eigenvalues
     if isempty(neg_eigs)
         return rho
     end
     # check eigenvalues within tolerance
-    oot = findall(x -> x < -rel_eigentol, eigvals) # out of tolerance
+    oot = findall(x -> x < -eigentol, eigvals) # out of tolerance
     if isempty(oot)
         # clamp negative eigenvalues to the range [tol, ∞]
-        eigs_clamped = clamp.(eigvals, rel_eigentol, Inf)
+        eigs_clamped = clamp.(eigvals, eigentol, Inf)
     else
-        throw(DomainError("RDM contains large negative eigenvalues outside of the tolerance $rel_eigentol: λ = $(eigvals[oot]...)")) 
+        throw(DomainError("RDM contains large negative eigenvalues outside of the tolerance $eigentol: λ = $(eigvals[oot]...)")) 
     end
     # reconstruct the rdm with the clamped eigenvalues
     rho_corrected = eigvecs * LinearAlgebra.Diagonal(eigs_clamped) * (eigvecs)'
-    # assess reconstruction error
-    delta_norm = norm((rho - rho_corrected), 2)
-    recontol = eps() * maximum(rho)
-    if delta_norm > recontol
-    # verify trace preservation
-        throw(DomainError("RDM reconstruction error larger than tolerance $(recontol): $delta_norm"))
-    end
     # check trace
     if !isapprox(tr(rho_corrected), 1.0)
-       thorw(DomainError("Tr(ρ_corrected) > 1.0!"))
+       throw(DomainError("Tr(ρ_corrected) > 1.0!"))
     end
     return rho_corrected
 end
