@@ -14,6 +14,8 @@
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?style=flat-square" alt="docs - latest">
   </a>
     <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?style=flat-square" alt="version - 0.1.0-DEV">
+  </a>
+    <img src="https://github.com/jmoo2880/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
 </p>
 
 
