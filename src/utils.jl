@@ -358,6 +358,7 @@ function expand_label_index(mps::MPS; lstr="f(x)")
     for iv in eachindval(l_ind)
         mpsc = deepcopy(mps)
         mpsc[pos] = mpsc[pos] * onehot(iv)
+        normalize!(mpsc)
         push!(weights_by_class, mpsc)
     end
     
@@ -384,4 +385,3 @@ function get_siteinds(W::MPS)
 
     return siteinds(W1)
 end
-

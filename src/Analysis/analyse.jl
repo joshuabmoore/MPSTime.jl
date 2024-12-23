@@ -1,8 +1,24 @@
 """
-Compute the [von Neumann entanglement entropy](https://en.wikipedia.org/wiki/Entropy_of_entanglement) of the MPS.
-Specify either log, log2 or log10. 
+```Julia
+von_neumann_entropy(mps::MPS; logfn::Function=log) -> Vector{Float64}
+```
+Compute the [von Neumann entanglement entropy](https://en.wikipedia.org/wiki/Entropy_of_entanglement) for each site in a Matrix Product State (MPS).
+
+The von Neumann entropy quantifies the entanglement at each bond of the MPS by computing the entropy of the singular value spectrum obtained from a singular value decomposition (SVD). The entropy is computed as:
+
+[ S = -sum_{i} p_i log(p_i) ]
+
+where ( p_i ) are the squared singular values normalized to sum to 1.
+
+# Arguments
+- `mps::MPS`: The Matrix Product State (MPS) whose entanglement entropy is to be computed.
+- `logfn::Function`: (Optional) The logarithm function to use (`log`, `log2`, or `log10`). Defaults to the natural logarithm (`log`).
+
+# Returns
+A vector of `Float64` values where the i-th element represents the von Neumann entropy at site i of the MPS.
 """
 function von_neumann_entropy(mps::MPS, logfn::Function=log)
+    # adapted from http://itensor.org/docs.cgi?page=formulas/entanglement_mps
     if !(logfn in (log, log2, log10))
         throw(ArgumentError("logfn must be one of: log, log2, or log10"))
     end
@@ -16,7 +32,6 @@ function von_neumann_entropy(mps::MPS, logfn::Function=log)
         else
             _, S, _ = svd(mps[i], (linkind(mps, i-1), siteind(mps, i)))
         end
-        normalize!(S)
         SvN = 0.0
         for n in 1:ITensors.dim(S, 1)
             p = S[n, n]^2
@@ -44,8 +59,7 @@ function bipartite_spectrum(mps::TrainedMPS; logfn::Function=log)
     if !(logfn in (log, log2, log10))
         throw(ArgumentError("logfn must be one of: log, log2, or log10"))
     end
-    # expand the label index 
-    mpss, _ = expand_label_index(mps.mps);
+    mpss, _ = expand_label_index(mps.mps);  # expand the label index 
     bees = Vector{Vector{Float64}}(undef, length(mpss))
     for i in eachindex(bees)
         bees[i] = von_neumann_entropy(mpss[i], logfn);
@@ -53,33 +67,40 @@ function bipartite_spectrum(mps::TrainedMPS; logfn::Function=log)
     return bees
 end
 
-function rho_correct(rho::Matrix, eigtol::Float64=eps(), abstol::Float64=5*eps())
-
+"""
+Check whether the reduced density matrix (rho) is positive semidefinite by
+eigendecomposition.
+\nIf the eigenvalue decomp of ρ yields negative but small (< tol) eigenvalues, 
+clamp to them to range [threshold, ∞] and reconstruct ρ. 
+"""
+function rho_correct(rho::Matrix, eigentol::Float64=eps())
+    
     eigvals, eigvecs = eigen(rho) # do an eigendecomp on the rdm
+    rel_eigentol = maximum(eigvals) * eigentol # scale by the maximum eigval
     neg_eigs = findall(<(0), eigvals) # find negative eigenvalues
     if isempty(neg_eigs)
         return rho
     end
     # check eigenvalues within tolerance
-    oot = findall(x -> x < -eigtol, eigvals) # out of tolerance
+    oot = findall(x -> x < -rel_eigentol, eigvals) # out of tolerance
     if isempty(oot)
         # clamp negative eigenvalues to the range [tol, ∞]
-        @info "Clamping the following negative eigenvalues to the range [$(tol), ∞]: λ = $(eigvals[neg_eigs])"
-        eigs_clamped = clamp.(eigvals, tol, Inf)
+        eigs_clamped = clamp.(eigvals, rel_eigentol, Inf)
     else
-        @error "RDM contains large negative eigenvalues outside of the tolerance $tol: λ = $(oot...)"
+        throw(DomainError("RDM contains large negative eigenvalues outside of the tolerance $rel_eigentol: λ = $(eigvals[oot]...)")) 
     end
     # reconstruct the rdm with the clamped eigenvalues
-    rho_corrected = eigvecs * Diagonal(eigs_clamped) * (vecs)'
+    rho_corrected = eigvecs * LinearAlgebra.Diagonal(eigs_clamped) * (eigvecs)'
     # assess reconstruction error
     delta_norm = norm((rho - rho_corrected), 2)
-    if delta_norm > abstol
+    recontol = eps() * maximum(rho)
+    if delta_norm > recontol
     # verify trace preservation
-        @error "RDM reconstruction error larger than tolerance: $abstol ($delta_norm)"
+        throw(DomainError("RDM reconstruction error larger than tolerance $(recontol): $delta_norm"))
     end
     # check trace
     if !isapprox(tr(rho_corrected), 1.0)
-        @error "Tr(ρ_corrected) > 1.0!"
+       thorw(DomainError("Tr(ρ_corrected) > 1.0!"))
     end
     return rho_corrected
 end
@@ -89,7 +110,7 @@ function one_site_rdm(mps::MPS, site::Int)
     orthogonalize!(mps, site)
     psi_dag = dag(mps) # conjugate transpose of MPS
     rho = matrix(prime(mps[site], s[site]) * psi_dag[site]) # compute the reduced density matrix
-    rho_corrected = rho_correct(rho) # clamp negative eigenvalues
+    rho_corrected = rho_correct(rho) # clamp negative eigenvalues to pos range
     return rho_corrected
 end
 
@@ -105,15 +126,21 @@ function single_site_entropy(mps::MPS)
 end
 
 """
-```Julia
-Compute the single-site entanglement entropy (SEE) of a trained MPS. 
-Given a single unlabeled MPS the SEE is defined as:
+    single_site_spectrum(mps::TrainedMPS) -> Vector{Vector{Float64}}
 
-SEE = -tr(ρ ⋅ log ρ)
+Compute the single-site entanglement entropy (SEE) spectrum of a trained MPS.
 
-Where ρ is the single-site reduced density matrix (RDM).
-```
-Compute the single-site entanglement entropy (SEE) of a trained MPS.
+The single-site entanglement entropy (SEE) quantifies the entanglement at each site of the MPS. It is computed as:
+
+[ SEE = -tr(ρ ⋅ log(ρ)) ]
+
+where ρ is the single-site reduced density matrix (RDM).
+
+# Arguments
+- `mps::TrainedMPS`: A trained Matrix Product State (MPS) object, which includes the MPS and associated labels.
+
+# Returns
+A vector of vectors, where the outer vector corresponds to each label in the expanded MPS, and the inner vectors contain the SEE values for the respective sites.
 """
 function single_site_spectrum(mps::TrainedMPS)
     # expand the label index 
@@ -124,6 +151,3 @@ function single_site_spectrum(mps::TrainedMPS)
     end
     return sees
 end
-
-
-
