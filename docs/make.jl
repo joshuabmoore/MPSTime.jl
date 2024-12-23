@@ -18,7 +18,7 @@ makedocs(
     "Imputation" => "imputation.md",
     "Synthetic Data Generation" => "synthdatagen.md",
     "Encodings" => "encodings.md",
-    "Tools" => "Tools.md",
+    "Tools" => "tools.md",
     "Docstrings" => "docstrings.md",
     "References" => "references.md",
     ]
