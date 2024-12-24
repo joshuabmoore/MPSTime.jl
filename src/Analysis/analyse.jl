@@ -1,19 +1,20 @@
 """
-   single_site_spectrum(mps::TrainedMPS) -> Vector{Vector{Float64}}
+   von_neumann_entropy(mps::MPS; logfn::Function=log) -> Vector{Float64}
 
-Compute the single-site entanglement entropy (SEE) spectrum of a trained MPS.
+Compute the [von Neumann entanglement entropy](https://en.wikipedia.org/wiki/Entropy_of_entanglement) for each site in a Matrix Product State (MPS).
 
-The single-site entanglement entropy (SEE) quantifies the entanglement between each site in the MPS and all other sites. It is computed as:
+The von Neumann entropy quantifies the entanglement at each bond of the MPS by computing the entropy of the singular value spectrum obtained from a singular value decomposition (SVD). The entropy is computed as:
 
-``\\text{SEE} = -\\text{tr}(\\rho \\log(\\rho))``
+``S = -\\sum_{i} p_i \\log(p_i)``
 
-where ``\\rho`` is the single-site reduced density matrix (RDM).
+where ``p_i`` are the squared singular values normalized to sum to 1.
 
 # Arguments
-- `mps::TrainedMPS`: A trained Matrix Product State (MPS) object, which includes the MPS and associated labels.
+- `mps::MPS`: The Matrix Product State (MPS) whose entanglement entropy is to be computed.
+- `logfn::Function`: (Optional) The logarithm function to use (`log`, `log2`, or `log10`). Defaults to the natural logarithm (`log`).
 
 # Returns
-A vector of vectors, where the outer vector corresponds to each label in the expanded MPS, and the inner vectors contain the SEE values for the respective sites.
+A vector of `Float64` values where the i-th element represents the von Neumann entropy at site i of the MPS.
 """
 function von_neumann_entropy(mps::MPS, logfn::Function=log)
     # adapted from http://itensor.org/docs.cgi?page=formulas/entanglement_mps
@@ -50,9 +51,7 @@ Compute the bipartite entanglement entropy (BEE) of a trained MPS across each bo
 Given a single unlabeled MPS the BEE is defined as:
 
 ``\\sum_i \\alpha_i^2 \\log(\\alpha_i^2)``
-where ``\\alpha_i`` are the eigenvalues obtained from the shmidt decomposition. 
-    
-Compute the bipartite entanglement entropy (BEE) of a trained MPS.
+\nwhere ``\\alpha_i`` are the eigenvalues obtained from the shmidt decomposition. 
 """
 function bipartite_spectrum(mps::TrainedMPS; logfn::Function=log)
     if !(logfn in (log, log2, log10))
