@@ -34,7 +34,9 @@ close(ipd_load)
 opts = MPSOptions(d=10, chi_max=40, nsweeps=10; init_rng=4567)
 mps, _, _ = fitMPS(X_train, y_train, X_test, y_test, opts)
 ```
-Using the trained MPS, we can then compute the BEE for the class 0 (winter) and class 1 (summer) MPS individually:
+Let's take a look at the training dataset for this problem:
+![](./figures/tools/ipd_dataset.svg)
+Using the trained MPS, we can then inspect the BEE for the class 0 (winter) and class 1 (summer) MPS individually:
 ```Julia
 bees = bipartite_spectrum(mps);
 bee0, bee1 = bees

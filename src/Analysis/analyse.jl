@@ -125,7 +125,8 @@ single_site_spectrum(mps::TrainedMPS) -> Vector{Vector{Float64}}
 ```
 Compute the single-site entanglement entropy (SEE) spectrum of a trained MPS.
 
-The single-site entanglement entropy (SEE) quantifies the entanglement at each site of the MPS. It is computed as:
+The single-site entanglement entropy (SEE) quantifies the entanglement between each site in the MPS and all other sites.
+It is computed as:
 
 ``\\text{SEE} = -\\text{tr}(\\rho \\log(\\rho))``
 
