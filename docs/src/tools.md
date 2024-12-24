@@ -52,7 +52,8 @@ Given a trained MPS, we can also compute the single-site entanglement entropy (S
 # train MPS as usual
 mps, _, _ = fitMPS(...);
 sees = MPSTime.single_site_spectrum(mps);
-``` 
+```
+As with the BEE, a vector is returned where each entry contains the SEE spectrum for the class-specific MPS. 
 #### Example
 Continuing our example from the BEE with the ItalyPowerDemand (IPD) dataset, we will now compute the single-site entanglement entropy (SEE) spectrum:
 ```Julia
@@ -66,11 +67,11 @@ p = plot(b1, b2)
 
 ## Docstrings
 ```@docs
-MPSTime.von_neumann_entropy
+MPSTime.single_site_spectrum
 MPSTime.bipartite_spectrum
 ```
 
 ## Internal Methods
 ```@docs
-MPSTime.single_site_spectrum
+MPSTime.von_neumann_entropy
 ```
