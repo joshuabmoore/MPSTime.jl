@@ -1,6 +1,7 @@
 """
-   von_neumann_entropy(mps::MPS; logfn::Function=log) -> Vector{Float64}
-
+```Julia
+von_neumann_entropy(mps::MPS; logfn::Function=log) -> Vector{Float64}
+```
 Compute the [von Neumann entanglement entropy](https://en.wikipedia.org/wiki/Entropy_of_entanglement) for each site in a Matrix Product State (MPS).
 
 The von Neumann entropy quantifies the entanglement at each bond of the MPS by computing the entropy of the singular value spectrum obtained from a singular value decomposition (SVD). The entropy is computed as:
