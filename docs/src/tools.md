@@ -7,8 +7,6 @@ More simply, the EE can be thought of as quantifying the information shared betw
 In practice, the EE is computed as the [von Neumman entropy](https://en.wikipedia.org/wiki/Von_Neumann_entropy) of the reduced density matrix for any of the two subsystems ($A$ or $B$). 
 An EE of zero implies that there is no entanglement between the subsystems.
 
-The bipartite entanglement entropy (BEE) can be written in term of the singular values $\alpha$ of the Schmidt decomposition of the
-
 ### Bipartite Entanglement Entropy (BEE)
 Given a trained MPS (for either classification or imputation), we can compute the bipartite entanglement entropy (BEE) using
 the [`bipartite_spectrum`](@ref) function:
@@ -22,7 +20,7 @@ For example, in the case of a two class problem, we obtain the individual BEE sp
 For an unsupervised problem with only a single class, there is only a single BEE spectrum. 
 #### Example
 To illustrate how we might use the BEE in a typical analysis, consider an example involving real world time series from the [ItalyPowerDemand](https://www.timeseriesclassification.com/description.php?Dataset=ItalyPowerDemand) (IPD) UCR dataset. 
-There are two classes corresponding to the power demand during: __(i)__ the winter months; __(ii)__ the summer months. 
+There are two classes corresponding to the power demand during: (i) the winter months; (ii) the summer months. 
 For this example, we will train an MPS to classify between summer and winter time-series data:
 ```Julia
 # load in the training data
