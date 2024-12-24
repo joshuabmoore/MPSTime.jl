@@ -21,7 +21,7 @@ A vector is returned where each entry contains the BEE spectrum for the class-sp
 For example, in the case of a two class problem, we obtain the individual BEE spectrums for the class 0 MPS and the class 1 MPS. 
 For an unsupervised problem with only a single class, there is only a single BEE spectrum. 
 #### Example
-To illustrate how we might use the BEE in a typical analysis, consider an example involving real world time series from the [ItalyPowerDemand](https://www.timeseriesclassification.com/description.php?Dataset=ItalyPowerDemand) UCR dataset. 
+To illustrate how we might use the BEE in a typical analysis, consider an example involving real world time series from the [ItalyPowerDemand](https://www.timeseriesclassification.com/description.php?Dataset=ItalyPowerDemand) (IPD) UCR dataset. 
 There are two classes corresponding to the power demand during: __(i)__ the winter months; __(ii)__ the summer months. 
 For this example, we will train an MPS to classify between summer and winter time-series data:
 ```Julia
@@ -74,4 +74,5 @@ MPSTime.bipartite_spectrum
 ## Internal Methods
 ```@docs
 MPSTime.von_neumann_entropy
+MPSTime.one_site_rdm
 ```
