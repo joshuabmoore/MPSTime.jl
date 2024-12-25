@@ -7,6 +7,12 @@ More simply, the EE can be thought of as quantifying the information shared betw
 In practice, the EE is computed as the [von Neumman entropy](https://en.wikipedia.org/wiki/Von_Neumann_entropy) of the reduced density matrix for any of the two subsystems ($A$ or $B$). 
 An EE of zero implies that there is no entanglement between the subsystems.
 
+We provide functions for two types of EE: (i) Single-site entanglement entropy (SEE) and (ii) Bipartite entanglement entropy (BEE):
+#### (1) Single-site entanglement entropy (SEE)
+#### (2) Bipartite entanglement entropy (SEE)
+![](./figures/tools/entanglement.svg)
+
+
 ### Bipartite Entanglement Entropy (BEE)
 Given a trained MPS (for either classification or imputation), we can compute the bipartite entanglement entropy (BEE) using
 the [`bipartite_spectrum`](@ref) function:

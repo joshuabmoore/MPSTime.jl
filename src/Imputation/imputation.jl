@@ -323,7 +323,7 @@ class 1, instance 2 would be distinct from class 2, instance 2.
 - `n_baselines::Integer=1`: How many nearest neighbour baselines to compute.
 - `plot_fits::Bool=true`: Whether to make a plot showing the target timeseries, the missing values, and the imputed region. If false, then p will be an empty vector. The plot will show the NN_baseline (if it was computed), as well as every trajectory if using the :ITS method.
 - `get_metrics::Bool=true`: Whether to compute imputation metrics, if false, then `stats`, will be empty.
-- `full_metrics::Bool=false`: Whether to compute every metric (MAPE, SMAPE, MAE, MSE, RMSE) or just MAE
+- `full_metrics::Bool=false`: Whether to compute every metric (MAPE, SMAPE, MAE, MSE, RMSE) or just MAE and MAPE.
 - `print_metric_table::Bool=false`: Whether to print the `stats` as a table.
 - `invert_transform::Bool=true`:, # Whether to undo the sigmoid transform/minmax normalisation before returning the imputed points. If this is false, imputed_instance, errors, target timeseries, stats, and plot y-axis will all be scaled by the data preprocessing / normalisation and fit to the encoding domain.
 - `kwargs...`: Extra keywords passed to the imputation method. See the Imputation Methods section.
@@ -379,7 +379,8 @@ function MPS_impute(
             if full_metrics
                 push!(metrics, compute_all_forecast_metrics(t[missing_sites], target[missing_sites], print_metric_table))
             else
-                push!(metrics, Dict(:MAE => mae(t[missing_sites], target[missing_sites])))
+                push!(metrics, Dict(:MAE => mae(t[missing_sites], target[missing_sites]), 
+                    :MAPE => mape(t[missing_sites], target[missing_sites])))
             end
         end
     end
@@ -404,6 +405,7 @@ function MPS_impute(
                 end
             else
                 metrics[1][:NN_MAE] = mae(mse_ts[1][missing_sites], target[missing_sites])
+                metrics[1][:NN_MAPE] = mape(mse_ts[1][missing_sites], target[missing_sites])
             end
         end
     end
