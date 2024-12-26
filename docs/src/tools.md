@@ -7,10 +7,37 @@ More simply, the EE can be thought of as quantifying the information shared betw
 In practice, the EE is computed as the [von Neumman entropy](https://en.wikipedia.org/wiki/Von_Neumann_entropy) of the reduced density matrix for any of the two subsystems ($A$ or $B$). 
 An EE of zero implies that there is no entanglement between the subsystems.
 
-We provide functions for two types of EE: (i) Single-site entanglement entropy (SEE) and (ii) Bipartite entanglement entropy (BEE):
+We provide functions for two types of EE: (i) single-site entanglement entropy (SEE), and (ii) bipartite entanglement entropy (BEE):
 #### (1) Single-site entanglement entropy (SEE)
-#### (2) Bipartite entanglement entropy (SEE)
-![](./figures/tools/entanglement.svg)
+The single-site entanglement entropy (SEE) quantifies the degree of entanglement between a single site (time-point) in the MPS and all other sites (time points).
+Given a particular site in the MPS, $i$, the SEE is then specified by the von Neumann entropy of the reduced density matrix [RanCompressedSensing2020, LiuEntanglementFeatureExtract2021,](@cite):
+$$
+S_\textrm{SEE} = -\mathrm{tr}\ \rho_i \log \rho_i\,,
+$$
+where $\rho_i$ is the reduced density matrix (rdm) at site $i$, obtained by tracing over all sites except for the $i$-th site:
+$$
+\rho_i = Tr_{/i} \ket{\psi}\bra{\psi}\,,
+$$
+and $\ket{\psi}$ is the MPS.
+Using the 1D spin-chain as an illustrative example, the SEE between a single site (dark blue) and the rest of the system (light blue) can be depicted as:
+
+![](./figures/tools/see.svg)
+#### (2) Bipartite entanglement entropy (BEE)
+The bipartite entanglement entropy (BEE) quantifies the quantum entanglement between two complementary subsystems of a matrix product state (MPS). 
+For an MPS with $N$ sites, we can create a bipartition by splitting the system at any bond $l$, resulting in region $A$ (sites $1$ to $l$) and region $B$ (sites $l+1$ to $N$).
+The BEE can be expressed using the singular values of the [Shmidt decomposition](https://en.wikipedia.org/wiki/Schmidt_decomposition) of either of the two subsystems:
+$$
+\ket{\psi} = \sum_i \alpha_i \ket{u_i}_A
+\otimes \ket{v_i}_B\,,
+$$
+where $\alpha_i$ are the Schmidt coefficients (singular values) satisfying $\sum_i \alpha_i^2 = 1$, $\ket{u_i}_A$ and $\ket{v_i}_B$ are orthonormal states in subsystem $A$ and $B$, respectively.
+The BEE is then given by the von Neumann entropy:
+$$
+S_\textrm{BEE} = -\sum_i \alpha_i^2 \log \alpha_i^2\,.
+$$
+The BEE can be represented schematically using the 1D spin chain analogy where the red dotted line denotes the bipartition, the light blue particles represent subsystem $A$ and the dark blue represent subsystem $B$:
+
+![](./figures/tools/bee.svg)
 
 
 ### Bipartite Entanglement Entropy (BEE)
@@ -41,6 +68,7 @@ opts = MPSOptions(d=10, chi_max=40, nsweeps=10; init_rng=4567)
 mps, _, _ = fitMPS(X_train, y_train, X_test, y_test, opts)
 ```
 Let's take a look at the training dataset for this problem:
+
 ![](./figures/tools/ipd_dataset.svg)
 Using the trained MPS, we can then inspect the BEE for the class 0 (winter) and class 1 (summer) MPS individually:
 ```Julia
