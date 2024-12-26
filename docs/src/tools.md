@@ -10,7 +10,7 @@ An EE of zero implies that there is no entanglement between the subsystems.
 We provide functions for two types of EE: (i) single-site entanglement entropy (SEE), and (ii) bipartite entanglement entropy (BEE):
 #### (1) Single-site entanglement entropy (SEE)
 The single-site entanglement entropy (SEE) quantifies the degree of entanglement between a single site (time-point) in the MPS and all other sites (time points).
-Given a particular site in the MPS, $i$, the SEE is then specified by the von Neumann entropy of the reduced density matrix [RanCompressedSensing2020, LiuEntanglementFeatureExtract2021,](@cite):
+Given a particular site in the MPS, $i$, the SEE is then specified by the von Neumann entropy of the reduced density matrix [RanCompressedSensing2020, LiuEntanglementFeatureExtract2021](@cite):
 $$
 S_\textrm{SEE} = -\mathrm{tr}\ \rho_i \log \rho_i\,,
 $$
@@ -31,7 +31,7 @@ $$
 \otimes \ket{v_i}_B\,,
 $$
 where $\alpha_i$ are the Schmidt coefficients (singular values) satisfying $\sum_i \alpha_i^2 = 1$, $\ket{u_i}_A$ and $\ket{v_i}_B$ are orthonormal states in subsystem $A$ and $B$, respectively.
-The BEE is then given by the von Neumann entropy:
+The BEE is then given by the von Neumann entropy [LiuEntanglementFeatureExtract2021](@cite):
 $$
 S_\textrm{BEE} = -\sum_i \alpha_i^2 \log \alpha_i^2\,.
 $$
