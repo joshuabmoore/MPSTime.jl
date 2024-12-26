@@ -13,7 +13,7 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 
 ## Setup
 
-The first step is to train an MPS (see [Classification](@ref)). 
+The first step is to train an MPS. 
 Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid.
 
 ```Julia

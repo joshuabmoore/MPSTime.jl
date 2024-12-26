@@ -23,7 +23,7 @@ pkg> add https://github.com/jmoo2880/MPSTime.jl.git
 ```
 
 ## Usage
-See the [Classification](@ref) section and other sidebars for a basic usage examples. 
+See the sidebars for a basic usage examples. 
 We're continually adding more features and documentation as we go.
 
 ## Citation
