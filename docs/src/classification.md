@@ -1,4 +1,4 @@
-# Tutorial
+# Classification
 
 This tutorial for MPSTime will take you through the basic steps needed to fit an MPS to a time-series dataset.
 
