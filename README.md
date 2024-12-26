@@ -27,7 +27,7 @@ This is not yet a registered Julia package, but it will be soon (TM)! In the mea
 
 ```Julia
 julia> ]
-pkg> add https://github.com/jmoo2880/MPSTime.jl.git
+pkg> add https://github.com/joshuabmoore/MPSTime.jl.git
 ```
 
 ## Usage and Documentation
