@@ -21,9 +21,8 @@ where ``\rho_i`` is the reduced density matrix (rdm) at site ``i``, obtained by 
 and ``\ket{\psi}`` is the MPS.
 Using the 1D spin-chain as an illustrative example, the SEE between a single site (dark blue) and the rest of the system (light blue) can be depicted as:
 
-<p align="center">
- 	<a href=><img src=./figures/tools/see.svg height="300"/></a>
-</p>
+<img src=./figures/tools/see.svg width="600" align="center">
+
 
 #### (2) Bipartite entanglement entropy (BEE)
 The bipartite entanglement entropy (BEE) quantifies the quantum entanglement between two complementary subsystems of a matrix product state (MPS). 
