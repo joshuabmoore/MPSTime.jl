@@ -31,7 +31,7 @@ pkg> add https://github.com/joshuabmoore/MPSTime.jl.git
 ```
 
 ## Usage and Documentation
-We provide [tutorials](https://joshuabmoore.github.io/MPSTime.jl/dev/tutorial/) and basic usage examples in the documentation:
+We provide [tutorials](https://joshuabmoore.github.io/MPSTime.jl/dev/classification/) and basic usage examples in the documentation:
 - [LATEST DOCS](https://joshuabmoore.github.io/MPSTime.jl/) -- the latest documentation.
 
 ## Citation
