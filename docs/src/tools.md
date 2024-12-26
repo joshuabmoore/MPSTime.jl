@@ -21,8 +21,8 @@ where ``\rho_i`` is the reduced density matrix (rdm) at site ``i``, obtained by 
 and ``\ket{\psi}`` is the MPS.
 Using the 1D spin-chain as an illustrative example, the SEE between a single site (dark blue) and the rest of the system (light blue) can be depicted as:
 
-<p align="center" width="100%">
-    <img src=./figures/tools/see.svg>
+<p align="center">
+ 	<a href=><img src=./figures/tools/see.svg height="300"/></a>
 </p>
 
 #### (2) Bipartite entanglement entropy (BEE)
