@@ -11,31 +11,31 @@ We provide functions for two types of EE: (i) single-site entanglement entropy (
 #### (1) Single-site entanglement entropy (SEE)
 The single-site entanglement entropy (SEE) quantifies the degree of entanglement between a single site (time-point) in the MPS and all other sites (time points).
 Given a particular site in the MPS, $i$, the SEE is then specified by the von Neumann entropy of the reduced density matrix [RanCompressedSensing2020, LiuEntanglementFeatureExtract2021](@cite):
-$$
+```math
 S_\textrm{SEE} = -\mathrm{tr}\ \rho_i \log \rho_i\,,
-$$
-where $\rho_i$ is the reduced density matrix (rdm) at site $i$, obtained by tracing over all sites except for the $i$-th site:
-$$
+```
+where ``\rho_i`` is the reduced density matrix (rdm) at site ``i``, obtained by tracing over all sites except for the ``i``-th site:
+```math
 \rho_i = Tr_{/i} \ket{\psi}\bra{\psi}\,,
-$$
-and $\ket{\psi}$ is the MPS.
+```
+and ``\ket{\psi}`` is the MPS.
 Using the 1D spin-chain as an illustrative example, the SEE between a single site (dark blue) and the rest of the system (light blue) can be depicted as:
 
 ![](./figures/tools/see.svg)
 #### (2) Bipartite entanglement entropy (BEE)
 The bipartite entanglement entropy (BEE) quantifies the quantum entanglement between two complementary subsystems of a matrix product state (MPS). 
-For an MPS with $N$ sites, we can create a bipartition by splitting the system at any bond $l$, resulting in region $A$ (sites $1$ to $l$) and region $B$ (sites $l+1$ to $N$).
+For an MPS with ``N`` sites, we can create a bipartition by splitting the system at any bond ``l``, resulting in region ``A`` (sites ``1`` to ``l``) and region ``B`` (sites ``l+1`` to ``N``).
 The BEE can be expressed using the singular values of the [Shmidt decomposition](https://en.wikipedia.org/wiki/Schmidt_decomposition) of either of the two subsystems:
-$$
+```math
 \ket{\psi} = \sum_i \alpha_i \ket{u_i}_A
 \otimes \ket{v_i}_B\,,
-$$
-where $\alpha_i$ are the Schmidt coefficients (singular values) satisfying $\sum_i \alpha_i^2 = 1$, $\ket{u_i}_A$ and $\ket{v_i}_B$ are orthonormal states in subsystem $A$ and $B$, respectively.
+```
+where ``\alpha_i`` are the Schmidt coefficients (singular values) satisfying ``\sum_i \alpha_i^2 = 1``, ``\ket{u_i}_A`` and ``\ket{v_i}_B`` are orthonormal states in subsystem ``A`` and ``B``, respectively.
 The BEE is then given by the von Neumann entropy [LiuEntanglementFeatureExtract2021](@cite):
-$$
+```math
 S_\textrm{BEE} = -\sum_i \alpha_i^2 \log \alpha_i^2\,.
-$$
-The BEE can be represented schematically using the 1D spin chain analogy where the red dotted line denotes the bipartition, the light blue particles represent subsystem $A$ and the dark blue represent subsystem $B$:
+```
+The BEE can be represented schematically using the 1D spin chain analogy where the red dotted line denotes the bipartition, the light blue particles represent subsystem ``A`` and the dark blue represent subsystem ``B``:
 
 ![](./figures/tools/bee.svg)
 
