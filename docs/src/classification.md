@@ -148,9 +148,6 @@ julia> mean(predictions .== y_test)
 0.925
 ```
 
-## Imputation
-See [Imputation](@ref Imputation_top)
-
 ## Training with a custom basis
 To train with a custom basis, first, declare a custom basis with [`function_basis`](@ref), and pass it in as the last argument to [`fitMPS`](@ref). For this to work, the encoding hyperparameter must be set to `:Custom` in `MPSOptions`
 

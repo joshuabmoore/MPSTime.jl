@@ -14,7 +14,7 @@ makedocs(
     plugins = [bib],
     pages = [
     "Introduction" => "index.md",
-    "Tutorial: Classification" => "tutorial.md",
+    "Classification" => "classification.md",
     "Imputation" => "imputation.md",
     "Synthetic Data Generation" => "synthdatagen.md",
     "Encodings" => "encodings.md",

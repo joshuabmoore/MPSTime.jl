@@ -106,6 +106,7 @@ julia> using Plots
 julia> plot(plots...)
 ```
 ![](./figures/median_impute.svg)
+
 The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
 The blue shading indicates the uncertainty due to encoding error.
 
