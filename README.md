@@ -10,12 +10,12 @@
 
 
 <p align="center">
-  <a href="https://jmoo2880.github.io/MPSTime.jl/dev/">
+  <a href="https://joshuabmoore.github.io/MPSTime.jl/dev/">
     <img src="https://img.shields.io/badge/docs-latest-2ea44f?style=flat-square" alt="docs - latest">
   </a>
     <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?style=flat-square" alt="version - 0.1.0-DEV">
   </a>
-    <img src="https://github.com/jmoo2880/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
+    <img src="https://github.com/joshuabmoore/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
 </p>
 
 
@@ -31,8 +31,8 @@ pkg> add https://github.com/jmoo2880/MPSTime.jl.git
 ```
 
 ## Usage and Documentation
-We provide [tutorials](https://jmoo2880.github.io/MPSTime.jl/dev/tutorial/) and basic usage examples in the documentation:
-- [LATEST DOCS](https://jmoo2880.github.io/MPSTime.jl/) -- the latest documentation.
+We provide [tutorials](https://joshuabmoore.github.io/MPSTime.jl/dev/tutorial/) and basic usage examples in the documentation:
+- [LATEST DOCS](https://joshuabmoore.github.io/MPSTime.jl/) -- the latest documentation.
 
 ## Citation
 If you use this software in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):
@@ -52,4 +52,4 @@ If you use this software in your work, please read and cite the [arXiv preprint]
 We welcome contributions from the community! 
 MPSTime is under active development and resarch, making it an exciting opprtunity for collaboration.
 Whether you are interested in adding new features, improving existing documentation, fixing bugs, or sharing ideas, your input is valuable.
-Feel free to submit a [PR](https://github.com/jmoo2880/MPSTime.jl/pulls) or open an [issue](https://github.com/jmoo2880/MPSTime.jl/issues) for discussion.
+Feel free to submit a [PR](https://github.com/joshuabmoore/MPSTime.jl/pulls) or open an [issue](https://github.com/joshuabmoore/MPSTime.jl/issues) for discussion.
