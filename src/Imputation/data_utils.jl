@@ -33,23 +33,38 @@ end
 Determine missing value indices by sampling from an exponential distribution with rate determined by the target 
 percentage missing. Adapted from [Moritz et al.](https://arxiv.org/pdf/1510.03924).
 """
-function mcar_exp(X::AbstractVector, fraction_missing::Float64; state::Union{Nothing, Int}=nothing, verbose::Bool=true)
+function mcar_exp(X::AbstractVector, fraction_missing::Float64; 
+    state::Union{Nothing, Int}=nothing, 
+    verbose::Bool=true)
+    # optional seed for reproducibility 
     if !isnothing(state)
         Random.seed!(state)
     end
-    if !(0 <= fraction_missing <= 1.0)
-        throw(ArgumentError("fraction of missing points must be in the range [0, 1]."))
+
+    0 ≤ fraction_missing ≤ 1.0 ||
+        throw(ArgumentError("`fraction_missing` must be ∈ (0, 1)."))
+    # handle trivial cases
+    if fraction_missing == 0
+        return (X, Int[])
+    elseif fraction_missing == 1
+        return (eltype(X)[], collect(1:length(X)))
     end
+
     a = 1 # initialise index
+    n = length(X)
     expon = Exponential(1/fraction_missing)
-    missing_idxs = []
-    while a < length(X)
+    # pre-allocate space for missing_idxs
+    missing_idxs = Int[]
+    sizehint!(missing_idxs, round(Int, fraction_missing * n))
+
+    while a ≤ n
         a = ceil(Int, a + rand(expon))
-        if a <= length(X)
+        if a ≤ n
             push!(missing_idxs, a)
         end
     end
-    X_corrupted = remove_values(X, Int.(missing_idxs))
+
+    X_corrupted = remove_values(X, missing_idxs)
     if verbose
         println("Percentage of newly generated missing values: $(round(percentage_missing_values(X_corrupted); digits=2))%")
     end
