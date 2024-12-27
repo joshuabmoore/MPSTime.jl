@@ -25,7 +25,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/jmoo2880/MPSTime.jl.git",
+    repo = "github.com/joshuabmoore/MPSTime.jl.git",
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
