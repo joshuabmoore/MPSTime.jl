@@ -17,10 +17,10 @@ It provides a unified formalism for:
 ## Installation
 This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from  [GitHub](https://github.com/joshuabmoore/MPSTime.jl?tab=readme-ov-file):
 
-<!-- ```Julia
+```Julia
 julia> ]
 pkg> add https://github.com/joshuabmoore/MPSTime.jl.git 
-``` -->
+```
 
 ## Usage
 See the sidebars for basic usage examples. 
