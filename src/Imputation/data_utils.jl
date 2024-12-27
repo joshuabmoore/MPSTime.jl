@@ -30,6 +30,33 @@ function mcar(X::AbstractVector{Float64}, fraction_missing::Float64; state::Unio
 end
 
 """
+Determine missing value indices by sampling from an exponential distribution with rate determined by the target 
+percentage missing. Adapted from [Moritz et al.](https://arxiv.org/pdf/1510.03924).
+"""
+function mcar_exp(X::AbstractVector, fraction_missing::Float64; state::Union{Nothing, Int}=nothing, verbose::Bool=true)
+    if !isnothing(state)
+        Random.seed!(state)
+    end
+    if !(0 <= fraction_missing <= 1.0)
+        throw(ArgumentError("fraction of missing points must be in the range [0, 1]."))
+    end
+    a = 1 # initialise index
+    expon = Exponential(1/fraction_missing)
+    missing_idxs = []
+    while a < length(X)
+        a = ceil(Int, a + rand(expon))
+        if a <= length(X)
+            push!(missing_idxs, a)
+        end
+    end
+    X_corrupted = remove_values(X, Int.(missing_idxs))
+    if verbose
+        println("Percentage of newly generated missing values: $(round(percentage_missing_values(X_corrupted); digits=2))%")
+    end
+    return (X_corrupted, missing_idxs)
+end
+
+"""
 ```Julia
 mbov(X::AbstractVector{Float64}, fraction_missing::Float64, remove_smallest::Bool=true; verbose::Bool=true)
 ```
