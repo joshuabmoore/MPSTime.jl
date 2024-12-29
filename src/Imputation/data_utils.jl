@@ -1,55 +1,78 @@
 
+# abstract type for all missing data mechanisms
+abstract type MissingMechanism end
+
+# various missing data mechanisms according to Rubin
+abstract type MCARMechanism <: MissingMechanism end
+abstract type MARMechanism <: MissingMechanism end
+abstract type MNARMechanism <: MissingMechanism end
+
+# concrete types for each mechanism 
+# MCAR - missing completely at random
+struct BernoulliMCAR <: MCARMechanism end
+struct ExponentialMCAR <: MCARMechanism end
+
+# MAR - missing at random 
+struct BlockMissingMAR <: MARMechanism end
+
+# MNAR - missing not at random
+struct LowestMNAR <: MNARMechanism end
+struct HighestMNAR <: MNARMechanism end
+
 remove_values(X::AbstractVector{Float64}, idxs::Vector{Int64}) = (Xc = deepcopy(X); Xc[idxs] .= NaN; Xc)
-percentage_missing_values(X::AbstractVector) = ((sum([isnan(x) for x in X]))/length(X)) * 100.0
+percentage_missing_values(X::AbstractVector) = 100.0 * count(isnan, X) / length(X)
 
 """
-```Julia
-mcar(X::AbstractVector{Float64}, p_miss::Float64, seed::Int=42) -> Vector{Int}
-```
-Missing completely at random (MCAR). 
-Assumption is that the probability of a particular time point being missing is independent of the 
-time series value at that point:
-``\\P(r \\| \\Y_obs, \\Y_missing) = \\P(r)``.
-Missing values are generated using a random number generator to select deletion locations.
-MCAR is a strong assumption that is often unrealistic in real-world scenarios. 
+Missing completely at random (MCAR).
 """
-function mcar(X::AbstractVector{Float64}, fraction_missing::Float64; state::Union{Nothing, Int}=nothing, verbose::Bool=true)
+function mcar(X::AbstractVector, fraction_missing::Float64, mechanism::MCARMechanism=BernoulliMCAR();
+    state::Union{Int, Nothing}=nothing, verbose::Bool=false)
+
+    # specify random state for reproducibility
     if !isnothing(state)
         Random.seed!(state)
     end
-    if !(0 <= fraction_missing <= 1.0)
-        throw(ArgumentError("fraction of missing points must be in the range [0, 1]."))
+
+    if !(0.0 ≤ fraction_missing ≤ 1.0)
+        throw(ArgumentError("fraction_missing must be between 0 and 1"))
     end
-    mask = rand(length(X)) .< fraction_missing
-    missing_idxs = collect(1:length(X))[mask]
-    X_corrupted = remove_values(X, missing_idxs)
+
+    X_corrupted, missing_idxs = _mcar_sample(X, fraction_missing, mechanism)
     if verbose
-        println("Percentage of newly generated missing values: $(round(percentage_missing_values(X_corrupted); digits=2))%")
+        actual_missing = percentage_missing_values(X_corrupted)
+        println("Expected missing: $(100fraction_missing)%. Actual missing: $(round(actual_missing, digits=2))%")
     end
-    return (X_corrupted, missing_idxs)
+    
+    return X_corrupted, missing_idxs
+
 end
 
 """
-Determine missing value indices by sampling from an exponential distribution with rate determined by the target 
-percentage missing. Adapted from [Moritz et al.](https://arxiv.org/pdf/1510.03924).
+```Julia
+_mcar_sample(X::AbstractVector{Float64}, fraction_missing::Float64, ::BernoulliMCAR) -> Tuple{Vector{Float64}, Vector{Int64}}
+```
+Determine missing value indices by sampling from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution) with probability of success
+``p`` determined by the target percentage missing.
+Adapated from [Twala](https://www.tandfonline.com/doi/full/10.1080/08839510902872223).
 """
-function mcar_exp(X::AbstractVector, fraction_missing::Float64; 
-    state::Union{Nothing, Int}=nothing, 
-    verbose::Bool=true)
-    # optional seed for reproducibility 
-    if !isnothing(state)
-        Random.seed!(state)
-    end
+function _mcar_sample(X::AbstractVector{Float64}, fraction_missing::Float64, ::BernoulliMCAR)
+    n = length(X)
+    bernoulli_dist = Bernoulli(fraction_missing)
+    mask = rand(bernoulli_dist, n)
+    missing_idxs = collect(1:n)[mask]
+    X_corrupted = remove_values(X, missing_idxs)
+    return X_corrupted, missing_idxs
+end
 
-    0 ≤ fraction_missing ≤ 1.0 ||
-        throw(ArgumentError("`fraction_missing` must be ∈ (0, 1)."))
-    # handle trivial cases
-    if fraction_missing == 0
-        return (X, Int[])
-    elseif fraction_missing == 1
-        return (eltype(X)[], collect(1:length(X)))
-    end
-
+"""
+```Julia
+_mcar_sample(X::AbstractVector, fraction_missing::Float64, ::ExponentialMCAR) -> Tuple{Vector{Float64}, Vector{Int64}}
+```
+Determine missing value indices by sampling from an [exponential distribution](https://en.wikipedia.org/wiki/Exponential_distribution) with rate
+``lambda`` determined by the target percentage missing.
+Adapted from [Moritz et al.](https://arxiv.org/pdf/1510.03924).
+"""
+function _mcar_sample(X::AbstractVector, fraction_missing::Float64, ::ExponentialMCAR)
     a = 1 # initialise index
     n = length(X)
     expon = Exponential(1/fraction_missing)
@@ -63,93 +86,52 @@ function mcar_exp(X::AbstractVector, fraction_missing::Float64;
             push!(missing_idxs, a)
         end
     end
-
     X_corrupted = remove_values(X, missing_idxs)
+    return X_corrupted, missing_idxs
+end
+
+"""
+Missing at random (MAR).
+"""
+function mar(X::AbstractVector, fraction_missing::Float64, mechanism::MARMechanism=BlockMissingMAR();
+    state::Union{Int, Nothing}=nothing, verbose::Bool=false)
+    # specify random state for reproducibility
+    if !isnothing(state)
+        Random.seed!(state)
+    end
+
+    if !(0.0 ≤ fraction_missing ≤ 1.0)
+        throw(ArgumentError("fraction_missing must be between 0 and 1"))
+    end
+
+    X_corrupted, missing_idxs = _mar_sample(X, fraction_missing, mechanism)
     if verbose
-        println("Percentage of newly generated missing values: $(round(percentage_missing_values(X_corrupted); digits=2))%")
+        actual_missing = percentage_missing_values(X_corrupted)
+        println("Expected missing: $(100fraction_missing)%. Actual missing: $(round(actual_missing, digits=2))%")
     end
-    return (X_corrupted, missing_idxs)
+    
+    return X_corrupted, missing_idxs
 end
 
 """
-```Julia
-mbov(X::AbstractVector{Float64}, fraction_missing::Float64, remove_smallest::Bool=true; verbose::Bool=true)
-```
-Missing based on own values by removing the largest or smallest N points where N is determined by the target fraction missing.
-"""
-function mbov(X::AbstractVector{Float64}, fraction_missing::Float64, remove_smallest::Bool=true)
-    npts = round(Int, length(X) * fraction_missing) # determine num of pts to remove
-    # select the first npts as the points to remove
-    missing_idxs = (remove_smallest == true) ? X |> x -> sortperm(x) |> x -> sort(x[1:npts-1]) : X |> x -> sortperm(x; rev=true) |> x -> sort(x[1:npts-1]) # lol
-    X_corrupted = remove_values(X, missing_idxs)
-    return (X_corrupted, missing_idxs)
-end
+    _mar_sample(X::AbstractVector, fraction_missing::Float64, ::BlockMissingMAR)
 
-"""
-```Julia
+Remove a consecutive "block" of observations with size specified by the fraction missing. 
+The block location starting point is chosen randomly from a list of valid starting points
+(given the block size) and subsequent elements are removed.
 
-```
-Missing not-at-random (MNAR) is when the probability of a data point being missing is related to the value of the missing data itself and/or 
-values at othe time points:
-``\\P(r | \\Y_obs, \\Y_missing) = \\P(r | \\Y_obs, \\Y_missing).``
-Strategies are informed by this recent [paper](https://www.sciencedirect.com/science/article/pii/S0957417424005207).
-Several mechanisms are available:
-1. ``:MBOVHigh``: Missing based on own values. Remove largest values such that fraction missing is obtained. 
-1. ``:MBOVLow``: Missing based on own values. Remove smallest values such that fraction missing is obtained. 
+The chosen missing block depends solely on the time index (i.e., the starting point is 
+selected uniformly from valid indices) and *not* on the underlying data values. 
+Thus, the probability of being missing is independent of unobserved values, relying only on an 
+observed variable (time). 
+This makes the missing mechanism "Missing at Random."
 """
-function mnar(X::AbstractVector{Float64}, fraction_missing::Float64, mechanism::Symbol=:MBOVHigh; verbose::Bool=true)
-    if !(0 <= fraction_missing <= 1.0)
-        throw(ArgumentError("fraction of missing points must be in the range [0, 1]."))
-    end
-    if mechanism == :MBOVHigh
-        X_corrupted, missing_idxs = mbov(X, fraction_missing, false)
-    elseif mechanism == :MBOVLow
-        X_corrupted, missing_idxs = mbov(X, fraction_missing, true)
-    else
-        throw(ArgumentError("Invalid mechanism `$(string(mechanism))`. Choose either :MBOVHigh or :MBOVLow."))
-    end
-    if verbose
-        println("Percentage of newly generated missing values: $(round(percentage_missing_values(X_corrupted); digits=2))%")
-    end
-    return (X_corrupted, missing_idxs)
-end
-
-"""
-```Julia
-block_missing(X::AbstractVector{Float64}, fraction_missing::Float64, start_idx::Union{Int, Nothing}=nothing)
-    -> Tuple{Vector{Float64}, Vector{Int}}
-```
-Introduces a contiguous block of missing values starting at either a user-specified index or a randomly
-selected location. 
-In some cases, block missing data can be considered MAR if the underlying source of the missingness is from real-world events 
-such as sensor downtime as the missingness is related to some external (unmeasured) factor and is not related to the time-series values themselves. 
-If the block is randomly selected (and unrelated to the values themselves), then it would be considered MCAR. 
-"""
-function block_missing(X::AbstractVector{Float64}, fraction_missing::Float64, start_idx::Union{Int, Nothing}=nothing)
-    npts_miss = round(Int, length(X) * fraction_missing)
-    possible_start_idxs = collect(1:length(X)-npts_miss+1)
-    if !isnothing(start_idx)
-        if start_idx > possible_start_idxs[end]
-            throw(ArgumentError("Starting index exceeds maximum possible starting location for $fraction_missing missing."))
-        end
-    else
-        start_idx = rand(possible_start_idxs)
-    end
+function _mar_sample(X::AbstractVector, fraction_missing::Float64, ::BlockMissingMAR)
+    n = length(X)
+    npts_miss = round(Int, n * fraction_missing)
+    start_idx = rand(1:(n-npts_miss+1)) # choose random starting location from valid locations
     missing_idxs = collect(start_idx:(start_idx+npts_miss - 1))
     X_corrupted = remove_values(X, missing_idxs)
-    return (X_corrupted, missing_idxs)
+    return X_corrupted, missing_idxs
 end
 
-"""
-The probability of a value being missing is unrelated to the probability of missing data at other time points but may be related to the observed values
-at the current and other time points. 
-"""
-function mar(X::AbstractVector{Float64}, fraction_missing::Float64)
-    base_prob = fraction_missing * 0.5
-    slope = fraction_missing * 0.5
-    p_t = base_prob .- slope .* (collect(1:length(X))/length(X))
-    mask = rand(length(X)) .< p_t
-    missing_idxs = collect(1:length(X))[mask]
-    X_corrupted = remove_values(X, missing_idxs)
-    return (X_corrupted, missing_idxs)
-end
