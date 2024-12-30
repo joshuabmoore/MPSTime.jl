@@ -65,14 +65,11 @@ function mcar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MCARM
 
 end
 
-"""
-```Julia
-_mcar_sample(X::AbstractVector{Float64}, fraction_missing::Float64, ::BernoulliMCAR) -> Tuple{Vector{Float64}, Vector{Int64}}
-```
-Determine missing value indices by sampling from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution) with probability of success
-``p`` determined by the target percentage missing.
+#=
+Determine missing value indices by sampling from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution) 
+with probability of success ``p`` determined by the target percentage missing.
 Adapated from [Twala](https://www.tandfonline.com/doi/full/10.1080/08839510902872223).
-"""
+=#
 function _mcar_sample(X::AbstractVector{Float64}, fraction_missing::Float64, ::BernoulliMCAR)
     n = length(X)
     bernoulli_dist = Bernoulli(fraction_missing)
@@ -124,19 +121,17 @@ function mar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MARMec
     return X_corrupted, missing_idxs
 end
 
-"""
-_mar_sample(X::AbstractVector, fraction_missing::Float64, ::BlockMissingMAR)
 
+#= 
 Remove a consecutive "block" of observations with size specified by the fraction missing. 
 The block location starting point is chosen randomly from a list of valid starting points
 (given the block size) and subsequent elements are removed.
-
 The chosen missing block depends solely on the time index (i.e., the starting point is 
 selected uniformly from valid indices) and *not* on the underlying data values. 
 Thus, the probability of being missing is independent of unobserved values, relying only on an 
 observed variable (time). 
 This makes the missing mechanism "Missing at Random."
-"""
+=#
 function _mar_sample(X::AbstractVector, fraction_missing::Float64, ::BlockMissingMAR)
     n = length(X)
     npts_miss = round(Int, n * fraction_missing)

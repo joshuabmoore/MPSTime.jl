@@ -71,10 +71,16 @@ p = plot(b1, b2)
 ```
 ![](./figures/tools/ipd_see.svg)
 
+## Missing Data Simulation
+
+
 ## Docstrings
 ```@docs
 MPSTime.single_site_spectrum
 MPSTime.bipartite_spectrum
+MPSTime.mcar
+MPSTime.mar
+MPSTime.mnar
 ```
 
 ## Internal Methods
