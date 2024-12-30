@@ -101,7 +101,36 @@ p = plot(b1, b2)
 ![](./figures/tools/ipd_see.svg)
 
 ## Missing Data Simulation
+In the time-series imputation literature, time-series data can be categorised into one of three types based on the underlying process responsible for the missing data: (i) missing completely at random (MCAR); (ii) missing at random (MAR); or, (iii) missing not at random (MNAR).
+A review of the various mechanisms in the univariate setting can be found in [this paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8605316).
 
+MPSTime provides implementations of all three mechanisms, adapted from the more typical multivariate setting to the case of univariate time-series data.
+To generate synthetic missing data, the original (uncorrupted) univariate time-series instance is passed into a function which assigns a NaN value to time points determined by the missing data mechanism of choice. 
+
+
+### Missing Completely at Random (MCAR)
+To simulate missing completely at random (MCAR) data, the locations (time points) of missing points:
+```Julia 
+using MPSTime
+using Random
+Random.seed!(42)
+pm = 0.5 # 50% data missing
+X_clean = rand(100) # your data as a vector
+X_corrupted, X_missing_inds = mcar(X_clean, pm)
+```
+The `mcar` function will return a copy of the time-series with NaN values at missing positions, and the indices of the missing values.
+Let's plot the corrupted data:
+```Julia
+using Plots
+p1 = plot(X_clean, xlabel="time", ylabel="x", label="", title="Original data");
+p2 = plot(X_corrupted, xlabel="time", ylabel="x", label="", title="MCAR $(pm*100)% missing data");
+plot(p1, p2, size=(1200, 300));
+```
+![](./figures/tools/mcar_example.svg)
+
+### Missing Completely at Random (MCAR)
+
+### Missing Completely at Random (MCAR)
 
 ## Docstrings
 ```@docs

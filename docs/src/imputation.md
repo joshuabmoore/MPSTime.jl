@@ -63,13 +63,14 @@ The necessary options are:
 - `instance_idx`: The time-series instance from the chosen class in the test set.
 - `method`: The imputation method to use. Can be trajectories (ITS), median, mode, mean, etc...
 
-In this example, we will consider a single block of contiguous missing values, from $t = 10$ through to $t = 90$ inclusive (i.e., 81% missing data).
+In this example, we will consider a single block of contiguous missing values, simulated from a missing-at-random mechanism (MAR).
 We will use the _median_ to impute the missing values, as well as computing a 1-Nearest Neighbor Imputation (1-NNI) baseline for comparison:   
 
 ```Julia
 class = 0
-impute_sites = collect(10:90) # impute time pts. 10-90 inclusive
+pm = 0.8 # 80% missing data
 instance_idx = 59 # time series instance in test set
+_, impute_sites = mar(X_test[instance_idx, :], pm; state=42) # simulate MAR mechanism
 method = :median
 
 imputed_ts, pred_err, target_ts, stats, plots = MPS_impute(
@@ -86,20 +87,25 @@ Several outputs are returned from `MPS_impute`:
 - `imputed_ts`: The imputed time-series instance, containing the original data points and the predicted values.
 - `pred_err`: The prediction error for each imputed value, given a known ground-truth.
 - `target_ts`: The original time-series instance containing missing values.
-- `stats`: A collection of statistical metrics (e.g., MAE) evaluating imputation performance with respect to a ground truth. Includes baseline performance when `NN_baseline=true`.
+- `stats`: A collection of statistical metrics (MAE and MAPE) evaluating imputation performance with respect to a ground truth. Includes baseline performance when `NN_baseline=true`.
 - `plots`: Stores plot object(s) in an array for visualization when `plot_fits=true`.
 
 We can inspect the imputation performance in a summary table:
 ```Julia
 julia> using PrettyTables
 julia> pretty_table(stats[1]; header=["Metric", "Value"], header_crayon= crayon"yellow bold", tf = tf_unicode_rounded);
-╭────────┬───────────╮
-│ Metric │     Value │
-├────────┼───────────┤
-│    MAE │ 0.0817192 │
-│ NN_MAE │  0.127104 │
-╰────────┴───────────╯
+╭─────────┬───────────╮
+│  Metric │     Value │
+├─────────┼───────────┤
+│     MAE │ 0.0855211 │
+│    MAPE │  0.125649 │
+│  NN_MAE │   0.11304 │
+│ NN_MAPE │  0.168085 │
+╰─────────┴───────────╯
 ```
+Here, MAE and MAPE correspond to the mean absolute error (MAE) and mean absolute percentage error (MAPE) for the MPS, while the NN_ prefix corresponds to the same errors for the 1-NNI baseline. 
+
+
 To plot the imputed time series, we can call the plot function as follows: 
 ```Julia
 julia> using Plots
@@ -142,7 +148,8 @@ impute_sites = [10, 25, 50] # impute multiple individual points
 
 
 ## Plotting Trajectories
-To plot trajectories, use `method=:ITS`. Here, we'll plot 10 randomly selected trajectories by setting the `num_trajectories` keyword. 
+To plot individual trajectories from the conditional distribution, use `method=:ITS`. 
+Here, we'll plot 10 randomly selected trajectories for the missing points by setting the `num_trajectories` keyword: 
 ```Julia
 class = 0
 impute_sites = collect(10:90)
