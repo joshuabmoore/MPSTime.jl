@@ -1,3 +1,4 @@
+using Statistics
 
 # generate some random data for the tests
 test_data = rand(5, 10_000);
