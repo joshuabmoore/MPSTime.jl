@@ -109,7 +109,8 @@ To generate synthetic missing data, the original (uncorrupted) univariate time-s
 
 
 ### Missing Completely at Random (MCAR)
-To simulate missing completely at random (MCAR) data, the locations (time points) of missing points:
+To simulate missing completely at random (MCAR) data, the locations (time points) of missing points are sampled from a [Bernoulli distribution](https://en.wikipedia.org/wiki/Bernoulli_distribution) where the probability of a "successful trial" (i.e., missing data point) is the same for all time points.
+Let's generate a random time-series instance and simulate 50% data missingness using an MCAR mechanism:
 ```Julia 
 using MPSTime
 using Random
@@ -118,7 +119,7 @@ pm = 0.5 # 50% data missing
 X_clean = rand(100) # your data as a vector
 X_corrupted, X_missing_inds = mcar(X_clean, pm)
 ```
-The `mcar` function will return a copy of the time-series with NaN values at missing positions, and the indices of the missing values.
+The `mcar` function will return two values: a copy of the time-series with NaN values at missing positions (`X_corrupted`), and the indices of the missing values (`X_missing_inds`).
 Let's plot the corrupted data:
 ```Julia
 using Plots
@@ -128,20 +129,40 @@ plot(p1, p2, size=(1200, 300));
 ```
 ![](./figures/tools/mcar_example.svg)
 
-### Missing at Random (MCAR)
-To simulate missing at random (MAR) data, use the ``mar`` function:
+For reproducibility, we can optionally pass in a random seed to the `mcar` function:
 ```Julia
+seed = 42; # random seed 
+X_corrupted, X_missing_inds = mcar(X_clean, pm; state=seed)
+```
+
+### Missing at Random (MAR)
+Following from the example above with randomly generated data, we can simulate a missing at random (MAR) mechanism using the ``mar`` function.
+Currently, MPSTime supports block missing patterns whereby a starting time point is randomly selected, and all subsequent observations within a specified block length are set to NaN:
+```Julia
+# using the same data, X_clean, from above...
+pm = 0.5
 X_corrupted, X_missing_inds = mar(X_clean, pm)
 ```
+
 Plotting the corrupted data:
+
 ![](./figures/tools/mar_example.svg)
 
 
 ### Missing Not At Random (MNAR)
-To simulate missing not at random (MNAR) data, use the ``mnar`` function:
+To simulate missing not at random (MNAR) data, use the ``mnar`` function.
+There are two possible options for the MNAR mechanims: (i) LowestMNAR (default option) and (ii) HighestMNAR.
+The LowestMNAR mechanism sets the lowest N values of the time-series to NaN where N is determined by the target percentage data missing. 
+Conversely, HighestMNAR sets the highest N value to NaN:
+
 ```Julia
-X_corrupted, X_missing_inds = mnar(X_train, pm)
+# using the same data, X_clean, from above...
+pm = 0.5
+X_corrupted_low, X_missing_inds_low = mnar(X_clean, pm) # default setting uses LowestMNAR
+X_corrupted_high, X_missing_inds_high = mnar(X_clean, pm, MPSTime.HighestMNAR()) # use the HighestMNAR mechanism
 ```
+Plotting corrupted time-seres from the `LowestMNAR` mechanism:
+
 ![](./figures/tools/mnar_example.svg)
 
 
