@@ -1,4 +1,4 @@
-# Tutorial
+# Classification
 
 This tutorial for MPSTime will take you through the basic steps needed to fit an MPS to a time-series dataset.
 
@@ -12,13 +12,17 @@ x^c_t = \sin{\left(\frac{2\pi}{20}t + \psi\right)} + \frac{mt}{T} + \sigma_c n_t
 
 where ``m`` is the slope of a linear trend, ``\psi \in [0, 2\pi)`` is a uniformly random phase offset, ``\sigma_c`` is the noise scale, and ``n_t \sim \mathcal{N}(0,1)`` are  normally distributed random variables. 
 
-The two classes will be distinguished by their noise levels. The class one time series ``x^1`` have ``\sigma_1 = 0.1``, and the class two time series ``x^2`` have ``\sigma_2 = 0.9``. The below code sets this up
+The two classes will be distinguished by their noise levels. The class one time series ``x^1`` have ``\sigma_1 = 0.1``, and the class two time series ``x^2`` have ``\sigma_2 = 0.9``.
+Here are a few time-series instances from each class:
+
+![](./figures/demo_dataset.svg)
+
+The below code sets this up:
 
 ```Julia
 # fix rng seed
 using Random
 rng = Xoshiro(1)
-
 
 # trendy sine function
 function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
@@ -143,9 +147,6 @@ julia> using Statistics
 julia> mean(predictions .== y_test)
 0.925
 ```
-
-## Imputation
-See [Imputation](@ref Imputation_top)
 
 ## Training with a custom basis
 To train with a custom basis, first, declare a custom basis with [`function_basis`](@ref), and pass it in as the last argument to [`fitMPS`](@ref). For this to work, the encoding hyperparameter must be set to `:Custom` in `MPSOptions`

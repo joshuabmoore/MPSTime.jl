@@ -15,15 +15,16 @@ It provides a unified formalism for:
     MPSTime is currently under active development. Many features are in an experimental stage and may undergo significant changes, refinements, or removals.
 
 ## Installation
-This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from  [GitHub](https://github.com/jmoo2880/MPSTime.jl?tab=readme-ov-file):
+This is not yet a registered Julia package, but it will be soon (TM)! In the meantime, you can install it directly from our [GitHub repository](https://github.com/joshuabmoore/MPSTime.jl?tab=readme-ov-file):
 
 ```Julia
 julia> ]
-pkg> add https://github.com/jmoo2880/MPSTime.jl.git
+pkg> add https://github.com/joshuabmoore/MPSTime.jl.git 
 ```
 
 ## Usage
-See the [Tutorial](@ref) section and other sidebars for a basic usage examples. We're continually adding more features and documentation as we go.
+See the sidebars for basic usage examples. 
+We're continually adding more features and documentation as we go.
 
 ## Citation
 If you use MPSTime in your work, please read and cite the [arXiv preprint](https://arxiv.org/abs/2412.15826):

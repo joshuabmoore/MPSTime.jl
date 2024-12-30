@@ -13,7 +13,7 @@ For instance, you might need to impute a single contiguous block from $t = 10-30
 
 ## Setup
 
-The first step is to train an MPS (see [Tutorial](@ref)). 
+The first step is to train an MPS. 
 Here, we'll train an MPS in an unsupervised manner (no class labels) using a noisy trendy sinusoid.
 
 ```Julia
@@ -112,6 +112,7 @@ julia> using Plots
 julia> plot(plots...)
 ```
 ![](./figures/median_impute.svg)
+
 The solid orange line depicts the "ground-truth" (observed) time-series values, the dotted blue line is the MPS-imputed data points and the dotted red line is the 1-NNI baseline.
 The blue shading indicates the uncertainty due to encoding error.
 

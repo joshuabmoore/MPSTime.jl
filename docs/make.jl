@@ -14,7 +14,7 @@ makedocs(
     plugins = [bib],
     pages = [
     "Introduction" => "index.md",
-    "Tutorial: Classification" => "tutorial.md",
+    "Classification" => "classification.md",
     "Imputation" => "imputation.md",
     "Synthetic Data Generation" => "synthdatagen.md",
     "Encodings" => "encodings.md",
@@ -25,7 +25,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/jmoo2880/MPSTime.jl.git",
+    repo = "github.com/joshuabmoore/MPSTime.jl.git",
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
