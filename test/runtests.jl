@@ -10,6 +10,10 @@ end
     include("analysis_tests.jl")
 end
 
+@testset "Imputation Data Utils" begin
+    include("data_utils_tests.jl")
+end
+
 # @testset "QuantumInspiredML.jl" begin
 #     # Write your tests here.
 # end
