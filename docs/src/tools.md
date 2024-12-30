@@ -128,9 +128,22 @@ plot(p1, p2, size=(1200, 300));
 ```
 ![](./figures/tools/mcar_example.svg)
 
-### Missing Completely at Random (MCAR)
+### Missing at Random (MCAR)
+To simulate missing at random (MAR) data, use the ``mar`` function:
+```Julia
+X_corrupted, X_missing_inds = mar(X_clean, pm)
+```
+Plotting the corrupted data:
+![](./figures/tools/mar_example.svg)
 
-### Missing Completely at Random (MCAR)
+
+### Missing Not At Random (MNAR)
+To simulate missing not at random (MNAR) data, use the ``mnar`` function:
+```Julia
+X_corrupted, X_missing_inds = mnar(X_train, pm)
+```
+![](./figures/tools/mnar_example.svg)
+
 
 ## Docstrings
 ```@docs
