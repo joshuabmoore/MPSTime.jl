@@ -95,8 +95,8 @@ Available mechanisms:
 
 # Arguments
 - `X::AbstractVector`: Input time series data.
-- `fraction_missing::Float64`: Target fraction of missing values, must be between 0 and 1.
-- `mechanism::MARMechanism`: Mechanism used to generate missing values (default: `BlockMissingMAR()`).
+- `fraction_missing::Float64`: Target fraction of missing values, must be between 0 and 1 (default: 0.5).
+- `mechanism::MARMechanism`: Mechanism used to generate missing values (default: `BlockMissingMAR()`)
 - `state::Union{Int, Nothing}`: Random seed for reproducibility (default: nothing).
 - `verbose::Bool`: If true, prints comparison of target vs actual percentage of missing values.
 
@@ -104,7 +104,7 @@ Available mechanisms:
 - `X_corrupted::Vector{Float64}`: Copy of input vector with NaN values at missing positions.
 - `missing_idxs::Vector{Int64}`: Indices of missing values.
 """
-function mar(X::AbstractVector, fraction_missing::Float64, mechanism::MARMechanism=BlockMissingMAR();
+function mar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MARMechanism=BlockMissingMAR();
     state::Union{Int, Nothing}=nothing, verbose::Bool=false)
     # specify random state for reproducibility
     if !isnothing(state)
@@ -161,7 +161,7 @@ Available mechanisms:
 
 # Arguments
 - `X::AbstractVector`: Input time series data.
-- `fraction_missing::Float64`: Target fraction of missing values, must be between 0 and 1.
+- `fraction_missing::Float64`: Target fraction of missing values, must be between 0 and 1 (default: 0.5).
 - `mechanism::MNARMechanism`: Mechanism used to generate missing values (default: `LowestMNAR()`).
 - `verbose::Bool`: If true, prints comparison of target vs actual percentage of missing values.
 
@@ -169,7 +169,7 @@ Available mechanisms:
 - `X_corrupted::Vector{Float64}`: Copy of input vector with NaN values at missing positions.
 - `missing_idxs::Vector{Int64}`: Indices of missing values.
 """
-function mnar(X::AbstractVector, fraction_missing::Float64, mechanism::MNARMechanism=LowestMNAR();
+function mnar(X::AbstractVector, fraction_missing::Float64=0.5, mechanism::MNARMechanism=LowestMNAR();
     verbose::Bool=false)
 
     if !(0.0 ≤ fraction_missing ≤ 1.0)
