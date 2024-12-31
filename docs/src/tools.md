@@ -102,7 +102,7 @@ p = plot(b1, b2)
 
 ## Missing Data Simulation
 In the time-series imputation literature, time-series data can be categorised into one of three types based on the underlying process responsible for the missing data: (i) missing completely at random (MCAR); (ii) missing at random (MAR); or, (iii) missing not at random (MNAR).
-A review of the various mechanisms in the univariate setting can be found in [this paper](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8605316).
+A review of the various mechanisms in the univariate setting can be found in [Santos2019GeneratingSM](@cite).
 
 MPSTime provides implementations of all three mechanisms, adapted from the more typical multivariate setting to the case of univariate time-series data.
 To generate synthetic missing data, the original (uncorrupted) univariate time-series instance is passed into a function which assigns a NaN value to time points determined by the missing data mechanism of choice. 
@@ -136,7 +136,7 @@ X_corrupted, X_missing_inds = mcar(X_clean, pm; state=seed)
 ```
 
 ### Missing at Random (MAR)
-Following from the example above with randomly generated data, we can simulate a missing at random (MAR) mechanism using the ``mar`` function.
+Following from the example above with randomly generated data, we can simulate a missing at random (MAR) mechanism using the `mar` function.
 Currently, MPSTime supports block missing patterns whereby a starting time point is randomly selected, and all subsequent observations within a specified block length are set to NaN:
 ```Julia
 # using the same data, X_clean, from above...
@@ -150,7 +150,7 @@ Plotting the corrupted data:
 
 
 ### Missing Not At Random (MNAR)
-To simulate missing not at random (MNAR) data, use the ``mnar`` function.
+To simulate missing not at random (MNAR) data, use the `mnar` function.
 There are two possible options for the MNAR mechanims: (i) LowestMNAR (default option) and (ii) HighestMNAR.
 The LowestMNAR mechanism sets the lowest N values of the time-series to NaN where N is determined by the target percentage data missing. 
 Conversely, HighestMNAR sets the highest N value to NaN:
@@ -161,7 +161,7 @@ pm = 0.5
 X_corrupted_low, X_missing_inds_low = mnar(X_clean, pm) # default setting uses LowestMNAR
 X_corrupted_high, X_missing_inds_high = mnar(X_clean, pm, MPSTime.HighestMNAR()) # use the HighestMNAR mechanism
 ```
-Plotting corrupted time-seres from the `LowestMNAR` mechanism:
+Plotting corrupted time-series from the `LowestMNAR` mechanism:
 
 ![](./figures/tools/mnar_example.svg)
 
