@@ -19,6 +19,11 @@ Here are a few time-series instances from each class:
 
 The below code sets this up:
 
+```@repl 
+using Random 
+rng = Xoshiro(1)
+```
+
 ```Julia
 # fix rng seed
 using Random
