@@ -22,7 +22,6 @@ The below code sets this up:
 ```@repl 
 using Random # fix rng seed
 rng = Xoshiro(1)
-
 # define trendy sine function
 function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
     X = Matrix{Float64}(undef, n_inst, T)
@@ -32,13 +31,11 @@ function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
         @. series = sin(pi/10 *ts + phase) + 3 * ts / T + noise_std * randn(rng) 
     end
     return X
-end
-
+end;
 # specify dataset size
-ntimepoints = 100
-ntrain_instances = 300
-ntest_instances = 200
-
+ntimepoints = 100;
+ntrain_instances = 300;
+ntest_instances = 200;
 # define data. Class one has sigma = 0.1, class 2 has sigma = 0.9
 X_train = vcat(trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.1, rng), trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.9, rng));
 y_train = vcat(fill(1, ntrain_instances ÷ 2), fill(2, ntrain_instances ÷ 2));
