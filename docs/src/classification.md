@@ -20,16 +20,10 @@ Here are a few time-series instances from each class:
 The below code sets this up:
 
 ```@repl 
-using Random 
-rng = Xoshiro(1)
-```
-
-```Julia
-# fix rng seed
-using Random
+using Random # fix rng seed
 rng = Xoshiro(1)
 
-# trendy sine function
+# define trendy sine function
 function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
     X = Matrix{Float64}(undef, n_inst, T)
     ts = 1:T
@@ -40,7 +34,7 @@ function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
     return X
 end
 
-# dataset size
+# specify dataset size
 ntimepoints = 100
 ntrain_instances = 300
 ntest_instances = 200
@@ -50,7 +44,6 @@ X_train = vcat(trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.1, rng), trendy
 y_train = vcat(fill(1, ntrain_instances ÷ 2), fill(2, ntrain_instances ÷ 2));
 X_test = vcat(trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.1, rng), trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.9, rng));
 y_test = vcat(fill(1, ntest_instances ÷ 2), fill(2, ntest_instances ÷ 2));
-
 ```
 
 ## Training an MPS
