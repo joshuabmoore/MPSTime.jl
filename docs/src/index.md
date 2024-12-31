@@ -2,17 +2,7 @@
 A Julia package for time-series machine learning (ML) using Matrix-Product States (MPS) built on the [ITensors.jl](https://github.com/ITensor/ITensors.jl) framework [ITensor, ITensor-r0.3](@cite).
 
 ![](./assets/logo.svg)
-<p align="center">
-  <a href="https://joshuabmoore.github.io/MPSTime.jl/dev/">
-    <img src="https://img.shields.io/badge/docs-latest-2ea44f?" alt="docs - latest">
-  </a>
-    <img src="https://img.shields.io/badge/version-0.1.0--DEV-blue?" alt="version - 0.1.0-DEV">
-  </a>
-    <img src="https://github.com/joshuabmoore/MPSTime.jl/actions/workflows/CI.yml/badge.svg">
-  </a>
-  <a href="https://github.com/JuliaTesting/Aqua.jl">
-    <img src="https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg">
-</p>
+
 
 ## Overview
 
