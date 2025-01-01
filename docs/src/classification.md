@@ -34,10 +34,22 @@ end;
 ntimepoints = 100; # specify number of samples per instance
 ntrain_instances = 300; # specify num training instances
 ntest_instances = 200; # specify num test instances
-X_train = vcat(trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.1, rng), trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.9, rng));
-y_train = vcat(fill(1, ntrain_instances ÷ 2), fill(2, ntrain_instances ÷ 2));
-X_test = vcat(trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.1, rng), trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.9, rng));
-y_test = vcat(fill(1, ntest_instances ÷ 2), fill(2, ntest_instances ÷ 2));
+X_train = vcat(
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.1, rng),
+    trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.9, rng)
+);
+y_train = vcat(
+    fill(1, ntrain_instances ÷ 2),
+    fill(2, ntrain_instances ÷ 2)
+);
+X_test = vcat(
+    trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.1, rng),
+    trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.9, rng)
+);
+y_test = vcat(
+    fill(1, ntest_instances ÷ 2),
+    fill(2, ntest_instances ÷ 2)
+);
 ```
 
 ## Training an MPS
