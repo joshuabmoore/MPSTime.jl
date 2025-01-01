@@ -21,8 +21,7 @@ The below code sets this up:
 
 ```@repl 
 using Random # fix rng seed
-rng = Xoshiro(1)
-# define trendy sine function
+rng = Xoshiro(1); # define trendy sine function
 function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
     X = Matrix{Float64}(undef, n_inst, T)
     ts = 1:T
@@ -32,11 +31,9 @@ function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
     end
     return X
 end;
-# specify dataset size
-ntimepoints = 100;
-ntrain_instances = 300;
-ntest_instances = 200;
-# define data. Class one has sigma = 0.1, class 2 has sigma = 0.9
+ntimepoints = 100; # specify number of samples per instance
+ntrain_instances = 300; # specify num training instances
+ntest_instances = 200; # specify num test instances
 X_train = vcat(trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.1, rng), trendy_sine(ntimepoints, ntrain_instances ÷ 2, 0.9, rng));
 y_train = vcat(fill(1, ntrain_instances ÷ 2), fill(2, ntrain_instances ÷ 2));
 X_test = vcat(trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.1, rng), trendy_sine(ntimepoints, ntest_instances ÷ 2, 0.9, rng));
