@@ -19,7 +19,8 @@ Here are a few time-series instances from each class:
 
 The below code sets this up:
 
-```@repl 
+```@example 1 
+using MPSTime 
 using Random # fix rng seed
 rng = Xoshiro(1); # define trendy sine function
 function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
@@ -56,9 +57,9 @@ y_test = vcat(
 For the most basic use of fitMPS, select your hyperparameters, and run the [`fitMPS`](@ref) function. 
 Some (truncated) output from our noisy trendy sine datam with default hyperparameters is given below. 
 
-```@repl
+```@example 1
 opts = MPSOptions() # no arguments gives default hyperparameters
-mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
+mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts)
 ```
 
 [`fitMPS`](@ref) doesn't use `X_test` or `y_test` for anything except printing performance evaluations, so it is safe to leave them blank. For unsupervised learning, input a dataset with only one class, or only pass `X_train` ( `y_train` has a default value of `zeros(Int, size(X_train, 1))` ).
