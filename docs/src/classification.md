@@ -58,8 +58,8 @@ For the most basic use of fitMPS, select your hyperparameters, and run the [`fit
 Some (truncated) output from our noisy trendy sine datam with default hyperparameters is given below. 
 
 ```@example 1
-opts = MPSOptions() # no arguments gives default hyperparameters
-mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts)
+opts = MPSOptions(); # no arguments gives default hyperparameters
+mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
 ```
 
 [`fitMPS`](@ref) doesn't use `X_test` or `y_test` for anything except printing performance evaluations, so it is safe to leave them blank. For unsupervised learning, input a dataset with only one class, or only pass `X_train` ( `y_train` has a default value of `zeros(Int, size(X_train, 1))` ).
