@@ -19,8 +19,7 @@ Here are a few time-series instances from each class:
 
 The below code sets this up:
 
-```@example 1 
-using MPSTime 
+```@repl
 using Random # fix rng seed
 rng = Xoshiro(1); # define trendy sine function
 function trendy_sine(T::Integer, n_inst::Integer, noise_std::Real, rng)
@@ -57,9 +56,30 @@ y_test = vcat(
 For the most basic use of fitMPS, select your hyperparameters, and run the [`fitMPS`](@ref) function. 
 Some (truncated) output from our noisy trendy sine datam with default hyperparameters is given below. 
 
-```@example 1
-opts = MPSOptions(); # no arguments gives default hyperparameters
-mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
+```Julia
+julia> opts = MPSOptions() # calling this with no arguments gives default hyperparameters
+julia> mps, info, test_states = fitMPS(X_train, y_train, X_test, y_test, opts);
+Generating initial weight MPS with bond dimension χ_init = 4
+        using random state 1234.
+Initialising train states.
+Initialising test states.
+Using 1 iterations per update.
+Training KL Div. 122.43591167452153 | Training acc. 0.51.
+Test KL Div. 121.83350501986212 | Testing acc. 0.55.
+
+Test conf: [55 45; 45 55].
+Using optimiser CustomGD with the "TSGO" algorithm
+Starting backward sweeep: [1/5]
+Backward sweep finished.
+Starting forward sweep: [1/5]
+    ...
+
+MPS normalised!
+
+Training KL Div. -18.149569463050405 | Training acc. 1.0.
+Test KL Div. -1.2806885386973699 | Testing acc. 0.925.
+
+Test conf: [100 0; 15 85]. 
 ```
 
 [`fitMPS`](@ref) doesn't use `X_test` or `y_test` for anything except printing performance evaluations, so it is safe to leave them blank. For unsupervised learning, input a dataset with only one class, or only pass `X_train` ( `y_train` has a default value of `zeros(Int, size(X_train, 1))` ).
