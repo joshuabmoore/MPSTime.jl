@@ -20,5 +20,5 @@ end
 end
 
 @testset "Imputation Data Utils" begin
-    include("data_utils_tests.jl")
+    include("simulation_tests.jl")
 end

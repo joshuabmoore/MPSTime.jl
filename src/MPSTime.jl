@@ -77,8 +77,10 @@ include("Imputation/imputation.jl") # Some structs, and scaffolds for setting up
 include("Imputation/metrics.jl"); # Metrics used to measure imputation performance
 include("Imputation/MPS_methods.jl"); # contains the functions to project states onto an MPS / get most likely states for a region
 include("Imputation/sampling_utils.jl"); # contains functions to compute a rdm matrix from an MPS, and pretty much every way you can think of to sample from it
-include("Imputation/data_utils.jl"); # contains functions to simulate various mechansims of missing data.
 
+# Simulation
+include("Simulation/missing_data_mechanisms.jl"); # contains functions to simulate various mechansims of missing data.
+include("Simulation/toy_data.jl"); # functions to simulate synthetic data
 
 
 # MLJ
@@ -127,10 +129,13 @@ export
     MPS_impute, # The main imputation function, all functionality can be accessed hyperparameter
     get_cdfs, # compute the reduced density matrix (as a cdf) at every site. Useful for data vis/debugging weird imputations
     ImputationProblem,
+
+    # Simulation
     mcar, # simulate missing completely at random mechanism for imputation
     mnar, # simulate missing not at random mechanism for imputation
     mar, # simulate missing at random mechanism for imputation
-    
+    trendy_sine, # simulate noise corrupted trendy sinusoid
+
     # MLJ 
     MPSClassifier
 end
