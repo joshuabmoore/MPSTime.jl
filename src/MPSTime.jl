@@ -129,10 +129,13 @@ export
     MPS_impute, # The main imputation function, all functionality can be accessed hyperparameter
     get_cdfs, # compute the reduced density matrix (as a cdf) at every site. Useful for data vis/debugging weird imputations
     ImputationProblem,
+
+    # Simulation
     mcar, # simulate missing completely at random mechanism for imputation
     mnar, # simulate missing not at random mechanism for imputation
     mar, # simulate missing at random mechanism for imputation
-    
+    trendy_sine, # simulate noise corrupted trendy sinusoid
+
     # MLJ 
     MPSClassifier
 end

@@ -11,13 +11,20 @@ function _generate_params(param, default_range)
     end
 end
 
-function trendy_sine(T::Int, n::Int; period::Union{Nothing, Float64, Tuple, Vector}=nothing, slope::Union{Nothing, Float64, Tuple, Vector}=nothing, 
+"""
+```Julia
+trendy_sine(T::Int, n::Int; period::Union{Nothing, Float64, Tuple, Vector}=nothing, slope::Union{Nothing, Float64, Tuple, Vector}=nothing, 
     phase::Union{Nothing, Float64, Tuple, Vector}=nothing, sigma::Float64=0.0, state::Union{Nothing, Int}=nothing)
+```
+
+"""
+function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}=nothing, slope::Union{Nothing, Real, Tuple, Vector}=nothing, 
+    phase::Union{Nothing, Real, Tuple, Vector}=nothing, sigma::Real=0.0, state::Union{Nothing, Int}=nothing, return_metadata::Bool=false)
 
     !isnothing(state) && Random.seed!(state)
     # set default ranges for random
     DEFAULT_RANGES = (
-        pe = (1.0, 100.0),
+        pe = (1.0, 50.0),
         sl = (-5.0, 5.0),
         ph = (0.0, 2π)
     )
@@ -31,5 +38,17 @@ function trendy_sine(T::Int, n::Int; period::Union{Nothing, Float64, Tuple, Vect
     for (i, series) in enumerate(eachrow(X))
         @. series = sin(2pi/period_vals[i] * ts + phase_vals[i]) + (slope_vals[i] * ts) / T + sigma * randn()
     end
-    return X
+
+    info = nothing
+    if return_metadata
+        info = Dict(
+            :period => period_vals,
+            :slope => slope_vals,
+            :phase => phase_vals,
+            :sigma => sigma,
+            :T => T,
+            :n => n
+        )
+    end
+    return X, info
 end

@@ -79,3 +79,53 @@ end
     @test_throws ArgumentError mnar(test_data[1, :], -0.1)
 
 end
+
+@testset "trendy sinusoid" begin
+    # basic functionality tests
+    T = 100;
+    n = 10;
+    X, info = trendy_sine(T, n)
+    @test isnothing(info)
+    @test isa(X, Matrix)
+    @test size(X) == (n, T)
+    _, info = trendy_sine(T, n; return_metadata=true)
+    @test isa(info, Dict)
+    # check reproducibility
+    X1, _ = trendy_sine(T, n; state=42)
+    X2, _ = trendy_sine(T, n; state=42)
+    @test isequal(X1, X2)
+    # parameter checks
+    period_fixed = 10.0
+    slope_fixed = 3.0
+    phase_fixed = pi
+
+    period_cont = (10, 30)
+    slope_cont = (-3.0, 3.0)
+    phase_cont = (0, pi)
+
+    period_discr = [10, 20, 30];
+    slope_discr = [-3, 0, 3]
+    phase_discr = [0, pi/2, pi, 3pi/2]
+
+    _, info_fixed = trendy_sine(T, n; period=period_fixed, phase=phase_fixed, slope=slope_fixed, return_metadata=true)
+    _, info_cont = trendy_sine(T, n; period=period_cont, phase=phase_cont, slope=slope_cont, return_metadata=true)
+    _, info_disc = trendy_sine(T, n; period=period_discr, phase=phase_discr, slope=slope_discr, return_metadata=true)
+    @test all(x -> x .== period_fixed, info_fixed[:period])
+    @test all(x -> first(period_cont) <= x <= last(period_cont), info_cont[:period])
+    @test all([x in period_discr for x in info_disc[:period]])
+
+    @test all(x -> x .== slope_fixed, info_fixed[:slope])
+    @test all(x -> first(slope_cont) <= x <= last(slope_cont), info_cont[:slope])
+    @test all([x in slope_discr for x in info_disc[:slope]])
+
+    @test all(x -> x .== slope_fixed, info_fixed[:slope])
+    @test all(x -> first(slope_cont) <= x <= last(phase_cont), info_cont[:phase])
+    @test all([x in phase_discr for x in info_disc[:phase]])
+
+    # test defaults
+    X, info_default = trendy_sine(100, 10; return_metadata=true)
+    @test all(x -> -5.0 <= x <= 5.0, info_default[:slope])
+    @test all(x -> 1.0 <= x <= 50.0, info_default[:period])
+    @test all(x -> 0.0 <= x <= 2pi, info_default[:phase])
+
+end
