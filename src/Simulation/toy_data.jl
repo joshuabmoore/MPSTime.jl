@@ -28,17 +28,17 @@ with period ``\\tau``, time point ``\\t``, linear trend slope ``\\m``, phase off
 
 # Keyword Arguments
 - `period`: Period of the sinusoid, τ
-    * `nothing`: Random values in [1.0, 50.0] (default)
+    * `nothing`: Random values between 1.0 and 50.0 (default)
     * `Float64`: Fixed period for all time series
     * `Tuple`: Bounds for uniform random values, e.g., (1.0, 20.0) → τ ~ U(1.0, 20.0)
-    * `Vector`: Sample from discrete uniform distribution, e.g., τ ∈ [10, 20, 30]
+    * `Vector`: Sample from discrete uniform distribution, e.g., τ ∈ 10, 20, 30
 - `slope`: Linear trend gradient, m
-    * `nothing`: Random values in [-5.0, 5.0] (default)
+    * `nothing`: Random values bewteen -5.0 and 5.0 (default)
     * `Float64`: Fixed slope for all time series
     * `Tuple`: Bounds for uniform random values, e.g., (-3.0, 3.0) → m ~ U(-3.0, 3.0)
-    * `Vector`: Sample from discrete uniform distribution, e.g., m ∈ [-3.0, 0.0, 3.0]
+    * `Vector`: Sample from discrete uniform distribution, e.g., m ∈ -3.0, 0.0, 3.0
 - `phase`: Phase offset, ψ
-    * `nothing`: Random values in [0, 2π] (default)
+    * `nothing`: Random values between 0 and 2π (default)
     * `Float64`: Fixed phase for all time series
     * `Tuple`: Bounds for uniform random values, e.g., (0.0, π) → ψ ~ U(0.0, π)
     * `Vector`: Sample from discrete uniform distribution
