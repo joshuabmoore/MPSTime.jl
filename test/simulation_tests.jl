@@ -85,11 +85,11 @@ end
     T = 100;
     n = 10;
     X, info = trendy_sine(T, n)
-    @test isnothing(info)
     @test isa(X, Matrix)
     @test size(X) == (n, T)
-    _, info = trendy_sine(T, n; return_metadata=true)
     @test isa(info, Dict)
+    X, info_nometa = trendy_sine(T, n; return_metadata=false)
+    @test isnothing(info_nometa)
     # check reproducibility
     X1, _ = trendy_sine(T, n; state=42)
     X2, _ = trendy_sine(T, n; state=42)
