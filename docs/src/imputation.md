@@ -204,6 +204,7 @@ title!("CDF at each time point.")
 init_imputation_problem(::TrainedMPS, ::Matrix)
 MPS_impute
 get_cdfs
+trendy_sinusoid
 ```
 
 Internal imputation methods:
