@@ -51,7 +51,7 @@ with period ``\\tau``, time point ``\\t``, linear trend slope ``\\m``, phase off
 - Dictionary of generation parameters (:period, :slope, :phase, :sigma, :T, :n)
 """
 function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}=nothing, slope::Union{Nothing, Real, Tuple, Vector}=nothing, 
-    phase::Union{Nothing, Real, Tuple, Vector}=nothing, sigma::Real=0.0, state::Union{Nothing, Int}=nothing, return_metadata::Bool=true)
+    phase::Union{Nothing, Real, Tuple, Vector}=nothing, sigma::Real=0.0, return_metadata::Bool=true, state::Union{Nothing, Int}=nothing)
 
     !isnothing(state) && Random.seed!(state)
     # set default ranges for random
@@ -83,4 +83,67 @@ function trendy_sine(T::Int, n::Int; period::Union{Nothing, Real, Tuple, Vector}
         )
     end
     return X, info
+end
+
+function _single_state_space(T::Int; s::Int=2, sigma::Float64=0.3, rng::Union{Nothing, AbstractRNG}=nothing)
+
+    if isnothing(rng)
+        rng = Xoshiro()
+    end
+
+    T += s # include burn-in
+    xs = zeros(Float64, T)
+    thetas = zeros(Float64, T)
+    lambdas = zeros(Float64, T)
+    mus = zeros(Float64, T)
+
+    @inbounds for i in s:T
+        theta = 0.0
+        for j in 1:(s-1)
+            theta += -thetas[i-j]
+        end
+        theta += sigma * randn(rng)
+        lambda = lambdas[i-1] + sigma * randn(rng)
+        mu = mus[i-1] + lambdas[i-1] + sigma * randn(rng)
+        x = mu + theta + sigma * randn(rng)
+        xs[i], mus[i], lambdas[i], thetas[i] = x, mu, lambda, theta
+    end
+    return xs[(s+1):end]
+end
+
+"""
+    state_space(T::Int, n::Int, s::Int=2; sigma::Float64=0.3, state::Union{Int, Nothing}=nothing) -> Matrix{Float64}
+
+Generate `n` time series of length `T` each from a state space model with residual terms drawn from a normal distribution
+N(0, `sigma`) and lag order `s`. Time series are generated from the following model:
+```math
+\\x_t = \\mu_t + \\theta_t + \\eta_t
+\\mu_t = \\mu_{t-1} + \\lambda_{t-1} + \\xi_t
+\\lambda_t = \\lambda_{t-1} + \\zeta_{t}
+\\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t
+```
+where ``x_t`` is the ``t``-th value in the time series, and the residual terms ``eta_t``, ``xi_t``, ``zeta_t`` and ``omega_t`` are
+randomly drawn from a normal distribution ``N(0, sigma)``.
+
+# Arguments
+- `T` -- Time series length.
+- `n` -- Number of time-series instances.
+
+# Keyword Arguments
+- `s` -- Lag order (optional, default: `2`).
+- `sigma` -- Noise standard deviation (optional, default: `0.3`).
+- `rng` -- Random number generator of type `AbstractRNG` (optional, default: `Xoshiro(123)`).
+
+# Returns 
+A Matrix{Float64} of shape (n, T) containing the simulated time-series instances. 
+"""
+function state_space(T::Int, n::Int; s::Int=2, sigma::Float64=0.3, rng::AbstractRNG=Xoshiro(123))
+    if s < 2
+        throw(ArgumentError("Lag order s must be ≥ 2."))
+    end
+    X = Matrix{Float64}(undef, n, T)
+    for i in 1:n
+        X[i, :] = _single_state_space(T; s=s, sigma=sigma, rng=rng)
+    end
+    return X
 end
