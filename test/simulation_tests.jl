@@ -129,3 +129,20 @@ end
     @test all(x -> 0.0 <= x <= 2pi, info_default[:phase])
 
 end
+
+@testset "state space model" begin
+    # basic functionality tests
+    T = 100;
+    n = 10;
+    X = MPSTime.state_space(T, n);
+    @test isa(X, Matrix)
+    @test size(X) == (n, T)
+    # check reproducibility
+    X1 = MPSTime.state_space(T, n; rng=Xoshiro(123))
+    X2 =  MPSTime.state_space(T, n; rng=Xoshiro(123))
+    @test isequal(X1, X2)
+    @test !isequal(X, X1)
+    # check errors
+    @test_throws ArgumentError MPSTime.state_space(T, n; s=1)
+    @inferred MPSTime.state_space(T, n);
+end

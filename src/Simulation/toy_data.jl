@@ -132,12 +132,12 @@ randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
 # Keyword Arguments
 - `s` -- Lag order (optional, default: `2`).
 - `sigma` -- Noise standard deviation (optional, default: `0.3`).
-- `rng` -- Random number generator of type `AbstractRNG` (optional, default: `Xoshiro(123)`).
+- `rng` -- Random number generator of type `AbstractRNG` (optional, default: `nothing`).
 
 # Returns 
 A Matrix{Float64} of shape (n, T) containing the simulated time-series instances. 
 """
-function state_space(T::Int, n::Int; s::Int=2, sigma::Float64=0.3, rng::AbstractRNG=Xoshiro(123))
+function state_space(T::Int, n::Int; s::Int=2, sigma::Float64=0.3, rng::Union{Nothing, AbstractRNG}=nothing)
     if s < 2
         throw(ArgumentError("Lag order s must be ≥ 2."))
     end
