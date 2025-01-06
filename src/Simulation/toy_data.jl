@@ -122,8 +122,8 @@ N(0, `sigma`) and lag order `s`. Time series are generated from the following mo
 \\lambda_t = \\lambda_{t-1} + \\zeta_{t}
 \\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t
 ```
-where ``x_t`` is the ``t``-th value in the time series, and the residual terms ``eta_t``, ``xi_t``, ``zeta_t`` and ``omega_t`` are
-randomly drawn from a normal distribution ``N(0, sigma)``.
+where ``\\x_t`` is the ``\\t``-th value in the time series, and the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
+randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
 
 # Arguments
 - `T` -- Time series length.
