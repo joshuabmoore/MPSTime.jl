@@ -205,6 +205,7 @@ init_imputation_problem(::TrainedMPS, ::Matrix)
 MPS_impute
 get_cdfs
 trendy_sine
+MPSTime.state_space
 ```
 
 Internal imputation methods:
