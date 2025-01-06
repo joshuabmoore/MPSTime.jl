@@ -2,6 +2,7 @@ using MPSTime
 using Test
 using TestItems
 using Aqua
+using Random
 
 @testset "Aqua.jl Quality Assurance" begin
     Aqua.test_ambiguities(MPSTime) # test for method ambiguities
