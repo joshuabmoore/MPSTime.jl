@@ -592,7 +592,12 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
 
 
     # generate the starting MPS with uniform bond dimension chi_init and random values (with seed if provided)
-    classes = unique(vcat(y_train, y_test))
+    classes = unique(y_train)
+    test_classes = unique(y_test)
+    if !isempty(setdiff(test_classes, classes))
+        throw(ArgumentError("Test set has classes not present in the training set, this is currently unsupported."))
+    end
+    
     num_classes = length(classes)
     _, l_index = find_label(W)
 
@@ -966,6 +971,6 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     end
 
    
-    return TrainedMPS(W, MPSOptions(opts), opts, training_states_meta), training_information, testing_states_meta
+    return TrainedMPS(W, MPSOptions(opts), training_states_meta), training_information, testing_states_meta
 
 end
