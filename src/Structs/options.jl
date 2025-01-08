@@ -395,12 +395,11 @@ Container for a trained MPS and its associated Options and training data.
 # Fields
 - `mps::MPS`: A trained Matrix Product state.
 - `opts::MPSOptions`: User defined MPSOptions used to create the MPS.
-- `opts_concrete::MPSTime.Options`: Internal Options struct. Necessary to preserve custom encodings passed to fitMPS.
 - `train_data::EncodedTimeSeriesSet`: Stores both the raw and encoded data used to train the mps.
 """
 struct TrainedMPS
     mps::MPS
     opts::MPSOptions
-    opts_concrete::Options
+    # opts_concrete::Options # BAD for serialisation
     train_data::EncodedTimeSeriesSet
 end
