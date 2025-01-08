@@ -117,12 +117,12 @@ end
 Generate `n` time series of length `T` each from a state space model with residual terms drawn from a normal distribution
 N(0, `sigma`) and lag order `s`. Time series are generated from the following model:
 ```math
-\\x_t = \\mu_t + \\theta_t + \\eta_t
-\\mu_t = \\mu_{t-1} + \\lambda_{t-1} + \\xi_t
-\\lambda_t = \\lambda_{t-1} + \\zeta_{t}
-\\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t
+x_t = \\mu_t + \\theta_t + \\eta_t \\
+\\mu_t = \\mu_{t-1} + \\lambda_{t-1} + \\xi_t \\
+\\lambda_t = \\lambda_{t-1} + \\zeta_{t} \\
+\\theta_t = \\sum_{j=1}^{s-1} - \\theta_{t-j} + \\omega_t \\
 ```
-where ``\\x_t`` is the ``\\t``-th value in the time series, and the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
+where the residual terms ``\\eta_t``, ``\\xi_t``, ``\\zeta_t`` and ``\\omega_t`` are
 randomly drawn from a normal distribution ``\\N(0, \\sigma)``.
 
 # Arguments

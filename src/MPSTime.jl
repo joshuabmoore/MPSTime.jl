@@ -77,6 +77,7 @@ include("Imputation/imputation.jl") # Some structs, and scaffolds for setting up
 include("Imputation/metrics.jl"); # Metrics used to measure imputation performance
 include("Imputation/MPS_methods.jl"); # contains the functions to project states onto an MPS / get most likely states for a region
 include("Imputation/sampling_utils.jl"); # contains functions to compute a rdm matrix from an MPS, and pretty much every way you can think of to sample from it
+include("Imputation/hyperparameter_opt.jl");
 
 # Simulation
 include("Simulation/missing_data_mechanisms.jl"); # contains functions to simulate various mechansims of missing data.
