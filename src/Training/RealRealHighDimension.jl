@@ -14,14 +14,14 @@ function generate_startingMPS(chi_init::Integer, site_indices::Vector{Index{T}},
         verbosity >= 0 && println("Generating initial weight MPS with bond dimension χ_init = $chi_init.")
     end
 
-    W = randomMPS(dtype, site_indices, linkdims=chi_init)
+    W = random_mps(dtype, site_indices, linkdims=chi_init)
 
     label_idx = Index(num_classes, label_tag)
 
     # get the site of interest and copy over the indices at the last site where we attach the label 
     old_site_idxs = inds(W[end])
     new_site_idxs = label_idx, old_site_idxs
-    new_site = randomITensor(dtype,new_site_idxs)
+    new_site = random_itensor(dtype,new_site_idxs)
 
     # add the new site back into the MPS
     W[end] = new_site
@@ -597,7 +597,7 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
     if !isempty(setdiff(test_classes, classes))
         throw(ArgumentError("Test set has classes not present in the training set, this is currently unsupported."))
     end
-    
+
     num_classes = length(classes)
     _, l_index = find_label(W)
 

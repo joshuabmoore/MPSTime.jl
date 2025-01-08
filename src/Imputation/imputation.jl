@@ -113,21 +113,68 @@ function init_imputation_problem(
 end
 
 """
-    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray=zeros(Int, size(X_test,1)); <keyword arguments>) -> imp::ImputationProblem
+    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractArray=zeros(Int, size(X_test,1)), [custom_encoding::MPSTime.Encoding]; <keyword arguments>) -> imp::ImputationProblem
+    init_imputation_problem(W::TrainedMPS, X_test::AbstractMatrix, [custom_encoding::MPSTime.Encoding]); <keyword arguments>) -> imp::ImputationProblem
+
 
 Initialise an imputation problem using a trained MPS and relevent test data.
 
-This involves a lot of pre-computation, which can be quite time intensive for data-driven bases. For unclassed/unsupervised data `y_test` may be omitted.
+This involves a lot of pre-computation, which can be quite time intensive for data-driven bases. For unclassed/unsupervised data `y_test` may be omitted. 
+If the MPS was trained with a custom encoding, then this encoding must be passed to `init_imputation_problem`.
 
 # Keyword Arguments
 - `guess_range::Union{Nothing, Tuple{<:Real,<:Real}}=nothing`: The range of values that guesses are allowed to take. This range is applied to normalised, encoding-adjusted time-series data. To allow any guess, leave as nothing, or set to encoding.range (e.g. [(-1., 1.) for the legendre encoding]).
 - `dx::Float64 = 1e-4`: The spacing between possible guesses in normalised, encoding-adjusted units. When imputing missing data with an MPS method, the imputed values will be selected from 
     range(guess_range...; step=dx)
 - `verbosity::Integer=1`: The verbosity of the initialisation process. Useful for debugging, or to completely suppress output.
+- `test_encoding::Bool=true`: Whether to double check the encoding and scaling options are correct. This is strongly recommended but has a slight performance cost, so may be disabled.
 """
-function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractVector=zeros(Int, size(X_test,1)); verbosity::Integer=1)
+function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, y_test::AbstractVector=zeros(Int, size(X_test,1)), custom_encoding::Union{Encoding, Nothing}=nothing; test_encoding::Bool=true, kwargs...)
+    X_train = mps.train_data.original_data
     y_train = [ts.label for ts in mps.train_data.timeseries]
-    return init_imputation_problem(mps.mps, mps.train_data.original_data, y_train, X_test, y_test, mps.opts_concrete; verbosity=verbosity)
+    opts = mps.opts
+    opts_concrete = safe_options(opts) # make sure options isnt abstract
+
+    if !isnothing(custom_encoding)
+        if !(opts.encoding in [:custom, :Custom])
+            throw(ArgumentError("To impute with a custom encoding, the MPS must have been trained with a custom encoding. See the details of the \'encoding = :Custom\' setting in MPSOptions"))
+        else
+            opts_concrete = _set_options(opts_concrete; encoding=custom_encoding)
+        end
+    end
+
+    # test that nothing has gone wrong with the encoding
+    if test_encoding
+        X_train_scaled, norms = transform_train_data(permutedims(X_train); opts=opts_concrete)
+
+        classes = unique(vcat(y_train))
+        num_classes = length(classes)
+
+        sort!(classes)
+        class_keys = Dict(zip(classes, 1:num_classes)) # why did I write encode_dataset in this way? (#TODO move the definition of of class_keys inside encode_dataset)
+                                                       # TODO TODO use scientific types to avoid the problem entirely
+    
+        
+        s = EncodeSeparate{opts.encode_classes_separately}()
+        sites = get_siteinds(mps.mps)
+        training_states, enc_args_tr = encode_dataset(s, X_train, X_train_scaled, y_train, "train", sites; opts=opts_concrete, class_keys=class_keys)     
+        if !isapprox(training_states, mps.train_data)
+
+            if isnothing(custom_encoding)
+                error("Could not reproduce the encoded training set from the TrainedMPS. This should never happen, has there been some data corruption?")
+            else
+                error("Could not reproduce the encoded training set from the TrainedMPS, double check that custom_encoding matches the encoding the MPS was trained with. Otherwise, this should never happen, has there been some data corruption?")
+            end
+        end
+    end
+
+    return init_imputation_problem(mps.mps, X_train, y_train, X_test, y_test, opts_concrete; kwargs...)
+end
+
+
+function init_imputation_problem(mps::TrainedMPS, X_test::AbstractMatrix, custom_encoding::Encoding; kwargs...)
+
+    return init_imputation_problem(mps, X_test, zeros(Int, size(X_test,1)), custom_encoding; kwargs...)
 end
 
 
