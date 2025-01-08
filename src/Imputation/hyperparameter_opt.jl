@@ -89,5 +89,5 @@ function search_cv_impute(X::Matrix, k::Int, grid_type::Symbol=:random;
     # get best scoring parameters
     sweeps_best, d_best, chi_best, eta_best = param_grid[argmin(model_scores)]
     best_params = Dict(:nsweeps => sweeps_best, :d => d_best, :chi_max => chi_best, :eta => eta_best)
-    return best_params
+    return best_params, param_grid, model_scores
 end
