@@ -63,10 +63,7 @@ function encode_safe_dataset(::EncodeSeparate{true}, X_orig::AbstractMatrix, X_n
     return EncodedTimeSeriesSet(states, X_orig, class_distribution), enc_args
 end
 
-"""
-Convert an entire dataset of normalised time series to a corresponding 
-dataset of product states, assumes that input dataset is sorted by class
-"""
+
 function encode_safe_dataset(
         ::EncodeSeparate{false}, 
         X_orig::AbstractMatrix, 
@@ -80,6 +77,7 @@ function encode_safe_dataset(
         training_encoding_args=nothing
     ) where {T, I<:Integer}
 
+# Convert an entire dataset of normalised time series to a corresponding dataset of product states, assumes that input dataset is sorted by class
 
     verbosity = opts.verbosity
     # pre-allocate

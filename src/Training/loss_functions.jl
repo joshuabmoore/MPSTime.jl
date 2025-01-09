@@ -416,7 +416,7 @@ function (::Loss_Grad_default)(::TrainSeparate{true}, BT::ITensor, LE::PCache, R
  
     cnums = ETSs.class_distribution
     TSs = ETSs.timeseries
-    label_idx = findindex(BT, "f(x)")
+    label_idx = find_index(BT, "f(x)")
 
     losses = ITensor(real(eltype(BT)), label_idx)
     grads = ITensor(eltype(BT), inds(BT))
