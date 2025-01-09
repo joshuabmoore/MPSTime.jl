@@ -35,7 +35,7 @@ function get_enc_args_from_opts(
     if isnothing(opts.encoding.init)
         enc_args = []
     else
-        println("Re-encoding the training data to get the encoding arguments...")
+        verbosity >= 1 && println("Re-encoding the training data to get the encoding arguments...")
         order = sortperm(y)
         enc_args = opts.encoding.init(X_train_scaled[:,order], y[order]; opts=opts)
     end
