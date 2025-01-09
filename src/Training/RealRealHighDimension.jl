@@ -14,14 +14,14 @@ function generate_startingMPS(chi_init::Integer, site_indices::Vector{Index{T}},
         verbosity >= 0 && println("Generating initial weight MPS with bond dimension χ_init = $chi_init.")
     end
 
-    W = randomMPS(dtype, site_indices, linkdims=chi_init)
+    W = random_mps(dtype, site_indices, linkdims=chi_init)
 
     label_idx = Index(num_classes, label_tag)
 
     # get the site of interest and copy over the indices at the last site where we attach the label 
     old_site_idxs = inds(W[end])
     new_site_idxs = label_idx, old_site_idxs
-    new_site = randomITensor(dtype,new_site_idxs)
+    new_site = random_itensor(dtype,new_site_idxs)
 
     # add the new site back into the MPS
     W[end] = new_site
@@ -297,13 +297,13 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
 
 
     if going_left
-        left_site_index = findindex(BT, "n=$lid")
-        label_index = findindex(BT, "f(x)")
+        left_site_index = find_index(BT, "n=$lid")
+        label_index = find_index(BT, "f(x)")
         # need to make sure the label index is transferred to the next site to be updated
         if lid == 1
             U, S, V = svd(BT, (label_index, left_site_index); maxdim=chi_max, cutoff=cutoff)
         else
-            bond_index = findindex(BT, "Link,l=$(lid-1)")
+            bond_index = find_index(BT, "Link,l=$(lid-1)")
             U, S, V = svd(BT, (bond_index, label_index, left_site_index); maxdim=chi_max, cutoff=cutoff)
         end
         # absorb singular values into the next site to update to preserve canonicalisation
@@ -314,9 +314,9 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
         replacetags!(right_site_new, "Link,v", "Link,l=$lid")
     else
         # going right, label index automatically moves to the next site
-        right_site_index = findindex(BT, "n=$rid")
-        label_index = findindex(BT, "f(x)")
-        bond_index = findindex(BT, "Link,l=$(lid+1)")
+        right_site_index = find_index(BT, "n=$rid")
+        label_index = find_index(BT, "f(x)")
+        bond_index = find_index(BT, "Link,l=$(lid+1)")
 
 
         if isnothing(bond_index)
@@ -592,7 +592,12 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
 
 
     # generate the starting MPS with uniform bond dimension chi_init and random values (with seed if provided)
-    classes = unique(vcat(y_train, y_test))
+    classes = unique(y_train)
+    test_classes = unique(y_test)
+    if !isempty(setdiff(test_classes, classes))
+        throw(ArgumentError("Test set has classes not present in the training set, this is currently unsupported."))
+    end
+
     num_classes = length(classes)
     _, l_index = find_label(W)
 
@@ -706,7 +711,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
     blas_name = GenericLinearAlgebra.LinearAlgebra.BLAS.get_config() |> string
     if !occursin("mkl", blas_name)
-        @warn "Not using MKL BLAS, which may lead to worse performance.\nTo fix this, Import QuantumInspiredML into Julia first or use the MKL package"
+        @warn "Not using MKL BLAS, which may lead to worse performance.\nTo fix this, Import MPSTime into Julia first or use the MKL package"
         @show blas_name
     end
 
@@ -966,6 +971,6 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     end
 
    
-    return TrainedMPS(W, MPSOptions(opts), opts, training_states_meta), training_information, testing_states_meta
+    return TrainedMPS(W, MPSOptions(opts), training_states_meta), training_information, testing_states_meta
 
 end

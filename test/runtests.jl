@@ -16,8 +16,16 @@ end
     include("basis_tests.jl")
 end
 
+@testset "Save/Load TrainedMPS" begin 
+    include("save_load.jl")
+end
+
 @testset "Analysis" begin
     include("analysis_tests.jl")
+end
+
+@testset "Imputation" begin
+    include("imputation.jl")
 end
 
 @testset "Imputation Data Utils" begin

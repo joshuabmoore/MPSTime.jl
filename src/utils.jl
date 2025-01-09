@@ -333,14 +333,18 @@ function invert_test_transform(X_test_scaled::AbstractVector, args...; kwargs...
     return invert_test_transform(reshape(X_test_scaled, :,1), args...; kwargs...)[:]
 end
 
+# itensor deprecated findindex, and firstindex() is broken?
+function find_index(t::ITensor, lstr::String) 
 
+    return getfirst(i -> hastags(i, lstr), inds(t))
+end
 
 function find_label(W::MPS; lstr="f(x)")
     l_W = lastindex(ITensors.data(W))
     posvec = [l_W, 1:(l_W-1)...]
 
     for pos in posvec
-        label_idx = findindex(W[pos], lstr)
+        label_idx = find_index(W[pos], lstr)
         if !isnothing(label_idx)
             return pos, label_idx
         end

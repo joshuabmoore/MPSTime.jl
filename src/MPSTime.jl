@@ -28,8 +28,10 @@ using NumericalIntegration # Used extensively in imputation.jl
 using Integrals # Not sure if used (remove)
 import SciMLBase # used in encodings for SL coeffs, (remove)
 
-# allows converting BBOpt to string in structs.jl, and converting the abstract MPSOptions to a concrete Options type
-import Base.convert
+import Base.convert # allows converting BBOpt to string in structs.jl, and converting the abstract MPSOptions to a concrete Options type
+import Base.== # for comparing custom datatypes, used for defining equality as 'stored data is equal in numeric value' for testing reasons. This is done in Structs/operations.jl
+import Base.isapprox # same as above, only fuzzy equality to avoid FPerror problems
+import Base.eltype # for determining t
 
 import MLBase # For some useful multivariate stats calculations
 using StatsBase: countmap, sample, median, pweights
@@ -49,9 +51,10 @@ import MLJTuning # Custom imputation tuning algorithm
 using MLJParticleSwarmOptimization # Used in hyperparameter tuning
 
 # Custom Data Structures and types - include first
-include("Structs/structs.jl") # Structs used to hold data during training, useful value types, and wrapper types like "BBOpt"
+include("Structs/structs.jl") # Structs used to hold data during training, useful value types, and wrapper types like "BBOpt".
 include("Encodings/basis_structs.jl") # Definition of "Encoding", "Basis", etc
-include("Structs/options.jl") # Options and MPSOptions types, require the "Encoding" type to be defined 
+include("Structs/options.jl") # Options and MPSOptions types, require the "Encoding" type to be defined. Also defines "TrainedMPS", which requires "MPSOptions" to be defined already.
+include("Structs/operations.jl") # includes definitions of "==" and "isapprox" for the custom datatypes.
 
 
 # Functions and structs used to define basis functions / encodings

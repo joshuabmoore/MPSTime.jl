@@ -63,11 +63,22 @@ function encode_safe_dataset(::EncodeSeparate{true}, X_orig::AbstractMatrix, X_n
     return EncodedTimeSeriesSet(states, X_orig, class_distribution), enc_args
 end
 
-function encode_safe_dataset(::EncodeSeparate{false}, X_orig::AbstractMatrix, X_norm::AbstractMatrix, y::AbstractVector, type::String, 
-    site_indices::AbstractVector{Index{Int64}}; opts::Options=Options(),
-    rng=MersenneTwister(1234), class_keys::Dict{T, I}, training_encoding_args=nothing) where {T, I<:Integer}
-    """"Convert an entire dataset of normalised time series to a corresponding 
-    dataset of product states, assumes that inout dataset is sorted by class"""
+
+function encode_safe_dataset(
+        ::EncodeSeparate{false}, 
+        X_orig::AbstractMatrix, 
+        X_norm::AbstractMatrix, 
+        y::AbstractVector, 
+        type::String, 
+        site_indices::AbstractVector{Index{Int64}}; 
+        opts::Options=Options(),
+        rng=MersenneTwister(1234), 
+        class_keys::Dict{T, I}, 
+        training_encoding_args=nothing
+    ) where {T, I<:Integer}
+
+# Convert an entire dataset of normalised time series to a corresponding dataset of product states, assumes that input dataset is sorted by class
+
     verbosity = opts.verbosity
     # pre-allocate
     spl = String.(split(type; limit=2))
