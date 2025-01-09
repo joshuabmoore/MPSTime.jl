@@ -23,7 +23,8 @@ end
 function get_enc_args_from_opts(
         opts::Options, 
         X_train::Matrix, 
-        y::Vector{Int}
+        y::Vector{Int};
+        verbosity::Integer=1.
     )
     """Rescale and then Re-encode the scaled training data using the time dependent
     encoding to get the encoding args."""
@@ -83,7 +84,7 @@ function init_imputation_problem(
         verbosity > 0 && println(" - Time independent encoding - $(opts.encoding.name) - detected.")
         verbosity > 0 && println(" - d = $(opts.d), chi_max = $(opts.chi_max)")
     end
-    enc_args = get_enc_args_from_opts(opts, X_train, y_train)
+    enc_args = get_enc_args_from_opts(opts, X_train, y_train; verbosity=verbosity)
 
     xvals=collect(range(guess_range...; step=dx))
     site_index=Index(opts.d)
@@ -301,9 +302,50 @@ function get_predictions(
         if !isempty(pred_err)
             for i in eachindex(ts)
                 pred_err[i] .+=  ts[i] # add the time-series, so nonlinear rescaling is reversed correctly
-
                 ts[i] = invert_test_transform(ts[i], oob_rescales, norms; opts=imp.opts)
-                pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
+
+
+                try
+                    pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
+                catch e
+                    if e isa DomainError
+                        @warn "Imputation error was too large and could not be transformed back into unnormalised units, returning problematic error values as NaNs. Try tuning your hyperparameters. The uncorrected error can be viewed in normalised space by passing invert_transform=false to MPS_impute."
+                        max_retries = length(pred_err[i])
+                        problematic_errors = []
+                        j = 1
+                        success = false
+                        while j <= max_retries # this needs to generalise to any basis / any kind of normalisation, so we have to remove values and try to get invert_test_transform to work
+                            ei = argmax(abs.(pred_err[i])) 
+                            push!(problematic_errors, ei)
+                            pred_err[i][ei] = mean(ts[i]) # the scale is unknown, so this is the safest value I can think to use 
+                            safe = true
+                            try
+                                pred_err[i] = invert_test_transform(pred_err[i], oob_rescales, norms; opts=imp.opts)
+                            catch e2
+                                if e2 isa DomainError
+                                    safe = false
+                                else
+                                    throw(e)
+                                end
+                            end
+
+                            if safe
+                                success = true
+                                break
+                            end
+                
+                            j += 1
+                        end
+
+                        if !success
+                            @warn "All of the errors were too large!"
+                        end
+
+                        pred_err[i][problematic_errors] .= NaN
+                    else
+                        throw(e)
+                    end
+                end
 
                 pred_err[i] .-=  ts[i] # remove the time-series, leaving the unscaled uncertainty          
             end
