@@ -381,3 +381,5 @@ function get_siteinds(W::MPS)
 
     return siteinds(W1)
 end
+
+make_windows(ts::Vector{Float64}, w::Int, s::Int) = [ts[i:min(i+w-1, end)] for i in 1:s:length(ts)-w+1]
