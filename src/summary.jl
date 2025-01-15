@@ -147,21 +147,21 @@ end
 
 """
 ```Julia
-classify(mps::TrainedMPS, X_test::AbstractMatrix, opts::AbstractMPSOptions)) -> (predictions::Vector)
+classify(mps::TrainedMPS, X_test::AbstractMatrix)) -> (predictions::Vector)
 ```
 Use the `mps` to predict the class of the rows of `X_test` by computing the maximum overlap.
 
 # Example
 ```
-julia> W, info, test_states = fitMPS( X_train, y_train, opts);
-julia> preds  = classify(W, X_test, opts); # make some predictions
+julia> W, info, test_states = fitMPS( X_train, y_train);
+julia> preds  = classify(W, X_test); # make some predictions
 julia> mean(preds .== y_test)
 0.9504373177842566
 ```
 
 """
-function classify(mps::TrainedMPS, X_test::AbstractMatrix, opts::AbstractMPSOptions)
-    opts = safe_options(opts) # make sure options is abstract
+function classify(mps::TrainedMPS, X_test::AbstractMatrix)
+    opts = safe_options(mps.opts) # make sure options is abstract
     opts = _set_options(opts; verbosity=-10)
 
     X_train = mps.train_data.original_data
@@ -183,6 +183,8 @@ function classify(mps::TrainedMPS, X_test::AbstractMatrix, opts::AbstractMPSOpti
     test_states, _ = encode_dataset(s, X_test, X_test_scaled, fill(-1, n_tests), "test", sites; opts=opts, class_keys=Dict(-1=> n_tests), training_encoding_args=enc_args_tr)
     return classify(mps, test_states)
 end
+
+@deprecate classify(mps::TrainedMPS, X_test::AbstractMatrix, opts::AbstractMPSOptions) classify(mps, X_test)
 
 
 function overlap_confmat(mps0::MPS, mps1::MPS, pstates::TimeSeriesIterable; plot=false)
