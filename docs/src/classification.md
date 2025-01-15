@@ -143,12 +143,12 @@ julia>
 To predict the class of unseen data, use the [`classify`](@ref) function.
 
 ```@docs
-classify(::TrainedMPS, ::AbstractMatrix, ::MPSOptions)
+classify(::TrainedMPS, ::AbstractMatrix)
 ```
 
 For example, for the noisy trendy sine from earlier:
 ```Julia
-julia> predictions = classify(mps, X_test, opts);
+julia> predictions = classify(mps, X_test);
 julia> using Statistics
 julia> mean(predictions .== y_test)
 0.925

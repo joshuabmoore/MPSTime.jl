@@ -387,10 +387,11 @@ fitMPS(X_train::AbstractMatrix,
        custom_encoding::Union{Encoding, Nothing}=nothing) -> (MPS::TrainedMPS, training_info::Dict, encoded_test_states::EncodedTimeSeriesSet)
 ```
 
-Train an MPS on the data `X_train` using the hyperparameters `opts`, see [`MPSOptions`](@ref). The number of classes are determined by the entries of `y_train`. Fo
+Train an MPS on the data `X_train` using the hyperparameters `opts`, see [`MPSOptions`](@ref). The number of classes are determined by the entries of `y_train`.
 
-Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty. 
-The return value `encoded_test_states` will be sorted by class, so predictions shouldn't be compared directly to `y_test`. The `custom_encoding` argument allows the use of user defined custom encodings, see [`function_basis`](@ref). This requires that `encoding=:Custom` is specified in [`MPSOptions`](@ref)
+Returns a trained MPS, a dictionary containing training info, and the encoded test states. `X_test` and `y_test` are used only to print performance evaluations, and may be empty. The `custom_encoding` argument allows the use of user defined custom encodings, see [`function_basis`](@ref). This requires that `encoding=:Custom` is specified in [`MPSOptions`](@ref)
+
+NOTE: the return value `encoded_test_states` will be sorted by class, so predictions shouldn't be compared directly to `y_test`. 
 
 See also: [`Encoding`](@ref)
 
