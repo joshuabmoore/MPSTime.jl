@@ -45,12 +45,12 @@ Set the hyperparameters and other options for fitMPS.
 # Fields:
 ## Logging
 - `verbosity::Int=1`: How much debug/progress info to print to the terminal while optimising the MPS. Higher numbers mean more output
-- `log_level::Int=3`: How much statistical output. 0 for nothing, >0 to print losses, accuracies, and confusion matrix at each step (noticeable) computational overhead) #TODO implement finer grain control
+- `log_level::Int=3`: How much statistical output. 0 for nothing, >0 to print losses, accuracies, and confusion matrix at each step. Noticeable computational overhead 
 - `track_cost::Bool=false`: Whether to print the cost at each Bond tensor site to the terminal while training, mostly useful for debugging new cost functions or optimisers (**HUGE** computational overhead)
 
 
 ## MPS Training Hyperparameters
-- `nsweeps::Int=5`: Number of MPS optimisation sweeps to perform (Both forwards and Backwards)
+- `nsweeps::Int=5`: Number of MPS optimisation sweeps to perform (One sweep is both forwards and Backwards)
 - `chi_max::Int=25`: Maximum bond dimension allowed within the MPS during the SVD step
 - `eta::Float64=0.01`: The learning rate. For gradient descent methods, this is the step size. For Optim and OptimKit this serves as the initial step size guess input into the linesearch
 - `d::Int=5`: The dimension of the feature map or "Encoding". This is the true maximum dimension of the feature vectors. For a splitting encoding, d = num_splits * aux_basis_dim
@@ -87,7 +87,7 @@ where ``\\boldsymbol{X''}`` is the scaled robust-sigmoid transformed data matrix
 
 
 ## Loss Functions and Optimisation Methods
-- `loss_grad::Symbol=:KLD`: The type of cost function to use for training the MPS, typically Mean Squared Error (:MSE) or KL Divergence (:MSE), but can also be a weighted sum of the two (:Mixed)
+- `loss_grad::Symbol=:KLD`: The type of cost function to use for training the MPS, typically Mean Squared Error (:MSE) or KL Divergence (:KLD), but can also be a weighted sum of the two (:Mixed)
 - `bbopt::Symbol=:TSGO`: Which local Optimiser to use, builtin options are symbol gradient descent (:GD), or gradient descent with a TSGO rule (:TSGO). Other options are Conjugate Gradient descent using either the Optim or OptimKit packages (:Optim or :OptimKit respectively). The CGD methods work well for MSE based loss functions, but seem to perform poorly for KLD base loss functions.
 
 - `rescale::Tuple{Bool,Bool}=(false,true)`: Has the form `rescale = (before::Bool, after::Bool)`. Where to enforce the normalisation of the MPS during training, either calling normalise!(*Bond Tensor*) before or after BT is updated. Note that for an MPS that starts in canonical form, rescale = (true,true) will train identically to rescale = (false, true) but may be less performant.

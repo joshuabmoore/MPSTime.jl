@@ -7,15 +7,22 @@ using MKL
 using Strided # strided array support
 using ITensors 
 using NDTensors # Library that ITensors is built on, used for some hacks
+using Distributed # hyperparameter tuning reasons
 
 using Random
 using StableRNGs # Used for some hyperparameter tuning/MLJ
 
 
 # Allow Optimisation algorithms from external libraries
+#TODO replace with the Optimization.jl versions
 using Optim
 using OptimKit
 using Normalization # Standardised normalisation by Brendan :). Used to do the preprocessing / denormalising steps
+
+# Libraries for hyperparmeter tuning
+using Optimization
+using OptimizationOptimJL
+import MLJBase
 
 
 using LegendrePolynomials # For legendre polynomial basis
@@ -46,9 +53,7 @@ import ProgressMeter
 
 using Tables # Used for MLJ
 using MLJ # Used for MLJ Integration
-import MLJModelInterface # MLreturnJ Integration
-import MLJTuning # Custom imputation tuning algorithm
-using MLJParticleSwarmOptimization # Used in hyperparameter tuning
+import MLJModelInterface # MLJ Integration
 
 # Custom Data Structures and types - include first
 include("Structs/structs.jl") # Structs used to hold data during training, useful value types, and wrapper types like "BBOpt".
@@ -86,10 +91,14 @@ include("Simulation/missing_data_mechanisms.jl"); # contains functions to simula
 include("Simulation/toy_data.jl"); # functions to simulate synthetic data
 
 
+# hyperparameter tuning
+include("Training/hyperparameters/hyperopt_utils.jl")
+# include("Training/hyperparameters/gridsearch.jl")
+include("Training/hyperparameters/tuning.jl")
 # MLJ
 include("MLJIntegration/MLJ_integration.jl") # MLJ Integration
 include("MLJIntegration/MLJ_utils.jl")
-include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputation using MAE. MLJ was not designed for this at all 
+# include("MLJIntegration/imputation_hyperopt_hack.jl") # Hyperoptimising imputation using MAE. MLJ was not designed for this at all 
 
 
 export 
@@ -139,6 +148,10 @@ export
     mar, # simulate missing at random mechanism for imputation
     trendy_sine, # simulate noise corrupted trendy sinusoid
 
+    # hyperparameter tuning
+    tune,
+    ImputationLoss,
+    ClassificationLoss,
     # MLJ 
     MPSClassifier
 end
