@@ -3,6 +3,9 @@ abstract type TuningLoss end
 struct ClassificationLoss <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 
+function is_omp_threading(i::Int)
+    return "OMP_NUM_THREADS" in keys(ENV) && ENV["OMP_NUM_THREADS"] == "1"
+end
 
 function make_objective(
     objective::TuningLoss, 
@@ -43,7 +46,6 @@ function make_objective(
         else
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
             opts = _set_options(opts0; hparams...)
-
             
             
             verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with ($hparams)... ")
@@ -129,7 +131,7 @@ function tune(
         abstol::Float64=1e-3,
         maxiters::Integer=500,
         distribute_folds::Bool=false,
-        disable_threading::Bool=distribute_folds
+        disable_nondistributed_threading::Bool=false,
 
     )
     # basic checks    
@@ -189,10 +191,37 @@ function tune(
     sols = Vector(undef, nfolds)
     tstart = time()
 
-    mapfunc = distribute_folds ? pmap : map
-    if disable_threading 
+    if disable_nondistributed_threading 
+        
         GenericLinearAlgebra.LinearAlgebra.BLAS.set_num_threads(1)
         ITensors.Strided.disable_threads()
+        @warn "Threading may still be active, if it is, try setting the environment variable OMP_NUM_THREADS=1 before launching julia. Alternatively, you can sidestep this issue by calling tune() with distribute_folds=true, num_procs=1"
+
+    end
+
+    if distribute_folds
+        mapfunc = pmap
+        if nprocs() == 1
+            println("No workers")
+        end
+        threading = pmap(is_omp_threading, 1:nworkers())
+
+        if ~all(threading)
+            @warn "Using both threading and multiprocessing at the same time is not advised, set OMP_NUM_THREADS=1 when adding a new process to disable this messaage"
+        end
+        # if ~preserve_existing_workers
+        #     if nworkers() !== nprocs()
+        #         rmprocs(workers()...)
+        #     end
+        #     addprocs(num_procs; env=["OMP_NUM_THREADS"=>"1"], enable_threaded_blas=false)
+        #     @everywhere begin
+        #         function tune_fold end
+        #         tune_fold = $tune_fold
+        #     end
+        # end
+    else
+        mapfunc = map
+
     end
     sols = mapfunc( (fold) -> 
         tune_fold(

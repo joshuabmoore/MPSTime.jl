@@ -150,6 +150,8 @@ export
 
     # hyperparameter tuning
     tune,
+    tune_fold,
+    is_omp_threading,
     ImputationLoss,
     ClassificationLoss,
     # MLJ 
