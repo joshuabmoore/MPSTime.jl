@@ -18,7 +18,7 @@ function make_folds(X::AbstractMatrix, k::Int; rng::Union{Nothing, AbstractRNG}=
     return zip(X_train_idxs, X_val_idxs)
 end
 
-function make_stratified_folds(X::AbstractMatrix, y::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)
+function make_stratified_cvfolds(X::AbstractMatrix, y::AbstractVector, nfolds::Integer; rng=Union{Integer, AbstractRNG}, shuffle::Bool=true)
     stratified_cv = MLJ.StratifiedCV(; nfolds=nfolds,shuffle=shuffle, rng=rng)
 
     return MLJBase.train_test_pairs(stratified_cv, 1:size(X,1), y)

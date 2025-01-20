@@ -3,90 +3,98 @@ abstract type TuningLoss end
 struct ClassificationLoss <: TuningLoss end
 struct ImputationLoss <: TuningLoss end 
 
-function is_omp_threading(i::Int)
-    return "OMP_NUM_THREADS" in keys(ENV) && ENV["OMP_NUM_THREADS"] == "1"
-end
+
 
 function make_objective(
+    folds::AbstractVector,
     objective::TuningLoss, 
     opts0::AbstractMPSOptions, 
     fields::Vector{Symbol}, 
     types::Vector{Type},
-    X_train::AbstractMatrix, 
-    y_train::AbstractVector, 
-    X_val::AbstractMatrix, 
-    y_val::AbstractVector, 
+    X::AbstractMatrix, 
+    y::AbstractVector, 
     pms::Union{Nothing, AbstractVector}
     )
 
     fieldnames = Tuple(fields)
     cache = Dict{Tuple{types...}, Float64}()
 
-
-    function tr_objective(optslist::AbstractVector, p)
-        verbosity, tstart, fold, nfolds = p
+    function safe_paramlist(optslist::AbstractVector; output=false)
         optslist_safe = Vector{Union{AbstractFloat, Integer}}(undef, length(optslist))
         for (i, field) in enumerate(optslist)
             t = types[i]
             if t <: Integer
                 rounded = round(Int,field)
                 optslist_safe[i] = rounded
-                if verbosity >= 2 && ~isapprox(field, rounded)
-                    println("fold $fold: Integer parameter $(fieldnames[i])=$field rounded to $(rounded)!")
+                if output && ~isapprox(field, rounded)
+                    println("Integer parameter $(fieldnames[i])=$field rounded to $(rounded)!")
                 end
             else
                 optslist_safe[i] = convert(t, field)
             end
         end
+        return optslist_safe
+    end
+
+    function tr_objective(optslist::AbstractVector, p)
+        verbosity, tstart, nfolds = p
+
+        optslist_safe = safe_paramlist(optslist; output=verbosity>=2)
         
         key = tuple(optslist_safe...)
         if haskey(cache, key )
-            verbosity >= 1 && println("fold $fold: Cache hit!")
+            verbosity >= 1 && println("Cache hit!")
             loss = cache[key]
         else
             hparams = NamedTuple{fieldnames}(Tuple(optslist_safe))
             opts = _set_options(opts0; hparams...)
             
             
-            verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with ($hparams)... ")
+            losses = Vector{Float64}(undef, nfolds)
+            for (fold, (train_inds, val_inds)) in enumerate(folds)
+                X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
 
-            mps, _... = fitMPS(X_train, y_train, opts);
-            println(" done")
+                verbosity >= 1 && print("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
+                mps, _... = fitMPS(X_train, y_train, opts);
+                println(" done")
 
-            loss = eval_loss(objective, mps, X_val, y_val, pms; p=p)
+                losses[fold] = eval_loss(objective, mps, X_val, y_val, pms; p=p)
+            end
+            loss = mean(losses)
+            
             cache[key] = loss
-            verbosity >= 1 && println("fold $fold: t=$(rtime(tstart)): Loss $loss")
+            verbosity >= 1 && println("t=$(rtime(tstart)): Mean CV Loss: $loss")
         end
         return loss
     end
 
-    return tr_objective, cache
+    return tr_objective, cache, safe_paramlist
 end
 
-function tune_fold(
-    fold::Integer, 
+function tune_across_folds(
+    folds::AbstractVector, 
     parameter_info::Tuple,
     tuning_settings::Tuple,
-    X_train::AbstractMatrix, 
-    y_train::AbstractVector, 
-    X_val::AbstractMatrix, 
-    y_val::AbstractVector, 
+    X::AbstractMatrix,
+    y::AbstractVector, 
     tstart::Real
     )
     x0, opts0, lb, ub, is_disc, fields, types = parameter_info
     objective, method, nfolds, pms, abstol, maxiters, verbosity = tuning_settings 
 
-    t = round(time() - tstart; digits=2)
-    println("t=$t: Evaluating fold ($fold/$nfolds)")
-
-    tr_objective, cache = make_objective(objective, opts0, fields, types, X_train, y_train, X_val, y_val, pms)
+    tr_objective, cache, safe_params = make_objective(folds, objective, opts0, fields, types, X, y, pms)
     # tr_objective(x,_p) = sum(x.^2)
-    p = (verbosity, tstart, fold, nfolds)
+    p = (verbosity, tstart, nfolds)
 
 
     obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
     prob = OptimizationProblem(obj, x0, p; int=is_disc, lb=lb, ub=ub)
-    return solve(prob, method; abstol=abstol, maxiters=maxiters)
+    sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
+
+    verbosity >= 5 && print(sol)
+    optslist_safe = safe_params(sol.u)
+    best_params = NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
+    return best_params
 
 end
 
@@ -125,12 +133,12 @@ function tune(
         objective::TuningLoss=ImputationLoss(), 
         nfolds::Integer=5,
         rng::Union{Integer, AbstractRNG}=1,
-        foldmethod::Union{Function, Vector}=make_stratified_folds, 
+        foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
         pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95),
         verbosity::Integer=1,
         abstol::Float64=1e-3,
         maxiters::Integer=500,
-        distribute_folds::Bool=false,
+        # distribute_folds::Bool=false,
         disable_nondistributed_threading::Bool=false,
 
     )
@@ -187,8 +195,7 @@ function tune(
     tuning_settings = objective, method, nfolds, pms, abstol, maxiters, verbosity
 
     println("Generating Folds")
-    folds = foldmethod(X,y, nfolds; rng=abs_rng)
-    sols = Vector(undef, nfolds)
+    folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
     tstart = time()
 
     if disable_nondistributed_threading 
@@ -199,45 +206,8 @@ function tune(
 
     end
 
-    if distribute_folds
-        mapfunc = pmap
-        if nprocs() == 1
-            println("No workers")
-        end
-        threading = pmap(is_omp_threading, 1:nworkers())
 
-        if ~all(threading)
-            @warn "Using both threading and multiprocessing at the same time is not advised, set OMP_NUM_THREADS=1 when adding a new process to disable this messaage"
-        end
-        # if ~preserve_existing_workers
-        #     if nworkers() !== nprocs()
-        #         rmprocs(workers()...)
-        #     end
-        #     addprocs(num_procs; env=["OMP_NUM_THREADS"=>"1"], enable_threaded_blas=false)
-        #     @everywhere begin
-        #         function tune_fold end
-        #         tune_fold = $tune_fold
-        #     end
-        # end
-    else
-        mapfunc = map
-
-    end
-    sols = mapfunc( (fold) -> 
-        tune_fold(
-            fold, 
-            parameter_info,
-            tuning_settings,
-            X[folds[fold][1],:], 
-            y[folds[fold][1]], 
-            X[folds[fold][2],:], 
-            y[folds[fold][2]], 
-            tstart
-        ),
-        1:nfolds
-    )
-
-    return sols
+    return tune_across_folds(folds, parameter_info, tuning_settings, X, y, tstart)
 
 end
 
