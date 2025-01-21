@@ -53,12 +53,12 @@ function search_cv_impute(X::Matrix, k::Int, grid_type::Symbol=:random;
     chi_range::Union{Vector{Int}, StepRange}, 
     eta_range::Union{Vector{Float64}, StepRangeLen},
     rng::Union{AbstractRNG, Nothing}=nothing,
-    num_models::Int=10)
+    num_models::Int=10,
+    pms::Vector{Float64}=collect(0.05:0.2:0.95))
 
     X_train_idxs, X_val_idxs = _make_folds(X, k; rng=rng)
     param_grid = make_grid(grid_type, sweep_range, d_range, chi_range, eta_range; num_evals=num_models, rng=rng)
     model_scores = Vector{Float64}(undef, length(param_grid)) # holds mean scores across k folds
-    pms = collect(0.05:0.15:0.95)
 
     # loop over models (parameter combinations)
     for (ipg, (sw, d, chi, eta)) in enumerate(param_grid)
@@ -66,14 +66,14 @@ function search_cv_impute(X::Matrix, k::Int, grid_type::Symbol=:random;
         opts = MPSOptions(d=d, chi_max=chi, nsweeps=sw, eta=eta, sigmoid_transform=false, log_level=0);
         model_fold_scores = Vector{Float64}(undef, k) # score for each fold for each model
         for fold in 1:k
-            printstyled("Evaluating fold $fold/$k...\n", color=:red)
+            #printstyled("Evaluating fold $fold/$k...\n", color=:red)
             X_train_fold = X[X_train_idxs[fold], :]
             X_val_fold = X[X_val_idxs[fold], :]
             mps = fitMPS(X_train_fold, opts)[1];
             imp = init_imputation_problem(mps, X_val_fold);
             numval = size(X_val_fold, 1)
             instance_scores = Vector{Float64}(undef, numval) # score for each instance across all % missing
-            for inst in eachindex(instance_scores)
+            ProgressMeter.@showprogress for inst in eachindex(instance_scores)
                 instance_pm_scores_mps = Vector{Float64}(undef, length(pms)) # score for each % missing for a given instance
                 for (ipm, pm) in enumerate(pms)
                     impute_sites = mar(X_val_fold[inst, :], pm)[2]
