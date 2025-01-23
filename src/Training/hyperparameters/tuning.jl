@@ -39,7 +39,7 @@ function make_objective(
     function tr_objective(optslist::AbstractVector, p)
         verbosity, tstart, nfolds = p
 
-        optslist_safe = safe_paramlist(optslist; output=verbosity>=2)
+        optslist_safe = safe_paramlist(optslist; output=verbosity>=3)
         
         key = tuple(optslist_safe...)
         if haskey(cache, key )
@@ -58,7 +58,7 @@ function make_objective(
                 mps, _... = fitMPS(X_train, y_train, opts);
                 println(" done")
 
-                losses[fold] = eval_loss(objective, mps, X_val, y_val, pms; p=p)
+                losses[fold] = mean(eval_loss(objective, mps, X_val, y_val, pms; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
             end
             loss = mean(losses)
             
@@ -211,33 +211,45 @@ function tune(
 
 end
 
+#eval_loss returns an array of loss scores. This is either a singleton or imputation loss scores indexed by percentage missing
+
 function eval_loss(::ClassificationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, pms; p=nothing)
-    return 1. - mean(classify(mps, X_val) .== y_val) # misclassification rate
+    return [1. - mean(classify(mps, X_val) .== y_val)] # misclassification rate, vector for type stability
 end
 
-function eval_loss(::ImputationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, pms::Union{Nothing, AbstractVector} = collect(0.05:0.15:0.95); p=nothing)
+function eval_loss(::ImputationLoss, 
+    mps::TrainedMPS, 
+    X_val::AbstractMatrix, 
+    y_val::AbstractVector, 
+    pms::Union{Nothing, AbstractVector} = collect(0.05:0.15:0.95); 
+    p_fold::Union{Nothing, Tuple}=nothing
+    )
     
-    if ~isnothing(p)
-        verbosity, tstart, fold, nfolds = p
+    if ~isnothing(p_fold)
+        verbosity, tstart, fold, nfolds = p_fold
         logging = verbosity >= 2
     else
         logging = false
     end
-    imp = init_imputation_problem(mps, X_val, verbosity=-5);
+    imp = init_imputation_problem(mps, X_val, y_val, verbosity=-5);
     numval = size(X_val, 1)
-    instance_scores = Vector{Float64}(undef, numval) # score for each instance across all % missing
-    for inst in eachindex(instance_scores)
-        logging && print("fold $fold: Evaluating instance $inst/$numval...")
+    instance_scores = Matrix{Float64}(undef, numval, length(pms)) # score for each instance across all % missing
+    # conversion from inst to something MPS_impute understands. #TODO This is awful, should fix
+
+    cmap = countmap(y_val)
+    classes= vcat([fill(k,v) for (k,v) in pairs(cmap)]...)
+    class_ind = vcat([1:v for v in values(cmap)]...)
+
+    for inst in 1:numval
+        logging && print("cvfold $fold: Evaluating instance $inst/$numval...")
         t = time()
-        instance_pm_scores_mps = Vector{Float64}(undef, length(pms)) # score for each % missing for a given instance
         for (ipm, pm) in enumerate(pms)
             impute_sites = mar(X_val[inst, :], pm)[2]
-            stats = MPS_impute(imp, 0, inst, impute_sites, :median; NN_baseline=false, plot_fits=false)[4]
-            instance_pm_scores_mps[ipm] = stats[1][:MAE]
+            stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false)[4]
+            instance_scores[inst, ipm] = stats[1][:MAE]
         end
         logging && println("done ($(rtime(t))s)")
-        instance_scores[inst] = mean(instance_pm_scores_mps)
     end
 
-    return mean(instance_scores) # mean score across all instances in validation set
+    return mean(instance_scores; dims=1)[:] # return loss indexed by pm
 end

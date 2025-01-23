@@ -18,7 +18,7 @@ function evaluate(
     tuning_rng::Union{Integer, AbstractRNG}=1,
     foldmethod::Union{Function, Vector}=make_stratified_folds, 
     tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
-    pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95),
+    pms::Union{Nothing, AbstractVector}=nothing,
     tuning_pms::Union{Nothing, AbstractVector}=[0.05, 0.95],
     tuning_abstol::Float64=1e-3,
     tuning_maxiters::Integer=500,
@@ -47,7 +47,9 @@ function evaluate(
     end
 
     results = Vector(undef, nfolds)
+    times = Vector(undef, nfolds)
     tstart = time()
+    tprev = tstart
     for (fold, (train_inds, test_inds)) in enumerate(folds[1:nfolds])
 
         X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
@@ -72,14 +74,18 @@ function evaluate(
         mps, _... = fitMPS(X_train, y_train, opts);
         println(" done")
         p = verbosity, tstart, fold, nfolds
-        results[fold] = Dict("train_inds"=>train_inds, 
-                             "test_inds"=>test_inds, 
-                             "optimiser"=>string(tuning_optimiser),
-                             "pms"=>pms,
-                             "opts"=>opts, 
-                             "Loss"=>eval_loss(objective, mps, X_test, y_test, pms; p=p)
+        results[fold] = Dict(
+            "objective"=>string(objective),
+            "train_inds"=>train_inds, 
+            "test_inds"=>test_inds, 
+            "optimiser"=>string(tuning_optimiser),
+            "pms"=>pms,
+            "opts"=>opts, 
+            "Loss"=>eval_loss(objective, mps, X_test, y_test, pms; p=p)
         )
-
+        times[fold] = time() - tprev
+        tprev = time()
     end
+    results["times"] = times
     return results
 end
