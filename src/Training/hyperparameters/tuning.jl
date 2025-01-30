@@ -136,7 +136,7 @@ function tune(
         rng::Union{Integer, AbstractRNG}=1,
         foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
         pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95), #TODO make default behaviour a bit better
-        windows::Union{Nothing, AbstractVector}=nothing,
+        windows::Union{Nothing, AbstractVector, Dict}=nothing,
         verbosity::Integer=1,
         provide_x0::Bool=true,
         abstol::Float64=1e-3,
@@ -264,6 +264,10 @@ function make_windows(windows::Union{Nothing, AbstractVector}, pms::Union{Nothin
     if ~isnothing(windows) 
         if ~isnothing(pms)
             throw(ArgumentError("Cannot specifiy both windows and pms!"))
+        end
+
+        if windows isa Dict
+            return vcat([windows[key] for key in sort(collect(keys(windows)))]...)
         end
         return windows
     elseif ~isnothing(pms) 

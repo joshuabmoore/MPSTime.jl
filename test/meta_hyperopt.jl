@@ -26,6 +26,9 @@ rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
 close(rs_f)
 
+@load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
+
+windows_sorted = vcat([windows_julia[pm] for pm in 5:10:95]...)
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
 res = evaluate(
@@ -38,7 +41,7 @@ res = evaluate(
     nfolds=1, 
     pms=[0.05, 0.9],
     tuning_abstol=1e-3, 
-    tuning_maxiters=2,
+    tuning_maxiters=1,
     verbosity=5,
     foldmethod=folds,
     input_supertype=Float64,

@@ -22,7 +22,7 @@ function evaluate(
     tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
     pms::Union{Nothing, AbstractVector}=nothing,
     tuning_pms::Union{Nothing, AbstractVector}=[0.05, 0.95],
-    tuning_windows::Union{Nothing, AbstractVector}=nothing,
+    tuning_windows::Union{Nothing, AbstractVector, Dict}=nothing,
     tuning_abstol::Float64=1e-3,
     tuning_maxiters::Integer=500,
     distribute_folds::Bool=false,   
