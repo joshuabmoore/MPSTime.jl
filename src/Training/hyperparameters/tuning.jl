@@ -13,7 +13,7 @@ function make_objective(
     types::Vector{Type},
     X::AbstractMatrix, 
     y::AbstractVector, 
-    pms::Union{Nothing, AbstractVector}
+    windows::Union{Nothing, AbstractVector}
     )
 
     fieldnames = Tuple(fields)
@@ -58,7 +58,7 @@ function make_objective(
                 mps, _... = fitMPS(X_train, y_train, opts);
                 println(" done")
 
-                losses[fold] = mean(eval_loss(objective, mps, X_val, y_val, pms; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
+                losses[fold] = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
             end
             loss = mean(losses)
             
@@ -80,15 +80,15 @@ function tune_across_folds(
     tstart::Real
     )
     x0, opts0, lb, ub, is_disc, fields, types = parameter_info
-    objective, method, nfolds, pms, abstol, maxiters, verbosity = tuning_settings 
+    objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0 = tuning_settings 
 
-    tr_objective, cache, safe_params = make_objective(folds, objective, opts0, fields, types, X, y, pms)
+    tr_objective, cache, safe_params = make_objective(folds, objective, opts0, fields, types, X, y, windows)
     # tr_objective(x,_p) = sum(x.^2)
     p = (verbosity, tstart, nfolds)
 
-
+    x0 = provide_x0 ? x0 : nothing
     obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
-    prob = OptimizationProblem(obj, x0, p; int=is_disc, lb=lb, ub=ub)
+    prob = OptimizationProblem(obj, nothing, p; int=is_disc, lb=lb, ub=ub)
     sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
 
     verbosity >= 5 && print(sol)
@@ -130,12 +130,15 @@ function tune(
         parameters::NamedTuple,
         method=SAMIN(); # bounded simulated annealing from Optim
         opts0::AbstractMPSOptions=MPSOptions(; verbosity=-5, log_level=-1),
+        input_supertype::Type=Float64,
         objective::TuningLoss=ImputationLoss(), 
         nfolds::Integer=5,
         rng::Union{Integer, AbstractRNG}=1,
         foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
-        pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95),
+        pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95), #TODO make default behaviour a bit better
+        windows::Union{Nothing, AbstractVector}=nothing,
         verbosity::Integer=1,
+        provide_x0::Bool=true,
         abstol::Float64=1e-3,
         maxiters::Integer=500,
         # distribute_folds::Bool=false,
@@ -147,13 +150,14 @@ function tune(
        throw(ArgumentError("The 'parameters' argument contains duplicates!")) 
     end
 
+    windows = make_windows(windows, pms, X)
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
     
     is_disc = Vector{Bool}(undef, length(parameters))
-    lb = Vector{Float64}(undef, length(parameters))
-    ub = Vector{Float64}(undef, length(parameters))
-    x0 = Vector{Float64}(undef, length(parameters))
+    lb = Vector{input_supertype}(undef, length(parameters))
+    ub = Vector{input_supertype}(undef, length(parameters))
+    x0 = Vector{input_supertype}(undef, length(parameters))
     types = Vector{Type}(undef, length(parameters))
 
     
@@ -192,7 +196,7 @@ function tune(
 
 
     parameter_info = x0, opts0, lb, ub, is_disc, fields, types
-    tuning_settings = objective, method, nfolds, pms, abstol, maxiters, verbosity
+    tuning_settings = objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0
 
     println("Generating Folds")
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
@@ -213,7 +217,7 @@ end
 
 #eval_loss returns an array of loss scores. This is either a singleton or imputation loss scores indexed by percentage missing
 
-function eval_loss(::ClassificationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, pms; p=nothing)
+function eval_loss(::ClassificationLoss, mps::TrainedMPS, X_val::AbstractMatrix, y_val::AbstractVector, windows; p_fold=nothing)
     return [1. - mean(classify(mps, X_val) .== y_val)] # misclassification rate, vector for type stability
 end
 
@@ -221,7 +225,7 @@ function eval_loss(::ImputationLoss,
     mps::TrainedMPS, 
     X_val::AbstractMatrix, 
     y_val::AbstractVector, 
-    pms::Union{Nothing, AbstractVector} = collect(0.05:0.15:0.95); 
+    windows::Union{Nothing, AbstractVector}=nothing;
     p_fold::Union{Nothing, Tuple}=nothing
     )
     
@@ -233,7 +237,7 @@ function eval_loss(::ImputationLoss,
     end
     imp = init_imputation_problem(mps, X_val, y_val, verbosity=-5);
     numval = size(X_val, 1)
-    instance_scores = Matrix{Float64}(undef, numval, length(pms)) # score for each instance across all % missing
+    instance_scores = Matrix{Float64}(undef, numval, length(windows)) # score for each instance across all % missing
     # conversion from inst to something MPS_impute understands. #TODO This is awful, should fix
 
     cmap = countmap(y_val)
@@ -243,13 +247,31 @@ function eval_loss(::ImputationLoss,
     for inst in 1:numval
         logging && print("cvfold $fold: Evaluating instance $inst/$numval...")
         t = time()
-        for (ipm, pm) in enumerate(pms)
-            impute_sites = mar(X_val[inst, :], pm)[2]
+        for (iw, impute_sites) in enumerate(windows)
+            # impute_sites = mar(X_val[inst, :], p)[2]
             stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false)[4]
-            instance_scores[inst, ipm] = stats[1][:MAE]
+            instance_scores[inst, iw] = stats[1][:MAE]
         end
         logging && println("done ($(rtime(t))s)")
     end
 
-    return mean(instance_scores; dims=1)[:] # return loss indexed by pm
+    return mean(instance_scores; dims=1)[:] # return loss indexed by window
 end
+
+
+function make_windows(windows::Union{Nothing, AbstractVector}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix)
+
+    if ~isnothing(windows) 
+        if ~isnothing(pms)
+            throw(ArgumentError("Cannot specifiy both windows and pms!"))
+        end
+        return windows
+    elseif ~isnothing(pms) 
+        ts_length = size(X, 2)
+        return [mar(1:ts_length, pm)[2] for pm in pms]
+    else
+        # throw(ArgumentError("Must specify either windows or pms!"))
+        return []
+    end
+end
+

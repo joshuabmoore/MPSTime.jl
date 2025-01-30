@@ -9,6 +9,7 @@ using OptimizationNLopt
 
 @load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
+
 params = (
     eta=(1e-3,10), 
     d=(10,20), 
@@ -25,6 +26,9 @@ params = (
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
 close(rs_f)
+
+@load "Folds/ECG200/windows_julia_idx.jld2" 
+
 
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
