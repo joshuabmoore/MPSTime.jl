@@ -1,34 +1,35 @@
+using MPSTime
 using JLD2
 using Distributed
 using Optimization
 using OptimizationBBO
-using OptimizationMetaheuristics
+using Random
+# using OptimizationMetaheuristics
 using OptimizationOptimJL
-using OptimizationNLopt
+# using OptimizationNLopt
 # using OptimizationOptimisers
 
+Random.seed!(1)
 @load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
 
 params = (
-    eta=(1e-3,10), 
+    eta=(-3,1), 
     d=(10,20), 
     chi_max=(20,50),
     nsweeps=(2,8)
 ,) 
 
-# if nprocs() >= 1
-#     rmprocs(workers()...)
-# end
-# addprocs(1; env=["OMP_NUM_THREADS"=>"1"], enable_threaded_blas=false)
-# @everywhere using MPSTime, Distributed
+if nprocs() > 1
+    rmprocs(workers()...)
+end
+addprocs(16; env=["OMP_NUM_THREADS"=>"1"], enable_threaded_blas=false)
+@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
 
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
 close(rs_f)
 
 @load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
-
-windows_sorted = vcat([windows_julia[pm] for pm in 5:10:95]...)
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
 res = evaluate(
@@ -36,18 +37,22 @@ res = evaluate(
     vcat(y_train, y_test), 
     params,
     BBO_random_search(); 
-    objective=ClassificationLoss(), 
+    objective=ImputationLoss(), 
     opts0=MPSOptions(; verbosity=-5, log_level=-1, nsweeps=5), 
-    nfolds=1, 
-    pms=[0.05, 0.9],
+    nfolds=16, 
+    n_cvfolds=5,
+    eval_windows=windows_julia,
+    tuning_windows = vcat(windows_julia[5], windows_julia[75], windows_julia[85], windows_julia[95]),
     tuning_abstol=1e-3, 
     tuning_maxiters=1,
-    verbosity=5,
+    verbosity=2,
     foldmethod=folds,
     input_supertype=Float64,
-    distribute_folds=false)
+    provide_x0=false,
+    logspace_eta=true,
+    distribute_folds=true)
 
-
+@save "IPD_rand_opt.jld2" res
 # 20 iter benchmarks 
 
 

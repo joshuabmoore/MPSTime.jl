@@ -13,7 +13,8 @@ function make_objective(
     types::Vector{Type},
     X::AbstractMatrix, 
     y::AbstractVector, 
-    windows::Union{Nothing, AbstractVector}
+    windows::Union{Nothing, AbstractVector};
+    logspace_eta::Bool=false
     )
 
     fieldnames = Tuple(fields)
@@ -29,9 +30,12 @@ function make_objective(
                 if output && ~isapprox(field, rounded)
                     println("Integer parameter $(fieldnames[i])=$field rounded to $(rounded)!")
                 end
+            elseif logspace_eta && fieldnames[i] == :eta
+                optslist_safe[i] = convert(t, 10^field)
             else
                 optslist_safe[i] = convert(t, field)
             end
+
         end
         return optslist_safe
     end
@@ -53,10 +57,11 @@ function make_objective(
             losses = Vector{Float64}(undef, nfolds)
             for (fold, (train_inds, val_inds)) in enumerate(folds)
                 X_train, y_train, X_val, y_val = X[train_inds,:], y[train_inds], X[val_inds,:], y[val_inds]
+                # X_val, y_val = X_val[1:2, :], y_val[1:2]
 
-                verbosity >= 1 && print("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
+                verbosity >= 1 && println("cvfold $fold: t=$(rtime(tstart)): training MPS with $(hparams)... ")
                 mps, _... = fitMPS(X_train, y_train, opts);
-                println(" done")
+                # println(" done")
 
                 losses[fold] = mean(eval_loss(objective, mps, X_val, y_val, windows; p_fold=(verbosity, tstart, fold, nfolds))) # eval_loss always returns an array
             end
@@ -80,15 +85,17 @@ function tune_across_folds(
     tstart::Real
     )
     x0, opts0, lb, ub, is_disc, fields, types = parameter_info
-    objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0 = tuning_settings 
+    objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta = tuning_settings 
 
-    tr_objective, cache, safe_params = make_objective(folds, objective, opts0, fields, types, X, y, windows)
-    # tr_objective(x,_p) = sum(x.^2)
+    tr_objective, cache, safe_params = make_objective(folds, objective, opts0, fields, types, X, y, windows; logspace_eta=logspace_eta)
     p = (verbosity, tstart, nfolds)
 
-    x0 = provide_x0 ? x0 : nothing
+    # for rapid debugging
+    # tr_objective = (x,u...) -> begin @show x; return sum(x.^2) end
+
+    x0_adj = provide_x0 ? x0 : nothing
     obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
-    prob = OptimizationProblem(obj, nothing, p; int=is_disc, lb=lb, ub=ub)
+    prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
     sol = solve(prob, method; abstol=abstol, maxiters=maxiters)
 
     verbosity >= 5 && print(sol)
@@ -135,10 +142,11 @@ function tune(
         nfolds::Integer=5,
         rng::Union{Integer, AbstractRNG}=1,
         foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
-        pms::Union{Nothing, AbstractVector}=collect(0.05:0.15:0.95), #TODO make default behaviour a bit better
+        pms::Union{Nothing, AbstractVector}=nothing, #TODO make default behaviour a bit better
         windows::Union{Nothing, AbstractVector, Dict}=nothing,
         verbosity::Integer=1,
         provide_x0::Bool=true,
+        logspace_eta::Bool=false,
         abstol::Float64=1e-3,
         maxiters::Integer=500,
         # distribute_folds::Bool=false,
@@ -146,11 +154,12 @@ function tune(
 
     )
     # basic checks    
-    if !(length(unique(parameters)) == length(parameters))
+    if !(length(unique(keys(parameters))) == length(keys(parameters)))
        throw(ArgumentError("The 'parameters' argument contains duplicates!")) 
     end
-
-    windows = make_windows(windows, pms, X)
+    if objective isa ImputationLoss
+        windows = make_windows(windows, pms, X)
+    end
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
     
@@ -196,7 +205,7 @@ function tune(
 
 
     parameter_info = x0, opts0, lb, ub, is_disc, fields, types
-    tuning_settings = objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0
+    tuning_settings = objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
     println("Generating Folds")
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
@@ -232,6 +241,7 @@ function eval_loss(::ImputationLoss,
     if ~isnothing(p_fold)
         verbosity, tstart, fold, nfolds = p_fold
         logging = verbosity >= 2
+        foldstr = isnothing(fold) ? "" : "cvfold $fold:"
     else
         logging = false
     end
@@ -245,7 +255,7 @@ function eval_loss(::ImputationLoss,
     class_ind = vcat([1:v for v in values(cmap)]...)
 
     for inst in 1:numval
-        logging && print("cvfold $fold: Evaluating instance $inst/$numval...")
+        logging && print("$foldstr Evaluating instance $inst/$numval...")
         t = time()
         for (iw, impute_sites) in enumerate(windows)
             # impute_sites = mar(X_val[inst, :], p)[2]
@@ -259,10 +269,12 @@ function eval_loss(::ImputationLoss,
 end
 
 
-function make_windows(windows::Union{Nothing, AbstractVector}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix)
+function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix)
 
     if ~isnothing(windows) 
         if ~isnothing(pms)
+            @show pms
+            @show windows
             throw(ArgumentError("Cannot specifiy both windows and pms!"))
         end
 
@@ -272,9 +284,9 @@ function make_windows(windows::Union{Nothing, AbstractVector}, pms::Union{Nothin
         return windows
     elseif ~isnothing(pms) 
         ts_length = size(X, 2)
-        return [mar(1:ts_length, pm)[2] for pm in pms]
+        return [mar(collect(1.:ts_length), pm)[2] for pm in pms]
     else
-        # throw(ArgumentError("Must specify either windows or pms!"))
+        throw(ArgumentError("Must specify either windows or pms!"))
         return []
     end
 end

@@ -3,6 +3,8 @@ function is_omp_threading()
 end
 
 
+
+
 function evaluate(
     X::AbstractMatrix, 
     y::AbstractVector, 
@@ -16,20 +18,23 @@ function evaluate(
     nfolds::Integer=30,
     n_cvfolds::Integer=5,
     provide_x0::Bool=true,
+    logspace_eta::Bool=false,
     rng::Union{Integer, AbstractRNG}=1,
     tuning_rng::Union{Integer, AbstractRNG}=1,
     foldmethod::Union{Function, Vector}=make_stratified_folds, 
     tuning_foldmethod::Union{Function, Vector}=make_stratified_cvfolds, 
-    pms::Union{Nothing, AbstractVector}=nothing,
-    tuning_pms::Union{Nothing, AbstractVector}=[0.05, 0.95],
-    tuning_windows::Union{Nothing, AbstractVector, Dict}=nothing,
+    eval_pms::Union{Nothing, AbstractVector}=nothing,
+    eval_windows::Union{Nothing, AbstractVector, Dict}=nothing,
+    tuning_pms::Union{Nothing, AbstractVector}= nothing,
+    tuning_windows::Union{Nothing, AbstractVector, Dict}= nothing,
     tuning_abstol::Float64=1e-3,
     tuning_maxiters::Integer=500,
     distribute_folds::Bool=false,   
     )
-    
-    tuning_windows = make_windows(tuning_windows, tuning_pms, X)
-
+    if objective isa ImputationLoss
+        eval_windows = make_windows(eval_windows, eval_pms, X)
+        tuning_windows = make_windows(tuning_windows, tuning_pms, X)
+    end
     abs_rng = rng isa Integer ? Xoshiro(rng) : rng
 
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
@@ -50,14 +55,14 @@ function evaluate(
 
     end
 
-    results = Vector(undef, nfolds)
-    times = Vector(undef, nfolds)
     tstart = time()
-    tprev = tstart
-    for (fold, (train_inds, test_inds)) in enumerate(folds[1:nfolds])
-
+    function _eval_fold(fold, fold_inds)
+        Random.seed!(fold)
+        println("Beginning fold $fold:")
+        tbeg = time()
+        (train_inds, test_inds) = fold_inds
         X_train, y_train, X_test, y_test = X[train_inds,:], y[train_inds], X[test_inds,:], y[test_inds]
-
+    
         best_params = tune(
             X_train, 
             y_train, 
@@ -67,9 +72,10 @@ function evaluate(
             opts0=tuning_opts0,
             input_supertype=input_supertype,
             provide_x0=provide_x0,
+            logspace_eta=logspace_eta,
             nfolds=n_cvfolds, 
             pms=nothing,
-            windows=windows,
+            windows=tuning_windows,
             abstol=tuning_abstol, 
             maxiters=tuning_maxiters,
             verbosity=verbosity,
@@ -80,19 +86,20 @@ function evaluate(
         verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with $(best_params)... ")
         mps, _... = fitMPS(X_train, y_train, opts);
         println(" done")
-        p_fold = verbosity, tstart, fold, nfolds
-        results[fold] = Dict(
+        p_fold = verbosity, tstart, nothing, nfolds
+        res = Dict(
             "objective"=>string(objective),
             "train_inds"=>train_inds, 
             "test_inds"=>test_inds, 
             "optimiser"=>string(tuning_optimiser),
-            "pms"=>pms,
+            "tuning_windows"=>tuning_windows,
+            "eval_windows"=>eval_windows,
+            "time"=>time() - tbeg,
             "opts"=>opts, 
-            "Loss"=>eval_loss(objective, mps, X_test, y_test, pms; p_fold=p_fold)
+            "Loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold)
         )
-        times[fold] = time() - tprev
-        tprev = time()
+        return res
     end
-    results["times"] = times
-    return results
+    
+    return mapfunc(_eval_fold, 1:nfolds, folds)
 end
