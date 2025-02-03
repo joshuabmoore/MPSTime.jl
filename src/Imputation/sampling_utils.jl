@@ -21,7 +21,7 @@ function get_conditional_probability(
     A::Matrix, 
 )
     p = BLAS.gemv('C', A, state)
-    return real(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+    return abs(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
 
@@ -39,7 +39,7 @@ function get_conditional_probability(
     A::Matrix, 
 )
     p = state'* A
-    return real(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+    return abs(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
 
@@ -47,7 +47,7 @@ function get_conditional_probability(
     state::SVector{D}, 
     rdm::MMatrix{D,D}, 
 ) where D
-    return real(dot(state, rdm, state)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+    return abs(dot(state, rdm, state)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
 
 end
 

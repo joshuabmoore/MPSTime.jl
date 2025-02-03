@@ -123,8 +123,8 @@ function impute_at!(
     total_impute_sites = length(imputation_sites)
 
 
-    
-    A = matrix(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
+
+    A = array(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
     d = size(A,1)
     rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
 

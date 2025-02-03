@@ -19,11 +19,11 @@ params = (
     nsweeps=(2,8)
 ,) 
 
-if nprocs() > 1
-    rmprocs(workers()...)
-end
-addprocs(16; env=["OMP_NUM_THREADS"=>"1"], enable_threaded_blas=false)
-@everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
+# if nprocs() > 1
+#     rmprocs(workers()...)
+# end
+# addprocs(16; env=["OMP_NUM_THREADS"=>"1"], enable_threaded_blas=false)
+# @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
 
 rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
@@ -50,7 +50,7 @@ res = evaluate(
     input_supertype=Float64,
     provide_x0=false,
     logspace_eta=true,
-    distribute_folds=true)
+    distribute_folds=false)
 
 @save "IPD_rand_opt.jld2" res
 # 20 iter benchmarks 

@@ -259,7 +259,7 @@ function eval_loss(::ImputationLoss,
         t = time()
         for (iw, impute_sites) in enumerate(windows)
             # impute_sites = mar(X_val[inst, :], p)[2]
-            stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false)[4]
+            stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
             instance_scores[inst, iw] = stats[1][:MAE]
         end
         logging && println("done ($(rtime(t))s)")
