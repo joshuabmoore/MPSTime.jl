@@ -4,10 +4,12 @@ module MPSTime
 using GenericLinearAlgebra
 using MKL
 
+using LinearAlgebra # low level blas algorithms
 using Strided # strided array support
 using ITensors 
 using NDTensors # Library that ITensors is built on, used for some hacks
 using Distributed # hyperparameter tuning reasons
+using StaticArrays
 
 using Random
 using StableRNGs # Used for some hyperparameter tuning/MLJ

@@ -119,7 +119,7 @@ function impute_at!(
 
     first_idx = mps_inds[1]
     orthogonalize!(mps, first_idx) 
-    A = mps[first_idx]
+    A = matrix(mps[first_idx]) # the purest linear algebra from hereon out!
 
     imp_idx = imputation_sites[first_idx]
     if impute_order == :forwards && isassigned(x_samps, imp_idx - 1) # isassigned can handle out of bounds indices
@@ -138,17 +138,23 @@ function impute_at!(
         xvals = x_guess_range.xvals
         xvals_enc = x_guess_range.xvals_enc[imp_idx]
 
-        rdm = prime(A, site_ind) * dag(A)
+ 
 
-        mx, ms, err = imputation_method(rdm, xvals, xvals_enc, site_ind, opts, imp_idx, enc_args, x_prev, args...; kwargs...)
+        mx, ms, err = imputation_method(A, xvals, xvals_enc, site_ind, opts, imp_idx, enc_args, x_prev, args...; kwargs...)
         x_samps[imp_idx] = mx
         x_prev = mx
         errs[imp_idx] = err
        
         # recondition the MPS based on the prediction
         if ii != total_impute_sites
-            Am = A * dag(ms)
-            A = mps[mps_inds[ii+1]] * Am
+            Am = ms' * A #BLAS.gemv('C', A, ms)
+            next_it = mps[mps_inds[ii+1]]
+            if order == :forwards
+                At = itensor(Am, inds(next_it)[1]) * next_it
+            else
+                At = next_it * itensor(Am, inds(next_it)[end])
+            end
+            A = array(At)
             if norm
                 # necessary mathematically, but most imputation methods do this themselves or are normalisation agnostic. norm=false where possible saves a decent amount of time and memory
                 normalize!(A)

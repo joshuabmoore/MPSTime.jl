@@ -16,6 +16,35 @@ function get_state(
     
 end
 
+function get_conditional_probability(
+    state::AbstractVector, 
+    A::Matrix, 
+)
+    p = BLAS.gemv('C', A, state)
+    return real(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+
+end
+
+function get_conditional_probability(
+    state::AbstractVector, 
+    A::Vector, 
+)
+    # p = BLAS.gemv('C', A, state)
+    return abs2(dot(state,A)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+
+end
+
+function get_conditional_probability(
+    state::SVector, 
+    A::Matrix, 
+)
+    p = state'* A
+    return real(dot(p,p)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+
+end
+
+
+
 
 function get_conditional_probability(s::Index, state::AbstractVector{<:Number}, rdm::ITensor)
     """For a given site, and its associated conditional reduced 
@@ -176,7 +205,7 @@ get_mode_from_rdm(
 
 
 function get_median_from_rdm(
-        rdm::ITensor, 
+        A::VecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 
@@ -190,7 +219,8 @@ function get_median_from_rdm(
 
     probs = Vector{Float64}(undef, length(samp_states))
     for (index, state) in enumerate(samp_states)
-        prob = get_conditional_probability(itensor(state, s), rdm)
+        # prob = get_conditional_probability(itensor(state, s), rdm)
+        @inline prob = get_conditional_probability(state, A)
         probs[index] = prob
     end
 
@@ -202,7 +232,8 @@ function get_median_from_rdm(
     median_arg = argmin(@. abs(cdf - 0.5))
 
     median_x = samp_xs[median_arg]
-    median_s = itensor(get_state(median_x, opts, j, enc_args), s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
+    median_s = samp_states[median_arg]
+    # median_s = itensor(get_state(median_x, opts, j, enc_args), s) / sqrt(Z) # the 1/sqrt(Z) fixes the normalisation when reconditioning 
 
     wmad_x = 0.
     if get_wmad
