@@ -50,7 +50,7 @@ for (i, method) in enumerate(imp_methods)
     for (ci, class) in enumerate([0,1])
         # println("class = $class")
         if method == :mean && class == 1
-            println("Expecting exactly one warning:")
+            # println("Expecting exactly one warning:")
         end
         ns = ncs[ci]
         idxs = randperm(rng, ns)[1:10]

@@ -154,7 +154,6 @@ export
 
     # hyperparameter tuning
     tune,
-    tune_fold,
     evaluate,
     is_omp_threading,
     ImputationLoss,
