@@ -43,6 +43,13 @@ function get_conditional_probability(
 
 end
 
+function get_conditional_probability(
+    state::SVector{D}, 
+    rdm::MMatrix{D,D}, 
+) where D
+    return real(dot(state, rdm, state)) # Vector(state)' * Matrix(rdm, [s', s]) * Vector(state) |> abs
+
+end
 
 
 
@@ -205,7 +212,7 @@ get_mode_from_rdm(
 
 
 function get_median_from_rdm(
-        A::VecOrMat, 
+        A::AbstractVecOrMat, 
         samp_xs::AbstractVector{Float64}, 
         samp_states::AbstractVector{<:AbstractVector{<:Number}}, 
         s::Index, 

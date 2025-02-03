@@ -106,8 +106,14 @@ function impute_at!(
 
     if impute_order == :forwards
         mps_inds = 1:length(mps) # eachindex(IndexLinear, mps) is not defined :((
+        first_idx = 1
+        orthogonalize!(mps, first_idx) 
+        inds_ord = inds(mps[first_idx])
     elseif impute_order == :backwards
         mps_inds = reverse(1:length(mps))
+        first_idx = mps_inds[1]
+        orthogonalize!(mps, first_idx) 
+        inds_ord = reverse(inds(mps[end]))
     else
         throw(ArgumentError("impute_order must be either \":forwards\" or \":backwards\""))
     end
@@ -117,9 +123,10 @@ function impute_at!(
     total_impute_sites = length(imputation_sites)
 
 
-    first_idx = mps_inds[1]
-    orthogonalize!(mps, first_idx) 
-    A = matrix(mps[first_idx]) # the purest linear algebra from hereon out!
+    
+    A = matrix(mps[first_idx], inds_ord) # the purest linear algebra from hereon out!
+    d = size(A,1)
+    rdm = MMatrix{d,d}(zeros(eltype(A),d,d))
 
     imp_idx = imputation_sites[first_idx]
     if impute_order == :forwards && isassigned(x_samps, imp_idx - 1) # isassigned can handle out of bounds indices
@@ -138,9 +145,9 @@ function impute_at!(
         xvals = x_guess_range.xvals
         xvals_enc = x_guess_range.xvals_enc[imp_idx]
 
- 
+        rdm .= A * A'
 
-        mx, ms, err = imputation_method(A, xvals, xvals_enc, site_ind, opts, imp_idx, enc_args, x_prev, args...; kwargs...)
+        mx, ms, err = imputation_method(rdm, xvals, xvals_enc, site_ind, opts, imp_idx, enc_args, x_prev, args...; kwargs...)
         x_samps[imp_idx] = mx
         x_prev = mx
         errs[imp_idx] = err
