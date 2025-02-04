@@ -82,6 +82,7 @@ function evaluate(
             rng=tuning_rng,
             foldmethod=tuning_foldmethod
         )
+        @show best_params
         opts = _set_options(opts0; best_params...)
         verbosity >= 1 && print("fold $fold: t=$(rtime(tstart)): training MPS with $(best_params)... ")
         mps, _... = fitMPS(X_train, y_train, opts);

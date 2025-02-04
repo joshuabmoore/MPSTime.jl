@@ -156,6 +156,7 @@ export
     tune,
     evaluate,
     is_omp_threading,
+    eval_loss,
     ImputationLoss,
     ClassificationLoss,
     # MLJ 

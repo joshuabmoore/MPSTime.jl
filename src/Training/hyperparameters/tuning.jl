@@ -93,6 +93,13 @@ function tune_across_folds(
     # for rapid debugging
     # tr_objective = (x,u...) -> begin @show x; return sum(x.^2) end
 
+    if nfolds <= 1
+        optslist_safe = safe_params(x0)
+
+        return NamedTuple{Tuple(fields)}(Tuple(optslist_safe))
+    end
+
+
     x0_adj = provide_x0 ? x0 : nothing
     obj = OptimizationFunction(tr_objective, Optimization.AutoForwardDiff())
     prob = OptimizationProblem(obj, x0_adj, p; int=is_disc, lb=lb, ub=ub)
@@ -195,6 +202,7 @@ function tune(
 
     end
 
+  
     # not super necessary, but its nice to have the result be independent of the order of the paramters vector
     fields = [keys(parameters)...]
     perm = sortperm(fields)
@@ -207,8 +215,12 @@ function tune(
     parameter_info = x0, opts0, lb, ub, is_disc, fields, types
     tuning_settings = objective, method, nfolds, windows, abstol, maxiters, verbosity, provide_x0, logspace_eta
 
-    println("Generating Folds")
-    folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
+    if nfolds <= 1
+        folds = []
+    else
+        # println("Generating Folds")
+        folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
+    end
     tstart = time()
 
     if disable_nondistributed_threading 
