@@ -10,7 +10,7 @@ using Random
 # using OptimizationOptimisers
 
 Random.seed!(1)
-@load "test/Data/italypower/datasets/ItalyPowerDemandOrig.jld2" X_train y_train X_test y_test
+@load "test/Data/ecg200/datasets/ecg200.jld2" X_train y_train X_test y_test
 
 params = (
     eta=(-3,1), 
@@ -22,11 +22,11 @@ params = (
 addprocs(30; env=["OMP_NUM_THREADS"=>"1", "JULIA_NUM_THREADS"=>"1"], enable_threaded_blas=false)
 @everywhere using MPSTime, Distributed, Optimization, OptimizationBBO
 
-rs_f = jldopen("Folds/IPD/ipd_resample_folds_julia_idx.jld2", "r");
+rs_f = jldopen("Folds/ECG200/resample_folds_julia_idx.jld2", "r");
 fold_idxs = read(rs_f, "rs_folds_julia");
 close(rs_f)
 
-@load "Folds/IPD/ipd_windows_julia_idx.jld2" windows_julia
+@load "Folds/ECG200/windows_julia_idx.jld2" windows_julia
 folds = [(fold_idxs[i-1]["train"], fold_idxs[i-1]["test"]) for i in 1:30]
 
 res = evaluate(
@@ -49,7 +49,7 @@ res = evaluate(
     logspace_eta=true,
     distribute_folds=true)
 
-@save "IPD_rand_opt.jld2" res
+@save "ECG_rand_opt.jld2" res
 # 20 iter benchmarks 
 
 
