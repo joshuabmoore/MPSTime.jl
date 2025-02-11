@@ -52,7 +52,7 @@ res = evaluate(
     logspace_eta=true,
     distribute_folds=true)
 
-@save "IPD_rand_opt.jld2" res
+@save "IPD_gen_opt.jld2" res
 # 20 iter benchmarks 
 
 
