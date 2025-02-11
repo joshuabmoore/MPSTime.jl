@@ -88,15 +88,18 @@ function evaluate(
         println(" done")
         p_fold = verbosity, tstart, nothing, nfolds
         res = Dict(
+            "fold"=>fold,
             "objective"=>string(objective),
             "train_inds"=>train_inds, 
             "test_inds"=>test_inds, 
             "optimiser"=>string(tuning_optimiser),
             "tuning_windows"=>tuning_windows,
+            "tuning_pms"=>tuning_pms,
             "eval_windows"=>eval_windows,
+            "eval_pms"=>eval_pms,
             "time"=>time() - tbeg,
             "opts"=>opts, 
-            "Loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold)
+            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold)
         )
         return res
     end
