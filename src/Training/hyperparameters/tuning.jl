@@ -5,6 +5,7 @@ struct ImputationLoss <: TuningLoss end
 
 
 
+
 function make_objective(
     folds::AbstractVector,
     objective::TuningLoss, 
@@ -281,25 +282,5 @@ function eval_loss(::ImputationLoss,
 end
 
 
-function make_windows(windows::Union{Nothing, AbstractVector, Dict}, pms::Union{Nothing, AbstractVector}, X::AbstractMatrix)
 
-    if ~isnothing(windows) 
-        if ~isnothing(pms)
-            @show pms
-            @show windows
-            throw(ArgumentError("Cannot specifiy both windows and pms!"))
-        end
-
-        if windows isa Dict
-            return vcat([windows[key] for key in sort(collect(keys(windows)))]...)
-        end
-        return windows
-    elseif ~isnothing(pms) 
-        ts_length = size(X, 2)
-        return [mar(collect(1.:ts_length), pm)[2] for pm in pms]
-    else
-        throw(ArgumentError("Must specify either windows or pms!"))
-        return []
-    end
-end
 
