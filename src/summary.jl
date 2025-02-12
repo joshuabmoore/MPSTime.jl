@@ -132,7 +132,7 @@ function classify(mps::TrainedMPS, test_states::EncodedTimeSeriesSet)
         psc = conj(pss[i].pstate)
         overlaps = [ITensor(1) for _ in Ws]
         for (wi,w) in enumerate(Ws), j in eachindex(Ws[1])
-            overlaps[wi] *= w[j] * psc[j]
+            overlaps[wi] *= w[j] * itensor(psc[j], inds(w[j])[1])
         end
         overlaps = abs2.(first.(overlaps))
         pred = argmax(overlaps)

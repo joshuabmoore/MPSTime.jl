@@ -190,7 +190,7 @@ function yhat_phitilde!(phi_tilde::ITensor, BT::ITensor, LEP::PCacheCol, REP::PC
 end
 
 function yhat_phitilde(
-        BT::Vector, 
+        BT::AbstractVector, 
         LEP::PCacheCol, 
         REP::PCacheCol, 
         product_state::PState, 
@@ -211,14 +211,11 @@ function yhat_phitilde(
        
     elseif rid == length(ps)
         # terminal site, no RE
-        @show ps[rid]
-        @show ps[lid]
-        @show LEP[lid-1]
-        phi_tilde =  @inbounds @fastmath phi_tilde = kron(conj.(ps[rid]), conj.(ps[lid]), LEP[lid-1])
+        phi_tilde =  @inbounds @fastmath phi_tilde = kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid]))
 
     else
         # we are in the bulk, both LE and RE exist
-        phi_tilde =  @inbounds @fastmath phi_tilde = kron(REP[rid+1], conj.(ps[rid]), conj.(ps[lid]), LEP[lid-1])
+        phi_tilde =  @inbounds @fastmath phi_tilde = kron(REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
 
     end
 
@@ -236,8 +233,8 @@ end
 
 
 function KLD_iter!( 
-        phit_scaled::Vector, 
-        BT_c::Vector, 
+        phit_scaled::AbstractVector, 
+        BT_c::AbstractVector, 
         LEP::PCacheCol, 
         REP::PCacheCol,
         product_state::PState, 
@@ -249,15 +246,16 @@ function KLD_iter!(
     # it is assumed that BT has no label index, so yhat is a rank 0 tensor
     yhat, phi_tilde = yhat_phitilde(BT_c, LEP, REP, product_state, lid, rid)
 
-    @show yhat
-    @show phi_tilde
-    @show BT_c
-    [1][2]
+    # @show yhat
+    # @show phi_tilde
+    # @show BT_c
     loss = -log(abs2(yhat))
 
     # construct the gradient - return dC/dB
     # gradient = -conj(phi_tilde / f_ln) 
     @inbounds @fastmath @. phit_scaled += phi_tilde / yhat
+
+    # @show phit_scaled
 
     return loss
 
@@ -330,7 +328,7 @@ function (::Loss_Grad_KLD)(
     for (ci, cn) in enumerate(cnums)
         bt = bts[:,ci]
         c_inds = (i_prev+1):(cn+i_prev)
-        @inbounds @fastmath loss = mapreduce((LEP,REP, prod_state) -> KLD_iter!( phit_scaled[:,ci], bt, LEP,REP,prod_state,lid,rid),+, eachcol(view(LE, :, c_inds)), eachcol(view(RE, :, c_inds)),TSs[c_inds])
+        @inbounds @fastmath loss = mapreduce((LEP,REP, prod_state) -> KLD_iter!( view(phit_scaled, :,ci), bt, LEP,REP,prod_state,lid,rid),+, eachcol(view(LE, :, c_inds)), eachcol(view(RE, :, c_inds)),TSs[c_inds])
         @inbounds @fastmath losses += loss # maybe doing this with a combiner instead will be more efficient
         #### equivalent without mapreduce
         # for ci in c_inds 
@@ -351,6 +349,8 @@ function (::Loss_Grad_KLD)(
 
     losses /= length(TSs)
     phit_scaled ./= length(TSs)
+
+    # @show phit_scaled
 
 
     return losses, phit_scaled

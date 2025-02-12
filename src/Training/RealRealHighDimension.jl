@@ -59,32 +59,31 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
         # backward direction - initialise the LE with the first site
         w_1 = matrix(W[1])
         for i = 1:N_train
-            LE[1,i] = (training_pstates[i].pstate[1]' * w_1)'
+            LE[1,i] = transpose(training_pstates[i].pstate[1]' * w_1)
         end
 
         for j = 2:N-1
             t = tensor(W[j])
             for i = 1:N_train
-                LE[j,i] = [(training_pstates[i].pstate[j]' * sl) * LE[j-1, i] for sl in eachslice(t, dims=3)]
-                
+                LE[j,i] = [ (training_pstates[i].pstate[j]' * sl) * LE[j-1, i] for sl in eachslice(t, dims=3)]
             end
         end
-
-        @show LE[30,:]
-        @show LE[1:N-1,1]
     
     else
         # going right
         # initialise RE cache with the terminal site and work backwards
         w_end = matrix(W[N])
         for i = 1:N_train
-            RE[N,i] = (training_pstates[i].pstate[N]' * w_end)'
+            RE[N,i] = transpose(training_pstates[i].pstate[N]' * w_end)
         end
 
         for j = (N-1):-1:2
             t = tensor(W[j])
+      
+
+
             for i = 1:N_train
-                RE[j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[j+1,i] for sl in eachslice(t, dims=1) ] 
+                RE[j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[j+1,i] for sl in eachslice(t, dims=3) ] 
             end
         end
         
@@ -99,28 +98,30 @@ end
 
 
 function update_caches!(left_site_new::ITensor, right_site_new::ITensor, 
-    LE::PCache, RE::PCache, lid::Int, rid::Int, product_states::TimeSeriesIterable; going_left::Bool=true)
+    LE::PCache, RE::PCache, lid::Int, rid::Int, training_pstates::TimeSeriesIterable; going_left::Bool=true)
     """Given a newly updated bond tensor, update the caches."""
-    num_train = length(product_states)
-    num_sites = size(LE)[2]
+    num_train = length(training_pstates)
+    num_sites = size(LE)[1]
+
+    # @show inds(right_site_new)
+    # @show inds(left_site_new)
 
     if going_left
-        m = matrix(right_site_new)
         for i = 1:num_train
             if rid == num_sites
-                RE[li,num_sites,i] = (training_pstates[i].pstate[rid]' * m)'
+                RE[num_sites,i] = (training_pstates[i].pstate[rid]' * matrix(right_site_new))'
             else
-                RE[li,rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[rid+1,i] for sl in eachslice(right_site_new, dims=1) ]
+                RE[rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[rid+1,i] for sl in eachslice(tensor(right_site_new), dims=3) ]
             end
         end
     else
         # going right
-        matrix(left_site_new)
         for i = 1:num_train
             if lid == 1
+                m = matrix(left_site_new)
                 LE[1,i] = (training_pstates[i].pstate[lid]' * m)'
             else
-                LE[lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[lid-1,i] for sl in eachslice(left_site_new, dims=3) ]
+                LE[lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[lid-1,i] for sl in eachslice(tensor(left_site_new), dims=3) ]
             end
         end
     end
@@ -959,7 +960,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
             #print("Bond $j")
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=true) 
-            # @show inds(BT)
+            @show bt_inds
             bt_new = apply_update(
                 tsep, 
                 bt, 
@@ -1000,7 +1001,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         for j = 1:(length(sites)-1)
             #print("Bond $j")
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=false)
-            # @show inds(BT)
+            @show bt_inds
             bt_new = apply_update(
                 tsep, 
                 bt, 
