@@ -62,13 +62,13 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
         for li in eachval(l)
             link_dim = length(linds[1])
             for i = 1:N_train
-                LE[li,1,i] =  SVector{link_dim}(training_pstates[i].pstate[1]' * matrix(W[1] * onehot(label_idx => li), (sinds[1], linds[1])))
+                LE[li,1,i] = (training_pstates[i].pstate[1]' * matrix(W[1] * onehot(label_idx => li)))'
             end
 
             for j = 2:N
                 for i = 1:N_train
                     t = tensor(W[j])
-                    LE[li,j,i] = @SVector [(training_pstates[i].pstate[j]' * sl) * LE[li,j-1, i][k] for sl in eachslice(t, dims=3)]
+                    LE[li,j,i] = [(training_pstates[i].pstate[j]' * sl) * LE[li,j-1, i][k] for sl in eachslice(t, dims=3)]
                 end
             end
         end
@@ -78,13 +78,13 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
         for li in eachval(l)
             link_dim = length(linds[end])
             for i = 1:N_train
-                RE[li,N,i] = SVector{link_dim}(training_pstates[i].pstate[N]' * matrix(W[N] * onehot(label_idx => li), sinds[end], linds[end]))
+                RE[li,N,i] = (training_pstates[i].pstate[N]' * matrix(W[N] * onehot(label_idx => li), sinds[end], linds[end]))'
             end
 
             for j = (N-1):-1:1
                 for i = 1:N_train
                     t = tensor(W[j])
-                    RE[li,j,i] =  @SVector [(training_pstates[i].pstate[j]' * sl) * RE[li,j+1,i] for sl in eachslice(t, dims=1) ] 
+                    RE[li,j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[li,j+1,i] for sl in eachslice(t, dims=1) ] 
                 end
             end
         end
@@ -107,13 +107,12 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
 
     if going_left
         l = find_index(left_site_new, lstr)
-        link_dim = length(inds(right_site_new)[1])
         for li in eachval(l)
             for i = 1:num_train
                 if rid == num_sites
-                    RE[li,num_sites,i] = SVector{link_dim}(training_pstates[i].pstate[rid]' * matrix(right_site_new))
+                    RE[li,num_sites,i] = (training_pstates[i].pstate[rid]' * matrix(right_site_new))'
                 else
-                    RE[li,rid,i] = @SVector [(training_pstates[i].pstate[rid]' * sl) * RE[li,rid+1,i] for sl in eachslice(right_site_new, dims=1) ]
+                    RE[li,rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[li,rid+1,i] for sl in eachslice(right_site_new, dims=1) ]
                 end
             end
         end
@@ -121,13 +120,12 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
     else
         # going right
         l = find_index(right_site_new, lstr)
-        link_dim = length(inds(left_site_new)[end])
         for li in eachval(l)
             for i = 1:num_train
                 if lid == 1
-                    LE[li,1,i] = SVector{link_dim}(training_pstates[i].pstate[lid]' * matrix(left_site_new))
+                    LE[li,1,i] = (training_pstates[i].pstate[lid]' * matrix(left_site_new))'
                 else
-                    LE[li,lid,i] = @SVector [(training_pstates[i].pstate[lid]' * sl) * LE[li,lid-1,i] for sl in eachslice(left_site_new, dims=3) ]
+                    LE[li,lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[li,lid-1,i] for sl in eachslice(left_site_new, dims=3) ]
                 end
             end
         end
@@ -916,9 +914,9 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         for j = (length(sites)-1):-1:1
             #print("Bond $j")
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
-            BT = W[(j+1)] * W[j] # create bond tensor
+            flatten_bt!(bts, W[j], W[(j+1)]; going_left=true) 
             # @show inds(BT)
-            BT_new = apply_update(tsep, BT, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
+            BT_new = apply_update(tsep, bts, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
                                     dtype=dtype, loss_grad=loss_grads[itS], bbopt=bbopts[itS],
                                     track_cost=track_cost, eta=eta, rescale = rescale) # optimise bond tensor
 
@@ -943,7 +941,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
         for j = 1:(length(sites)-1)
             #print("Bond $j")
-            flatten_bt!(bts, W[j], W[(j+1)]; going_leftrue)
+            flatten_bt!(bts, W[j], W[(j+1)]; going_left=false)
             # @show inds(BT)
             BT_new = apply_update(tsep, bts, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
                                     dtype=dtype, loss_grad=loss_grads[itS], bbopt=bbopts[itS],
