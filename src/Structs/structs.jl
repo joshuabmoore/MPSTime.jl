@@ -12,7 +12,7 @@ struct DataIsRescaled{Bool} end # Value type to tell fitMPS the data has already
 struct PState
     """Create a custom structure to store product state objects, 
     along with their associated label and type (i.e, train, test or valid)"""
-    pstate::Vector{SVector}
+    pstate::Vector{Vector}
     label::Any # TODO make this a fancy scientific type
     label_index::UInt
 end

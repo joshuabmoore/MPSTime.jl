@@ -189,8 +189,13 @@ function yhat_phitilde!(phi_tilde::ITensor, BT::ITensor, LEP::PCacheCol, REP::PC
 
 end
 
-function yhat_phitilde(BT::BondTensor, LEP::PCacheCol, REP::PCacheCol, 
-    product_state::PState, lid::Int, rid::Int)
+function yhat_phitilde(
+        BT::BondTensor, 
+        LEP::PCacheCol, 
+        REP::PCacheCol, 
+        product_state::PState, 
+        lid::Int, 
+        rid::Int)
     """Return yhat and phi_tilde for a bond tensor and a single product state"""
 
     ps = product_state.pstate
@@ -225,8 +230,15 @@ end
 
 
 
-function KLD_iter!( phit_scaled::BondTensor, BT_c::BondTensor, LEP::PCacheCol, REP::PCacheCol,
-    product_state::PState, lid::Int, rid::Int) 
+function KLD_iter!( 
+        phit_scaled::BondTensor, 
+        BT_c::BondTensor, 
+        LEP::PCacheCol, 
+        REP::PCacheCol,
+        product_state::PState, 
+        lid::Int, 
+        rid::Int
+    ) 
     """Computes the complex valued logarithmic loss function derived from KL divergence and its gradient"""
     
     # it is assumed that BT has no label index, so yhat is a rank 0 tensor
@@ -281,8 +293,15 @@ function (::Loss_Grad_KLD)(::TrainSeparate{true}, BT::ITensor, LE::PCache, RE::P
 
 end
 
-function (::Loss_Grad_KLD)(::TrainSeparate{false}, bts::AbstractVector{BondTensor}, LE::PCache, RE::PCache,
-    ETSs::EncodedTimeSeriesSet, lid::Int, rid::Int)
+function (::Loss_Grad_KLD)(
+        ::TrainSeparate{false}, 
+        bts::AbstractVector{BondTensor}, 
+        LE::PCache, 
+        RE::PCache,
+        ETSs::EncodedTimeSeriesSet, 
+        lid::Int, 
+        rid::Int
+    )
     """Function for computing the loss function and the gradient over all samples using lg_iter and a left and right cache. 
         Allows the input to be complex if that is supported by lg_iter"""
     # Assumes that the timeseries are sorted by class

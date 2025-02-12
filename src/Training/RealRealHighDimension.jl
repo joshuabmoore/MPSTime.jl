@@ -47,27 +47,27 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
     N_train = length(training_pstates) 
     # get the number of MPS sites
     N = length(W)
-    pos, l = find_label(W)
+    pos, label_idx = find_label(W)
 
-    sinds = siteinds(w)
-    linds = linkinds(w)
+    sinds = siteinds(W)
+    linds = linkinds(W)
 
     # pre-allocate left and right environment matrices 
-    LE = PCache(undef, length(l), N, N_train) 
-    RE = PCache(undef, length(l), N, N_train)
+    LE = PCache(undef, ITensors.dim(label_idx), N, N_train) 
+    RE = PCache(undef, ITensors.dim(label_idx), N, N_train)
 
     if going_left
         # backward direction - initialise the LE with the first site
 
-        for li in eachval(l)
-            link_dim = length(linds[1])
+        for li in eachval(label_idx)
+            w_end = matrix(W[end] * onehot(label_idx => li))
             for i = 1:N_train
-                LE[li,1,i] = (training_pstates[i].pstate[1]' * matrix(W[1] * onehot(label_idx => li)))'
+                LE[li,1,i] = (training_pstates[i].pstate[1]' * w_end)'
             end
 
             for j = 2:N
+                t = tensor(W[j])
                 for i = 1:N_train
-                    t = tensor(W[j])
                     LE[li,j,i] = [(training_pstates[i].pstate[j]' * sl) * LE[li,j-1, i][k] for sl in eachslice(t, dims=3)]
                 end
             end
@@ -75,15 +75,15 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
     else
         # going right
         # initialise RE cache with the terminal site and work backwards
-        for li in eachval(l)
-            link_dim = length(linds[end])
+        for li in eachval(label_idx)
+            w_end = matrix(W[N] * onehot(label_idx => li), sinds[end], linds[end])
             for i = 1:N_train
-                RE[li,N,i] = (training_pstates[i].pstate[N]' * matrix(W[N] * onehot(label_idx => li), sinds[end], linds[end]))'
+                RE[li,N,i] = (training_pstates[i].pstate[N]' * w_end)'
             end
 
             for j = (N-1):-1:1
+                t = tensor(W[j])
                 for i = 1:N_train
-                    t = tensor(W[j])
                     RE[li,j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[li,j+1,i] for sl in eachslice(t, dims=1) ] 
                 end
             end
@@ -108,9 +108,10 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
     if going_left
         l = find_index(left_site_new, lstr)
         for li in eachval(l)
+            m = matrix(right_site_new)
             for i = 1:num_train
                 if rid == num_sites
-                    RE[li,num_sites,i] = (training_pstates[i].pstate[rid]' * matrix(right_site_new))'
+                    RE[li,num_sites,i] = (training_pstates[i].pstate[rid]' * m)'
                 else
                     RE[li,rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[li,rid+1,i] for sl in eachslice(right_site_new, dims=1) ]
                 end
@@ -121,9 +122,10 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
         # going right
         l = find_index(right_site_new, lstr)
         for li in eachval(l)
+            matrix(left_site_new)
             for i = 1:num_train
                 if lid == 1
-                    LE[li,1,i] = (training_pstates[i].pstate[lid]' * matrix(left_site_new))'
+                    LE[li,1,i] = (training_pstates[i].pstate[lid]' * m)'
                 else
                     LE[li,lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[li,lid-1,i] for sl in eachslice(left_site_new, dims=3) ]
                 end
