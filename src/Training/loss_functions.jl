@@ -29,13 +29,13 @@ function yhat_phitilde_left(BT::Tensor, LEP::PCacheCol, REP::PCacheCol,
 
     ps = product_state.pstate
 
-    psl = tensor(ps[lid])
-    psr = tensor(ps[rid])
+    psl = ps[lid]
+    psr = ps[rid]
     
 
     if lid == 1
         if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
-            rc = tensor(REP[rid+1])
+            rc = REP[rid+1]
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
             # @show inds(phi_tilde)
@@ -274,7 +274,7 @@ function (::Loss_Grad_KLD)(::TrainSeparate{false}, BT::ITensor, LE::PCache, RE::
         phit_scaled .= zero(eltype(bt))
 
         c_inds = (i_prev+1):(cn+i_prev)
-        @inbounds @fastmath loss = mapreduce((LEP,REP, prod_state) -> KLD_iter!( phit_scaled,bt,LEP,REP,prod_state,lid,rid),+, eachcol(view(LE, :, c_inds)), eachcol(view(RE, :, c_inds)),TSs[c_inds])
+        @inbounds @fastmath loss = mapreduce((LEP,REP, prod_state) -> KLD_iter!( phit_scaled,bt,LEP,REP,prod_state,lid,rid),+, eachcol(view(LE, ci, :, c_inds)), eachcol(view(RE, ci, :, c_inds)),TSs[c_inds])
         @inbounds @fastmath losses += loss # maybe doing this with a combiner instead will be more efficient
         @inbounds @fastmath @. $selectdim(grads,1, ci) -= conj(phit_scaled)
         #### equivalent without mapreduce

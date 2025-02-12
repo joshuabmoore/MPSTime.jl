@@ -19,7 +19,7 @@ function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{In
             states = opts.encoding.encode(sample[j], opts.d, encoding_args...)
         end
 
-        product_state[j] = ITensor(opts.dtype, states, site_indices[j])
+        product_state[j] = SVector{opts.d}(states)
     end
 
     return product_state
