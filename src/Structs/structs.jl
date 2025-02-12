@@ -2,7 +2,7 @@
 const PCache = Array{SVector,3}
 const PCacheCol = AbstractVector{SVector} # for view mapping shenanigans
 const Maybe{T} = Union{T,Nothing} 
-const BondTensor = Matrix{SMatrix}
+const BondTensor = SMatrix{SMatrix}
 # value types
 struct TrainSeparate{Bool} end # value type to determine whether training is together or separate
 struct EncodeSeparate{Bool} end # value type for dispatching on whether to encode classes separately

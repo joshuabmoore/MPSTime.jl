@@ -186,6 +186,23 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
 
 end
 
+function flatten_bt!(bts, s1, s2; going_left=true)
+
+    # infer the location of the site indices
+
+    for ci in eachindval(l_index)
+
+        if going_left
+            bt = tensor( s1 * (s2 * onehot(l_index => ci)) )
+        else
+            bt = tensor(((s1 * onehot(l_index => ci)) * s2 ))
+
+        end
+        
+        bts[ci] = bt[:] # flatten
+    end
+end
+
 
 function realise(B::ITensor, C_index::Index{Int64}; dtype::DataType=ComplexF64)
     """Converts a Complex {s} dimension r itensor into a eal 2x{s} dimension itensor. Increases the rank from rank{s} to 1+ rank{s} by adding a 2-dimensional index "C_index" to the start"""
@@ -863,24 +880,34 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     bts = Vector{BondTensor}(undef, length(l_index))
     for itS = 1:opts.nsweeps
 
-        function set_bond_tensor!(bts, d, lid, rid, s1, s2; going_left=true)
-            for ci in eachindval(l_index)
+        # function set_bond_tensor!(bts, d, nsites, lid, rid, s1, s2; going_left=true)
 
-                if going_left
-                    s1c = s1 * onehot(l_index => ci)
-                    chi_1 = length(inds(s1c[1]))
-                    chi_2 = length(inds(s2[end]))
-                    bt = s1c*s2
-                    bts[ci] = [SMatrix{d,d}((s1c*s2) for i in 1:chi_1, j in 1:chi_2]
-                else
-                    s2c = s2 * onehot(l_index => ci)
+        #     # infer the location of the site indices
 
-                    chi_1 = length(inds(s1[1]))
-                    chi_2 = length(inds(s2c[end]))
-                end
+        #     for ci in eachindval(l_index)
 
-            end
-        end
+        #         if going_left
+        #             bt = tensor( s1 * (s2 * onehot(l_index => ci)) )
+        #         else
+        #             bt = tensor( (s1 * onehot(l_index => ci)) * s2 )
+
+        #         end
+                
+        #         chi_1, chi_2 = dim.(inds(bt)[[1,end]])
+            
+            
+        #         if lid == 1
+        #             bts[ci] = SMatrix{1, chi_2}(SMatrix{d,d}.(eachslice(bt, dims=3)))
+        #         elseif rid == nsites
+        #             bts[ci] = SMatrix{chi_1, 1}(SMatrix{d,d}.(eachslice(bt, dims=1)))
+        #         else
+        #             bts[ci] = SMatrix{chi_1, chi_2}(SMatrix{d,d}.(eachslice(bt, dims=(1,4))))
+        #         end
+
+        #     end
+        # end
+
+        
         
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
@@ -916,9 +943,9 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
         for j = 1:(length(sites)-1)
             #print("Bond $j")
-            BT = W[j] * W[(j+1)]
+            flatten_bt!(bts, W[j], W[(j+1)]; going_leftrue)
             # @show inds(BT)
-            BT_new = apply_update(tsep, BT, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
+            BT_new = apply_update(tsep, bts, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
                                     dtype=dtype, loss_grad=loss_grads[itS], bbopt=bbopts[itS],
                                     track_cost=track_cost, eta=eta, rescale=rescale) # optimise bond tensor
 
