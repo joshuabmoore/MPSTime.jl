@@ -47,47 +47,47 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
     N_train = length(training_pstates) 
     # get the number of MPS sites
     N = length(W)
-    pos, label_idx = find_label(W)
 
     sinds = siteinds(W)
     linds = linkinds(W)
 
     # pre-allocate left and right environment matrices 
-    LE = PCache(undef, ITensors.dim(label_idx), N, N_train) 
-    RE = PCache(undef, ITensors.dim(label_idx), N, N_train)
+    LE = PCache(undef, N, N_train) 
+    RE = PCache(undef, N, N_train)
 
     if going_left
         # backward direction - initialise the LE with the first site
+        w_1 = matrix(W[1])
+        for i = 1:N_train
+            LE[1,i] = (training_pstates[i].pstate[1]' * w_1)'
+        end
 
-        for li in eachval(label_idx)
-            w_end = matrix(W[end] * onehot(label_idx => li))
+        for j = 2:N-1
+            t = tensor(W[j])
             for i = 1:N_train
-                LE[li,1,i] = (training_pstates[i].pstate[1]' * w_end)'
-            end
-
-            for j = 2:N
-                t = tensor(W[j])
-                for i = 1:N_train
-                    LE[li,j,i] = [(training_pstates[i].pstate[j]' * sl) * LE[li,j-1, i][k] for sl in eachslice(t, dims=3)]
-                end
+                LE[j,i] = [(training_pstates[i].pstate[j]' * sl) * LE[j-1, i] for sl in eachslice(t, dims=3)]
+                
             end
         end
+
+        @show LE[30,:]
+        @show LE[1:N-1,1]
+    
     else
         # going right
         # initialise RE cache with the terminal site and work backwards
-        for li in eachval(label_idx)
-            w_end = matrix(W[N] * onehot(label_idx => li), sinds[end], linds[end])
-            for i = 1:N_train
-                RE[li,N,i] = (training_pstates[i].pstate[N]' * w_end)'
-            end
+        w_end = matrix(W[N])
+        for i = 1:N_train
+            RE[N,i] = (training_pstates[i].pstate[N]' * w_end)'
+        end
 
-            for j = (N-1):-1:1
-                t = tensor(W[j])
-                for i = 1:N_train
-                    RE[li,j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[li,j+1,i] for sl in eachslice(t, dims=1) ] 
-                end
+        for j = (N-1):-1:2
+            t = tensor(W[j])
+            for i = 1:N_train
+                RE[j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[j+1,i] for sl in eachslice(t, dims=1) ] 
             end
         end
+        
     end
 
     @assert !isa(eltype(eltype(RE)), dtype) || !isa(eltype(eltype(LE)), dtype)  "Caches are not the correct datatype!"
@@ -103,32 +103,24 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
     """Given a newly updated bond tensor, update the caches."""
     num_train = length(product_states)
     num_sites = size(LE)[2]
-    lstr = "f(x)"
 
     if going_left
-        l = find_index(left_site_new, lstr)
-        for li in eachval(l)
-            m = matrix(right_site_new)
-            for i = 1:num_train
-                if rid == num_sites
-                    RE[li,num_sites,i] = (training_pstates[i].pstate[rid]' * m)'
-                else
-                    RE[li,rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[li,rid+1,i] for sl in eachslice(right_site_new, dims=1) ]
-                end
+        m = matrix(right_site_new)
+        for i = 1:num_train
+            if rid == num_sites
+                RE[li,num_sites,i] = (training_pstates[i].pstate[rid]' * m)'
+            else
+                RE[li,rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[rid+1,i] for sl in eachslice(right_site_new, dims=1) ]
             end
         end
-
     else
         # going right
-        l = find_index(right_site_new, lstr)
-        for li in eachval(l)
-            matrix(left_site_new)
-            for i = 1:num_train
-                if lid == 1
-                    LE[li,1,i] = (training_pstates[i].pstate[lid]' * m)'
-                else
-                    LE[li,lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[li,lid-1,i] for sl in eachslice(left_site_new, dims=3) ]
-                end
+        matrix(left_site_new)
+        for i = 1:num_train
+            if lid == 1
+                LE[1,i] = (training_pstates[i].pstate[lid]' * m)'
+            else
+                LE[lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[lid-1,i] for sl in eachslice(left_site_new, dims=3) ]
             end
         end
     end
@@ -144,13 +136,13 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
 
     if going_left
         left_site_index = find_index(BT, "n=$lid")
-        label_index = find_index(BT, "f(x)")
+        label_idx = find_index(BT, "f(x)")
         # need to make sure the label index is transferred to the next site to be updated
         if lid == 1
-            U, S, V = svd(BT, (label_index, left_site_index); maxdim=chi_max, cutoff=cutoff)
+            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
         else
             bond_index = find_index(BT, "Link,l=$(lid-1)")
-            U, S, V = svd(BT, (bond_index, label_index, left_site_index); maxdim=chi_max, cutoff=cutoff)
+            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
         end
         # absorb singular values into the next site to update to preserve canonicalisation
         left_site_new = U * S
@@ -161,14 +153,14 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
     else
         # going right, label index automatically moves to the next site
         right_site_index = find_index(BT, "n=$rid")
-        label_index = find_index(BT, "f(x)")
+        label_idx = find_index(BT, "f(x)")
         bond_index = find_index(BT, "Link,l=$(lid+1)")
 
 
         if isnothing(bond_index)
-            V, S, U = svd(BT, (label_index, right_site_index); maxdim=chi_max, cutoff=cutoff)
+            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
         else
-            V, S, U = svd(BT, (bond_index, label_index, right_site_index); maxdim=chi_max, cutoff=cutoff)
+            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
         end
         # absorb into next site to be updated 
         left_site_new = U
@@ -186,21 +178,101 @@ function decomposeBT(BT::ITensor, lid::Int, rid::Int;
 
 end
 
-function flatten_bt!(bts, s1, s2; going_left=true)
+function decomposeBT(
+        BT::BondTensor, 
+        lid::Int, 
+        rid::Int; 
+        chi_max=nothing, 
+        cutoff=nothing, 
+        going_left=true, 
+        dtype::DataType=ComplexF64
+    )
+    """Decompose an updated bond tensor back into two tensors using SVD"""
+
+
+
+    if going_left
+        left_site_index = find_index(BT, "n=$lid")
+        label_idx = find_index(BT, "f(x)")
+        # need to make sure the label index is transferred to the next site to be updated
+        if lid == 1
+            U, S, V = svd(BT, (label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
+        else
+            bond_index = find_index(BT, "Link,l=$(lid-1)")
+            U, S, V = svd(BT, (bond_index, label_idx, left_site_index); maxdim=chi_max, cutoff=cutoff)
+        end
+        # absorb singular values into the next site to update to preserve canonicalisation
+        left_site_new = U * S
+        right_site_new = V
+        # fix tag names 
+        replacetags!(left_site_new, "Link,v", "Link,l=$lid")
+        replacetags!(right_site_new, "Link,v", "Link,l=$lid")
+    else
+        # going right, label index automatically moves to the next site
+        right_site_index = find_index(BT, "n=$rid")
+        label_idx = find_index(BT, "f(x)")
+        bond_index = find_index(BT, "Link,l=$(lid+1)")
+
+
+        if isnothing(bond_index)
+            V, S, U = svd(BT, (label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
+        else
+            V, S, U = svd(BT, (bond_index, label_idx, right_site_index); maxdim=chi_max, cutoff=cutoff)
+        end
+        # absorb into next site to be updated 
+        left_site_new = U
+        right_site_new = V * S
+        # fix tag names 
+        replacetags!(left_site_new, "Link,v", "Link,l=$lid")
+        replacetags!(right_site_new, "Link,v", "Link,l=$lid")
+        # @show inds(left_site_new)
+        # @show inds(right_site_new)
+
+    end
+
+
+    return left_site_new, right_site_new
+
+end
+
+function flatten_bt!(bts, s1, s2, label_idx; going_left=true)
 
     # infer the location of the site indices
 
-    for ci in eachindval(l_index)
-
+    for (ci,c) in enumerate(eachindval(label_idx))
         if going_left
-            bt = tensor( s1 * (s2 * onehot(l_index => ci)) )
+            bt = tensor( s1 * (s2 * onehot(c)) )
         else
-            bt = tensor(((s1 * onehot(l_index => ci)) * s2 ))
+            bt = tensor((s1 * onehot(c)) * s2)
 
         end
         
         bts[ci] = bt[:] # flatten
     end
+end
+
+function flatten_bt(s1, s2, label_idx, dtype=Float64; going_left=true)
+
+    # infer the location of the site indices
+    nc_inds = filter(i-> !hastags(i, "f(x)"), noncommoninds(s1,s2))
+    len = prod(ITensors.dim.(nc_inds))
+    bt_f = Matrix{dtype}(undef, len, ITensors.dim(label_idx))
+    for (ci,c) in enumerate(eachindval(label_idx))
+        if going_left
+            bt = tensor( s1 * (s2 * onehot(c)) )
+        else
+            bt = tensor((s1 * onehot(c)) * s2)
+
+        end
+        
+        bt_f[:,ci] = bt[:] # flatten
+    end
+    return bt_f, (nc_inds..., label_idx)
+end
+
+function unflatten_bt(bt_new, bt_inds)
+
+    return itensor(reshape(bt_new, ITensors.dim(bt_inds)), bt_inds)
 end
 
 
@@ -278,7 +350,7 @@ function loss_grad!(tsep::TrainSeparate, F,G,B_flat::AbstractArray, b_inds::Tupl
 
 end
 
-function custGD(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
+function custGD(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
     iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
     BT = copy(BT_init)
 
@@ -298,7 +370,7 @@ function custGD(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, l
     return BT
 end
 
-function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
+function TSGO(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int, ETSs::EncodedTimeSeriesSet;
     iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, track_cost::Bool=false, eta::Real=0.01)
     BT = copy(BT_init) # perhaps not necessary?
     for i in 1:iters
@@ -324,7 +396,7 @@ function TSGO(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid
     return BT
 end
 
-function apply_update(tsep::TrainSeparate, BT_init::ITensor, LE::PCache, RE::PCache, lid::Int, rid::Int,
+function apply_update(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::PCache, lid::Int, rid::Int,
     ETSs::EncodedTimeSeriesSet; iters=10, verbosity::Real=1, dtype::DataType=ComplexF64, loss_grad::Function=loss_grad_KLD, bbopt::BBOpt=BBOpt("Optim"),
     track_cost::Bool=false, eta::Real=0.01, rescale::Tuple{Bool,Bool} = (false, true))
     """Apply update to bond tensor using the method specified by BBOpt. Will normalise B before and/or after it computes the update B+dB depending on the value of rescale [before::Bool,after::Bool]"""
@@ -639,9 +711,9 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
     end
 
     num_classes = length(classes)
-    _, l_index = find_label(W)
+    _, label_idx = find_label(W)
 
-    @assert num_classes == ITensors.dim(l_index) "Number of Classes in the training data doesn't match the dimension of the label index!"
+    @assert num_classes == ITensors.dim(label_idx) "Number of Classes in the training data doesn't match the dimension of the label index!"
     @assert eltype(classes) <: Integer "Classes must be integers" #TODO fix PState so this is unnecessary
     sort!(classes)
     class_keys = Dict(zip(classes, 1:num_classes))
@@ -876,39 +948,9 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     rescale = opts.rescale
     cutoff=opts.cutoff
 
-    pos, l_index = find_label(W)
-    bts = Vector{BondTensor}(undef, length(l_index))
-    for itS = 1:opts.nsweeps
-
-        # function set_bond_tensor!(bts, d, nsites, lid, rid, s1, s2; going_left=true)
-
-        #     # infer the location of the site indices
-
-        #     for ci in eachindval(l_index)
-
-        #         if going_left
-        #             bt = tensor( s1 * (s2 * onehot(l_index => ci)) )
-        #         else
-        #             bt = tensor( (s1 * onehot(l_index => ci)) * s2 )
-
-        #         end
-                
-        #         chi_1, chi_2 = dim.(inds(bt)[[1,end]])
-            
-            
-        #         if lid == 1
-        #             bts[ci] = SMatrix{1, chi_2}(SMatrix{d,d}.(eachslice(bt, dims=3)))
-        #         elseif rid == nsites
-        #             bts[ci] = SMatrix{chi_1, 1}(SMatrix{d,d}.(eachslice(bt, dims=1)))
-        #         else
-        #             bts[ci] = SMatrix{chi_1, chi_2}(SMatrix{d,d}.(eachslice(bt, dims=(1,4))))
-        #         end
-
-        #     end
-        # end
-
-        
-        
+    pos, label_idx = find_label(W)
+    bts = Vector{BondTensor{dtype}}(undef, ITensors.dim(label_idx))
+    for itS = 1:opts.nsweeps        
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
         verbosity > -1 && println("Starting backward sweeep: [$itS/$nsweeps]")
@@ -916,14 +958,28 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         for j = (length(sites)-1):-1:1
             #print("Bond $j")
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
-            flatten_bt!(bts, W[j], W[(j+1)]; going_left=true) 
+            bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=true) 
             # @show inds(BT)
-            BT_new = apply_update(tsep, bts, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
-                                    dtype=dtype, loss_grad=loss_grads[itS], bbopt=bbopts[itS],
-                                    track_cost=track_cost, eta=eta, rescale = rescale) # optimise bond tensor
-
+            bt_new = apply_update(
+                tsep, 
+                bt, 
+                LE, 
+                RE, 
+                j, 
+                (j+1), 
+                training_states_meta; 
+                iters=update_iters, 
+                verbosity=verbosity,                                
+                dtype=dtype, 
+                loss_grad=loss_grads[itS], 
+                bbopt=bbopts[itS],
+                track_cost=track_cost, 
+                eta=eta, 
+                rescale = rescale
+            ) # optimise bond tensor
+            bt_it = unflatten_bt(bt_new, bt_inds)
             # decompose the bond tensor using SVD and truncate according to chi_max and cutoff
-            lsn, rsn = decomposeBT(BT_new, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype)
+            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype)
                 
             # update the caches to reflect the new tensors
             update_caches!(lsn, rsn, LE, RE, j, (j+1), training_states; going_left=true)
@@ -943,13 +999,28 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
 
         for j = 1:(length(sites)-1)
             #print("Bond $j")
-            flatten_bt!(bts, W[j], W[(j+1)]; going_left=false)
+            bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=false)
             # @show inds(BT)
-            BT_new = apply_update(tsep, bts, LE, RE, j, (j+1), training_states_meta; iters=update_iters, verbosity=verbosity, 
-                                    dtype=dtype, loss_grad=loss_grads[itS], bbopt=bbopts[itS],
-                                    track_cost=track_cost, eta=eta, rescale=rescale) # optimise bond tensor
+            bt_new = apply_update(
+                tsep, 
+                bt, 
+                LE, 
+                RE, 
+                j, 
+                (j+1), 
+                training_states_meta; 
+                iters=update_iters, 
+                verbosity=verbosity, 
+                dtype=dtype, 
+                loss_grad=loss_grads[itS], 
+                bbopt=bbopts[itS],
+                track_cost=track_cost, 
+                eta=eta, 
+                rescale=rescale
+            ) # optimise bond tensor
 
-            lsn, rsn = decomposeBT(BT_new, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=false, dtype=dtype)
+            bt_it = unflatten_bt(bt_new, bt_inds)
+            lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=false, dtype=dtype)
             update_caches!(lsn, rsn, LE, RE, j, (j+1), training_states; going_left=false)
             W[j] = lsn
             W[(j+1)] = rsn
