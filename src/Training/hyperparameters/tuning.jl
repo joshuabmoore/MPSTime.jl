@@ -155,7 +155,7 @@ function tune(
         verbosity::Integer=1,
         provide_x0::Bool=true,
         logspace_eta::Bool=false,
-        abstol::Float64=1e-3,
+        abstol::Float64=1e-8,
         maxiters::Integer=500,
         # distribute_folds::Bool=false,
         disable_nondistributed_threading::Bool=false,
@@ -248,7 +248,8 @@ function eval_loss(::ImputationLoss,
     X_val::AbstractMatrix, 
     y_val::AbstractVector, 
     windows::Union{Nothing, AbstractVector}=nothing;
-    p_fold::Union{Nothing, Tuple}=nothing
+    p_fold::Union{Nothing, Tuple}=nothing,
+    distribute::Bool=false
     )
     
     if ~isnothing(p_fold)
@@ -260,25 +261,44 @@ function eval_loss(::ImputationLoss,
     end
     imp = init_imputation_problem(mps, X_val, y_val, verbosity=-5);
     numval = size(X_val, 1)
-    instance_scores = Matrix{Float64}(undef, numval, length(windows)) # score for each instance across all % missing
+    instance_scores = Matrix{Float64}(undef, length(windows), numval) # score for each instance across all % missing
     # conversion from inst to something MPS_impute understands. #TODO This is awful, should fix
 
     cmap = countmap(y_val)
     classes= vcat([fill(k,v) for (k,v) in pairs(cmap)]...)
     class_ind = vcat([1:v for v in values(cmap)]...)
 
-    for inst in 1:numval
+    function score(inst)
+        w_scores = Vector{Float64}(undef, length(windows))
         logging && print("$foldstr Evaluating instance $inst/$numval...")
         t = time()
         for (iw, impute_sites) in enumerate(windows)
             # impute_sites = mar(X_val[inst, :], p)[2]
             stats = MPS_impute(imp, classes[inst], class_ind[inst], impute_sites, :median; NN_baseline=false, plot_fits=false, get_wmad=false)[4]
-            instance_scores[inst, iw] = stats[1][:MAE]
+            w_scores[iw] = stats[1][:MAE]
         end
         logging && println("done ($(rtime(t))s)")
+        return w_scores
     end
 
-    return mean(instance_scores; dims=1)[:] # return loss indexed by window
+    if distribute 
+        tasks = []
+        for inst in 1:numval
+            push!(tasks, Dagger.spawn(score,inst))
+        end
+
+        for inst in 1:numval
+            instance_scores[:, inst] = fetch(tasks[inst])
+        end
+
+    else
+        for inst in 1:numval
+            instance_scores[:, inst] = score(inst) 
+        end
+
+    end
+
+    return mean(instance_scores; dims=2)[:] # return loss indexed by window
 end
 
 

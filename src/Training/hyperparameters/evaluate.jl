@@ -27,9 +27,10 @@ function evaluate(
     eval_windows::Union{Nothing, AbstractVector, Dict}=nothing,
     tuning_pms::Union{Nothing, AbstractVector}= nothing,
     tuning_windows::Union{Nothing, AbstractVector, Dict}= nothing,
-    tuning_abstol::Float64=1e-3,
+    tuning_abstol::Float64=1e-8,
     tuning_maxiters::Integer=500,
     distribute_folds::Bool=false,   
+    distribute_loss::Bool=distribute_folds
     )
     if objective isa ImputationLoss
         eval_windows = make_windows(eval_windows, eval_pms, X)
@@ -39,21 +40,7 @@ function evaluate(
 
     folds::Vector = foldmethod isa Function ? foldmethod(X,y, nfolds; rng=abs_rng) : foldmethod
 
-    if distribute_folds
-        mapfunc = pmap
-        if nprocs() == 1
-            println("No workers")
-        end
-        threading = pmap(i -> is_omp_threading(), 1:nworkers())
-
-        if ~all(threading)
-            @warn "Using both threading and multiprocessing at the same time is not advised, set OMP_NUM_THREADS=1 when adding a new process to disable this messaage"
-        end
-
-    else
-        mapfunc = map
-
-    end
+    
 
     tstart = time()
     function _eval_fold(fold, fold_inds)
@@ -100,10 +87,28 @@ function evaluate(
             "eval_pms"=>eval_pms,
             "time"=>time() - tbeg,
             "opts"=>opts, 
-            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold)
+            "loss"=>eval_loss(objective, mps, X_test, y_test, eval_windows; p_fold=p_fold, distribute=distribute_loss)
         )
         return res
     end
-    
-    return mapfunc(_eval_fold, 1:nfolds, folds)
+
+    if distribute_folds
+
+        if nprocs() == 1
+            println("No workers")
+        end
+        threading = pmap(i -> is_omp_threading(), 1:nworkers())
+
+        if ~all(threading)
+            @warn "Using both threading and multiprocessing at the same time is not advised, set OMP_NUM_THREADS=1 when adding a new process to disable this messaage"
+        end
+
+        tasks = map(f -> Dagger.spawn(_eval_fold,f, folds[f]), 1:nfolds)
+        return fetch.(tasks)
+
+    else
+        return map(_eval_fold, 1:nfolds, folds)
+
+    end
+
 end

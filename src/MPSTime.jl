@@ -10,6 +10,8 @@ using ITensors
 using NDTensors # Library that ITensors is built on, used for some hacks
 using Distributed # hyperparameter tuning reasons
 using StaticArrays
+using Dagger
+
 
 using Random
 using StableRNGs # Used for some hyperparameter tuning/MLJ
