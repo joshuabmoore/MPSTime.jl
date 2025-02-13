@@ -20,7 +20,9 @@ function generate_startingMPS(chi_init::Integer, site_indices::Vector{Index{T}},
 
     # get the site of interest and copy over the indices at the last site where we attach the label 
     old_site_idxs = inds(W[end])
-    new_site_idxs = label_idx, old_site_idxs
+    # new_site_idxs =  (old_site_idxs..., label_idx)
+    new_site_idxs =  label_idx, old_site_idxs
+
     new_site = random_itensor(dtype,new_site_idxs)
 
     # add the new site back into the MPS
@@ -955,12 +957,13 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
         verbosity > -1 && println("Starting backward sweeep: [$itS/$nsweeps]")
-
+        sinds = siteinds(W)
+        sinds[end] = inds(W[end])[2]
         for j = (length(sites)-1):-1:1
-            #print("Bond $j")
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=true) 
-            @show bt_inds
+
+
             bt_new = apply_update(
                 tsep, 
                 bt, 
@@ -979,6 +982,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
                 rescale = rescale
             ) # optimise bond tensor
             bt_it = unflatten_bt(bt_new, bt_inds)
+
             # decompose the bond tensor using SVD and truncate according to chi_max and cutoff
             lsn, rsn = decomposeBT(bt_it, j, (j+1); chi_max=chi_max, cutoff=cutoff, going_left=true, dtype=dtype)
                 
@@ -998,10 +1002,11 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         
         verbosity > -1 && println("Starting forward sweep: [$itS/$nsweeps]")
 
+        
+
         for j = 1:(length(sites)-1)
-            #print("Bond $j")
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=false)
-            @show bt_inds
+   
             bt_new = apply_update(
                 tsep, 
                 bt, 

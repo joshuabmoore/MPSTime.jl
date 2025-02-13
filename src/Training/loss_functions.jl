@@ -353,7 +353,7 @@ function (::Loss_Grad_KLD)(
     # @show phit_scaled
 
 
-    return losses, phit_scaled
+    return losses, -conj.(phit_scaled)
 
 end
 #####################################################################################################  MSE LOSS
