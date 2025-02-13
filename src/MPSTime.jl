@@ -9,7 +9,8 @@ using Strided # strided array support
 using ITensors 
 using NDTensors # Library that ITensors is built on, used for some hacks
 using Distributed # hyperparameter tuning reasons
-using StaticArrays
+using StaticArrays # faster imputation
+using LoopVectorization # fast custom linear algebra functions
 
 using Random
 using StableRNGs # Used for some hyperparameter tuning/MLJ

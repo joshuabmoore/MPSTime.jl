@@ -1,5 +1,4 @@
 contract_tensor = ITensors._contract
-⊗(t1::Tensor, t2::Tensor) = contract_tensor(t1, t2)
 
 abstract type LossFunction <: Function end
 
@@ -22,6 +21,85 @@ loss_grad_mixed = Loss_Grad_mixed()
 loss_grad_default = Loss_Grad_default()
 
 #######################################################
+function kron_add!(k::AbstractVector, x1::Vector, x2::Vector)
+    l1,l2 = length(x1),length(x2)
+    @turbo for i = eachindex(x1), j =eachindex(x2)
+        k[j + l2*(i-1)] += x1[i] * x2[j]
+    end
+end
+
+function kron_add!(k::AbstractVector, x1::Vector, x2::Vector, x3::Vector)
+    x2a = kron(x2,x3)
+    l1,l2 = length(x1),length(x2a)
+    @turbo for i = eachindex(x1), j =eachindex(x2a)
+        k[j + l2*(i-1)] += x1[i] * x2a[j]
+    end
+end
+
+function kron_add!(k::AbstractVector, x1::Vector, x2::Vector, x3::Vector, x4::Vector)
+    xa = kron(x1,x2)
+    xb = kron(x3,x4)
+    la,lb = length(xa),length(xb)
+    @turbo for i = eachindex(xa), j =eachindex(xb)
+        k[j + lb*(i-1)] += xa[i] * xb[j]
+    end
+end
+
+function kron_scale(scale::Float64,x1::Vector, x2::Vector)
+    l1,l2 = length(x1),length(x2)
+    out = Vector{eltype(x1)}(undef, l1*l2)
+    @turbo for i = eachindex(x1), j=eachindex(x2)
+        out[j + l2*(i-1)] = x1[i] * x2[j] / scale
+    end
+    return out
+end
+
+function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector)
+    l2 = length(x2)
+    yhat = 0.
+    scale = yp[]
+    @turbo for i = eachindex(x1), j =eachindex(x2)
+        idx = j + l2*(i-1)
+        phi = x1[i] * x2[j] 
+        yhat += bt[idx] * phi
+        k[idx] += kprev[idx] / scale
+        kprev[idx] = phi
+    end
+    yp[] = yhat
+end
+
+function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector, x3::Vector)
+    x2a = kron(x2,x3)
+    l2 = length(x2a)
+    yhat = 0.
+    scale = yp[]
+    @turbo for i = eachindex(x1), j =eachindex(x2a)
+        idx = j + l2*(i-1)
+        phi = x1[i] * x2a[j] 
+        yhat += bt[idx] * phi
+        k[idx] += kprev[idx] / scale
+        kprev[idx] = phi
+    end
+    yp[] = yhat
+end
+
+
+function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector, x3::Vector, x4::Vector)
+    xa = kron(x1,x2)
+    xb = kron(x3,x4)
+    lb = length(xb)
+    yhat = 0.
+    scale = yp[]
+    @turbo for i = eachindex(xa), j = eachindex(xb)
+        idx = j + lb*(i-1)
+        phi = xa[i] * xb[j] 
+        yhat += bt[idx] * phi
+        k[idx] += kprev[idx] / scale
+        kprev[idx] = phi
+    end
+    yp[] = yhat
+end
+
 
 function yhat_phitilde(
         BT::AbstractVector, 
@@ -45,11 +123,11 @@ function yhat_phitilde(
        
     elseif rid == length(ps)
         # terminal site, no RE
-        phi_tilde =  @inbounds @fastmath phi_tilde = kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid]))
+        @inbounds @fastmath phi_tilde = kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid]))
 
     else
         # we are in the bulk, both LE and RE exist
-        phi_tilde =  @inbounds @fastmath phi_tilde = kron(REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
+        @inbounds @fastmath phi_tilde = kron(REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
 
     end
 
@@ -59,77 +137,77 @@ function yhat_phitilde(
     return yhat, phi_tilde
 end
 
-function yhat_phitilde!(
+function yhat_phitilde!!(
+    yhat::Base.RefValue{Float64},
     phi_tilde::AbstractVector,
-    BT::AbstractVector, 
+    phit_prev::AbstractVector,
+    bt::AbstractVector, 
     LEP::PCacheCol, 
     REP::PCacheCol, 
     product_state::PState, 
     lid::Int, 
     rid::Int)
-"""Return yhat and phi_tilde for a bond tensor and a single product state"""
+    """Return yhat and phi_tilde for a bond tensor and a single product state"""
 
-ps = product_state.pstate
+    ps = product_state.pstate
 
-if lid == 1
-    if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
-        # at the first site, no LE
-        # formatted from left to right, so env - product state, product state - env
-        @inbounds @fastmath kron!(phi_tilde, REP[rid+1], kron(conj.(ps[rid]),conj.(ps[lid]))) 
+    if lid == 1
+        if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
+            # at the first site, no LE
+            # formatted from left to right, so env - product state, product state - env
+            @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, REP[rid+1], conj.(ps[rid]),conj.(ps[lid])) 
+        else
+            @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, conj.(ps[rid]), conj.(ps[lid]))
+        end
+    
+    elseif rid == length(ps)
+        # terminal site, no RE
+        # @show yhat[]
+        # @show phi_tilde'
+        @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, conj.(ps[rid]), LEP[lid-1], conj.(ps[lid]))
+
+        # @show yhat[]
+        # @show isapprox(phi_tilde, kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid])))
+
     else
-        @inbounds @fastmath kron!(phi_tilde, kron(conj.(ps[rid]), conj.(ps[lid])))
+        # we are in the bulk, both LE and RE exist
+        # @show y_old=yhat[]
+        # @show phi_tilde'
+        # pt = copy(phi_tilde)
+        @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
+
+        # @show yhat[]
+        # @show isapprox(phi_tilde, pt ./y_old .+kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid])))
+
+        # pt_iter = zero(length(phi_tilde))
+        # @inbounds @fastmath kron_scaleadd!(pt_iter, bt, Ref(1.), REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
+
+        # @show yhat[] == transpose(bt) * pt_iter
+
     end
-   
-elseif rid == length(ps)
-    # terminal site, no RE
-    phi_tilde =  @inbounds @fastmath kron!(phi_tilde, conj.(ps[rid]), kron(LEP[lid-1], conj.(ps[lid])))
-
-else
-    # we are in the bulk, both LE and RE exist
-    phi_tilde =  @inbounds @fastmath kron!(phi_tilde, kron(REP[rid+1], conj.(ps[rid])), kron(LEP[lid-1], conj.(ps[lid])))
-
 end
-
-
-@inbounds @fastmath yhat = transpose(BT) * phi_tilde # NOT a complex inner product !! 
-
-return yhat, phi_tilde
-end
-
 
 
 
 ################################################################################################### KLD loss
 
-
-
-function KLD_iter!!( 
-        phit_scaled::AbstractVector, 
-        phi_storage::AbstractVector,
-        BT_c::AbstractVector, 
-        LEP::PCacheCol, 
-        REP::PCacheCol,
-        product_state::PState, 
-        lid::Int, 
-        rid::Int
+function KLD_iter!!!( 
+    yhat::Base.RefValue{Float64},
+    phit_scaled::AbstractVector, 
+    phit_prev::AbstractVector,
+    BT_c::AbstractVector, 
+    LEP::PCacheCol, 
+    REP::PCacheCol,
+    product_state::PState, 
+    lid::Int, 
+    rid::Int
     ) 
     """Computes the complex valued logarithmic loss function derived from KL divergence and its gradient"""
-    
+
     # it is assumed that BT has no label index, so yhat is a rank 0 tensor
-    yhat, phi_tilde = yhat_phitilde!(phi_storage,BT_c, LEP, REP, product_state, lid, rid)
+    yhat_phitilde!!(yhat, phit_scaled, phit_prev, BT_c, LEP, REP, product_state, lid, rid)
 
-    # @show yhat
-    # @show phi_tilde
-    # @show BT_c
-    loss = -log(abs2(yhat))
-
-    # construct the gradient - return dC/dB
-    # gradient = -conj(phi_tilde / f_ln) 
-    @inbounds @fastmath @. phit_scaled += phi_tilde / yhat
-
-    # @show phit_scaled
-
-    return loss
+    return -log(abs2(yhat[]))
 
 end
 
@@ -192,19 +270,22 @@ function (::Loss_Grad_KLD)(
     losses = zero(real(num_type))
     # grads = Tensor(zeros(num_type, size(bts)), inds(bts))
     phit_scaled = zeros(num_type, size(bts)) 
-    phi_storage = zeros(num_type, size(bts,1))
+    yhat = Ref{Float64}(1.)
+    phit_prev = Vector{num_type}(undef, size(bts,1)) 
 
 
  
     i_prev=0
     for (ci, cn) in enumerate(cnums)
-        bt = bts[:,ci]
+        yhat[] = 1.
+        phit_prev .= 0
         c_inds = (i_prev+1):(cn+i_prev)
         @inbounds @fastmath loss = mapreduce(
-            (LEP,REP, prod_state) -> KLD_iter!!( 
-                view(phi_storage,:), 
+            (LEP,REP, prod_state) -> KLD_iter!!!( 
+                yhat,
                 view(phit_scaled, :,ci), 
-                bt, 
+                view(phit_prev, :),
+                view(bts,:,ci), 
                 LEP,
                 REP,
                 prod_state,
@@ -213,30 +294,17 @@ function (::Loss_Grad_KLD)(
             ),+, eachcol(view(LE, :, c_inds)), eachcol(view(RE, :, c_inds)),TSs[c_inds])
 
         @inbounds @fastmath losses += loss # maybe doing this with a combiner instead will be more efficient
-        #### equivalent without mapreduce
-        # for ci in c_inds 
-        #     # mapreduce((LEP,REP, prod_state) -> KLD_iter(bt,LEP,REP,prod_state,lid,rid),+, eachcol(view(LE, :, c_inds)), eachcol(view(RE, :, c_inds)),TSs[c_inds])
-        #     # valid = map(ts -> ts.label_index == ci, TSs[c_inds]) |> all
-        #     LEP = view(LE, :, ci)
-        #     REP = view(RE, :, ci)
-        #     prod_state = TSs[ci]
-        #     loss, grad = KLD_iter(bt,LEP,REP,prod_state,lid,rid)
-
-        #     losses += loss # maybe doing this with a combiner instead will be more efficient
-        #     grads .+= grad * y 
-        # end
-        #####
-        
+        @inbounds @fastmath @. phit_scaled[:, ci] = -conj(phit_scaled[:, ci] + phit_prev / yhat[] / $length(TSs) )
         i_prev += cn
     end
 
     losses /= length(TSs)
-    phit_scaled ./= length(TSs)
+
 
     # @show phit_scaled
 
 
-    return losses, -conj.(phit_scaled)
+    return losses, phit_scaled
 
 end
 #####################################################################################################  MSE LOSS
