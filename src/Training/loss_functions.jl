@@ -54,13 +54,33 @@ function kron_scale(scale::Float64,x1::Vector, x2::Vector)
     return out
 end
 
+
+function kron_conj1(x1::Vector, x2::Vector)
+    l1,l2 = length(x1),length(x2)
+    out = Vector{eltype(x1)}(undef, l1*l2)
+    @turbo for i = eachindex(x1), j=eachindex(x2)
+        out[j + l2*(i-1)] = x1[i] * conj(x2[j])
+    end
+    return out
+end
+
+function kron_conj2(x1::Vector, x2::Vector)
+    l1,l2 = length(x1),length(x2)
+    out = Vector{eltype(x1)}(undef, l1*l2)
+    @turbo for i = eachindex(x1), j=eachindex(x2)
+        out[j + l2*(i-1)] = conj(x1[i] * x2[j])
+    end
+    return out
+end
+
+
 function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector)
     l2 = length(x2)
     yhat = 0.
     scale = yp[]
     @turbo for i = eachindex(x1), j =eachindex(x2)
         idx = j + l2*(i-1)
-        phi = x1[i] * x2[j] 
+        phi = conj(x1[i] * x2[j])
         yhat += bt[idx] * phi
         k[idx] += kprev[idx] / scale
         kprev[idx] = phi
@@ -68,8 +88,8 @@ function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVe
     yp[] = yhat
 end
 
-function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector, x3::Vector)
-    x2a = kron(x2,x3)
+function kron_scaleadd_firstsite!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector, x3::Vector)
+    x2a = kron_conj2(x2,x3)
     l2 = length(x2a)
     yhat = 0.
     scale = yp[]
@@ -83,10 +103,25 @@ function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVe
     yp[] = yhat
 end
 
+function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector, x3::Vector)
+    x2a = kron_conj2(x2,x3)
+    l2 = length(x2a)
+    yhat = 0.
+    scale = yp[]
+    @turbo for i = eachindex(x1), j =eachindex(x2a)
+        idx = j + l2*(i-1)
+        phi = conj(x1[i]) * x2a[j] 
+        yhat += bt[idx] * phi
+        k[idx] += kprev[idx] / scale
+        kprev[idx] = phi
+    end
+    yp[] = yhat
+end
+
 
 function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVector, yp::Base.RefValue{Float64}, x1::Vector, x2::Vector, x3::Vector, x4::Vector)
-    xa = kron(x1,x2)
-    xb = kron(x3,x4)
+    xa = kron_conj2(x1,x2)
+    xb = kron_conj2(x3,x4)
     lb = length(xb)
     yhat = 0.
     scale = yp[]
@@ -98,43 +133,6 @@ function kron_scaleadd!(k::AbstractVector, kprev::AbstractVector, bt::AbstractVe
         kprev[idx] = phi
     end
     yp[] = yhat
-end
-
-
-function yhat_phitilde(
-        BT::AbstractVector, 
-        LEP::PCacheCol, 
-        REP::PCacheCol, 
-        product_state::PState, 
-        lid::Int, 
-        rid::Int)
-    """Return yhat and phi_tilde for a bond tensor and a single product state"""
-
-    ps = product_state.pstate
-
-    if lid == 1
-        if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
-            # at the first site, no LE
-            # formatted from left to right, so env - product state, product state - env
-            @inbounds @fastmath phi_tilde = kron(REP[rid+1], conj.(ps[rid]), conj.(ps[lid]))
-        else
-            @inbounds @fastmath phi_tilde = kron(conj.(ps[rid]), conj.(ps[lid]))
-        end
-       
-    elseif rid == length(ps)
-        # terminal site, no RE
-        @inbounds @fastmath phi_tilde = kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid]))
-
-    else
-        # we are in the bulk, both LE and RE exist
-        @inbounds @fastmath phi_tilde = kron(REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
-
-    end
-
-
-    @inbounds @fastmath yhat = transpose(BT) * phi_tilde # NOT a complex inner product !! 
-
-    return yhat, phi_tilde
 end
 
 function yhat_phitilde!!(
@@ -155,16 +153,16 @@ function yhat_phitilde!!(
         if rid !== length(ps) # the fact that we didn't notice the previous version breaking for a two site MPS for nearly 5 months is hilarious
             # at the first site, no LE
             # formatted from left to right, so env - product state, product state - env
-            @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, REP[rid+1], conj.(ps[rid]),conj.(ps[lid])) 
+            @inbounds @fastmath kron_scaleadd_firstsite!(phi_tilde, phit_prev, bt, yhat, REP[rid+1], ps[rid],ps[lid])
         else
-            @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, conj.(ps[rid]), conj.(ps[lid]))
+            @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, ps[rid], ps[lid])
         end
     
     elseif rid == length(ps)
         # terminal site, no RE
         # @show yhat[]
         # @show phi_tilde'
-        @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, conj.(ps[rid]), LEP[lid-1], conj.(ps[lid]))
+        @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, ps[rid], LEP[lid-1], ps[lid])
 
         # @show yhat[]
         # @show isapprox(phi_tilde, kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid])))
@@ -174,7 +172,7 @@ function yhat_phitilde!!(
         # @show y_old=yhat[]
         # @show phi_tilde'
         # pt = copy(phi_tilde)
-        @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, REP[rid+1], conj.(ps[rid]),LEP[lid-1], conj.(ps[lid]))
+        @inbounds @fastmath kron_scaleadd!(phi_tilde, phit_prev, bt, yhat, REP[rid+1], ps[rid], LEP[lid-1], ps[lid])
 
         # @show yhat[]
         # @show isapprox(phi_tilde, pt ./y_old .+kron(conj.(ps[rid]), LEP[lid-1], conj.(ps[lid])))
