@@ -3,7 +3,7 @@ function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{In
     with local dimension as specified by the feature map."""
 
     n_sites = length(site_indices) # number of mps sites
-    product_state = Vector{Vector}(undef, n_sites)
+    product_state = Matrix(undef, opts.d, n_sites)
     
     
     # check that the number of sites matches the length of the time series
@@ -19,7 +19,7 @@ function encode_TS(sample::AbstractVector, site_indices::AbstractVector{Index{In
             states = opts.encoding.encode(sample[j], opts.d, encoding_args...)
         end
 
-        product_state[j] = states
+        product_state[:,j] = states
     end
 
     return product_state
@@ -77,7 +77,7 @@ function encode_safe_dataset(
         training_encoding_args=nothing
     ) where {T, I<:Integer}
 
-# Convert an entire dataset of normalised time series to a corresponding dataset of product states, assumes that input dataset is sorted by class
+    # Convert an entire dataset of normalised time series to a corresponding dataset of product states, assumes that input dataset is sorted by class
 
     verbosity = opts.verbosity
     # pre-allocate
@@ -125,13 +125,14 @@ function encode_safe_dataset(
         throw(ArgumentError("Can't encode a test or val set without training encoding arguments!"))
     end
 
-    all_product_states = TimeSeriesIterable(undef, num_ts)
+    dtype = opts.encoding.iscomplex ? opts.dtype : real(opts.dtype) # encoding can be real with a complex MPS if that's how you roll
+    all_product_states = TimeSeriesIterable{dtype}(undef, opts.d, num_ts, size(X_norm,1))
     for i=1:num_ts
         sample_pstate = encode_TS(X_norm[:, i], site_indices, encoding_args; opts=opts)
-        sample_label = y[i]
-        label_idx = class_keys[sample_label]
-        product_state = PState(sample_pstate, sample_label, label_idx)
-        all_product_states[i] = product_state
+        # sample_label = y[i]
+        # label_idx = class_keys[sample_label]
+        # product_state = PState(sample_pstate, sample_label, label_idx)
+        all_product_states[:, i, :] = sample_pstate
     end
        
     
@@ -140,55 +141,5 @@ function encode_safe_dataset(
     class_distribution = collect(values(class_map))[sortperm(collect(keys(class_map)))] # return the number of occurances in each class sorted in order of class index
     
     return EncodedTimeSeriesSet(all_product_states, X_orig, class_distribution), encoding_args
-
-end
-
-
-function encoding_test(::EncodeSeparate{true}, X_norm::AbstractMatrix, y::AbstractVector{Int}, site_indices::AbstractVector{Index{Int64}};  kwargs...)
-
-    classes = sort(unique(y))
-    states = Vector{Matrix{Vector{opts.dtype}}}(undef, length(classes)) # Only the best, most pristine types used here
-
-    for (i,c) in enumerate(classes)
-        cis = findall(y .== c)
-        ets = encoding_test(EncodeSeparate{false}(), X_norm[:, cis], y[cis], site_indices; kwargs...)
-        states[i] = ets[1] # for type stability reasons
-    end
-
-    return states
-
-end
-
-function encoding_test(::EncodeSeparate{false}, X_norm::AbstractMatrix, y::AbstractVector{Int}, site_indices::AbstractVector{Index{Int64}}; 
-    opts::Options=Options(), 
-    num_ts=size(X_norm,2)
-    )
-    # a test encoding used to plot the basis being used if "test_run"=true
-
-    # handle the encoding initialisation
-    if isnothing(opts.encoding.init)
-        encoding_args = []
-    else
-        encoding_args = opts.encoding.init(X_norm, y; opts=opts)
-    end
-
-    a,b = opts.encoding.range
-    #num_ts = 1000 # increase resolution for plotting
-    stp = (b-a)/(num_ts-1)
-    X_norm = Matrix{Float64}(undef, size(X_norm,1), num_ts)
-    for row in eachrow(X_norm)
-        row[:] = collect(a:stp:b)
-    end
-
-
-   
-    all_product_states = Matrix{Vector{opts.dtype}}(undef, size(X_norm))
-
-    for i=1:num_ts
-        sample_pstate = encode_TS(X_norm[:, i], site_indices, encoding_args; opts=opts)
-        all_product_states[:,i] .= Vector.(sample_pstate)
-    end
-
-    return [all_product_states] # one element vector is for type stability reasons
 
 end

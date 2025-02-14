@@ -6,9 +6,9 @@ function ==(e1::EncodedTimeSeriesSet, e2::EncodedTimeSeriesSet)
 end
 
 
-function ==(p1::PState, p2::PState) 
-    return p1.label == p2.label && p1.label_index == p2.label_index && ==(p1.pstate.data, p2.pstate.data)
-end
+# function ==(p1::PState, p2::PState) 
+#     return p1.label == p2.label && p1.label_index == p2.label_index && ==(p1.pstate.data, p2.pstate.data)
+# end
 
 function ==(m1::TrainedMPS, m2::TrainedMPS)
 
@@ -26,9 +26,9 @@ function isapprox(it1::TimeSeriesIterable, it2::TimeSeriesIterable)
     return length(it1) == length(it2) && all(map(isapprox, it1, it2))
 end
 
-function isapprox(p1::PState, p2::PState) 
-    return p1.label == p2.label && p1.label_index == p2.label_index && isapprox(p1.pstate.data, p2.pstate.data)
-end
+# function isapprox(p1::PState, p2::PState) 
+#     return p1.label == p2.label && p1.label_index == p2.label_index && isapprox(p1.pstate.data, p2.pstate.data)
+# end
 
 function isapprox(m1::TrainedMPS, m2::TrainedMPS)
 

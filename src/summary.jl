@@ -1,43 +1,43 @@
 
 
-function contractMPS(W::MPS, PS::PState)
-        N_sites = length(W)
-        res = 1
-        for i=1:N_sites
-            res *= W[i] * conj(PS.pstate[i])
-        end
+# function contractMPS(W::MPS, PS::PState)
+#         N_sites = length(W)
+#         res = 1
+#         for i=1:N_sites
+#             res *= W[i] * conj(PS.pstate[i])
+#         end
 
-        return res 
+#         return res 
 
-end
-
-
-
-function MSE_loss_acc_iter(W::MPS, PS::PState, label_idx::Index)
-    """For a given sample, compute the Quadratic Cost and whether or not
-    the corresponding prediction (using argmax on deicision func. output) is
-    correctly classfified"""
-    shifted_label = PS.label_index # ground truth label
-    y = onehot(label_idx => shifted_label)
+# end
 
 
-    yhat = contractMPS(W, PS)
+
+# function MSE_loss_acc_iter(W::MPS, PS::PState, label_idx::Index)
+#     """For a given sample, compute the Quadratic Cost and whether or not
+#     the corresponding prediction (using argmax on deicision func. output) is
+#     correctly classfified"""
+#     shifted_label = PS.label_index # ground truth label
+#     y = onehot(label_idx => shifted_label)
+
+
+#     yhat = contractMPS(W, PS)
     
-    diff_sq = abs2.(array(yhat - y))
-    sum_of_sq_diff = real(sum(diff_sq))
+#     diff_sq = abs2.(array(yhat - y))
+#     sum_of_sq_diff = real(sum(diff_sq))
 
-    loss = 0.5 * sum_of_sq_diff
+#     loss = 0.5 * sum_of_sq_diff
 
-    # now get the predicted label
-    correct = 0
+#     # now get the predicted label
+#     correct = 0
     
-    if argmax(abs.(vector(yhat))) == shifted_label
-        correct = 1
-    end
+#     if argmax(abs.(vector(yhat))) == shifted_label
+#         correct = 1
+#     end
 
-    return [loss, correct]
+#     return [loss, correct]
 
-end
+# end
 
 function MSE_loss_acc(W::MPS, PSs::TimeSeriesIterable)
     """Compute the MSE loss and accuracy for an entire dataset"""
@@ -50,33 +50,33 @@ function MSE_loss_acc(W::MPS, PSs::TimeSeriesIterable)
 
 end
 
-function MSE_loss_acc_conf_iter!(W::MPS, PS::PState, label_idx::Index, conf::Matrix)
-    """For a given sample, compute the Quadratic Cost and whether or not
-    the corresponding prediction (using argmax on decision func. output) is
-    correctly classfified"""
-    shifted_label = PS.label_index # ground truth label
-    y = onehot(label_idx => shifted_label)
+# function MSE_loss_acc_conf_iter!(W::MPS, PS::PState, label_idx::Index, conf::Matrix)
+#     """For a given sample, compute the Quadratic Cost and whether or not
+#     the corresponding prediction (using argmax on decision func. output) is
+#     correctly classfified"""
+#     shifted_label = PS.label_index # ground truth label
+#     y = onehot(label_idx => shifted_label)
 
 
-    yhat = contractMPS(W, PS)
+#     yhat = contractMPS(W, PS)
     
-    diff_sq = abs2.(array(yhat - y))
-    sum_of_sq_diff = real(sum(diff_sq))
+#     diff_sq = abs2.(array(yhat - y))
+#     sum_of_sq_diff = real(sum(diff_sq))
 
-    loss = 0.5 * sum_of_sq_diff
+#     loss = 0.5 * sum_of_sq_diff
 
-    # now get the predicted label
-    correct = 0
-    pred = argmax(abs.(vector(yhat)))
-    if pred == shifted_label
-        correct = 1
-    end
+#     # now get the predicted label
+#     correct = 0
+#     pred = argmax(abs.(vector(yhat)))
+#     if pred == shifted_label
+#         correct = 1
+#     end
 
-    conf[shifted_label, pred] += 1
+#     conf[shifted_label, pred] += 1
 
-    return [loss, correct]
+#     return [loss, correct]
 
-end
+# end
 
 function MSE_loss_acc_conf(W::MPS, PSs::TimeSeriesIterable)
     pos, label_idx = find_label(W)
@@ -124,17 +124,16 @@ function classify(mps::TrainedMPS, test_states::EncodedTimeSeriesSet)
 
     pss_train = mps.train_data.timeseries
 
-    labels = sort(unique([ps.label for ps in pss_train]))
+    labels = sort(unique(keys(mps.train_data.class_distribution)))
+    @show labels
 
-
-    preds = Vector{Int64}(undef, length(pss))
-    for i in eachindex(pss)
-        psc = conj(pss[i].pstate)
-        overlaps = [ITensor(1) for _ in Ws]
+    preds = Vector{Int64}(undef, size(pss, 2))
+    for i in axes(pss,2)
+        overlaps = [1. for _ in Ws]
         for (wi,w) in enumerate(Ws), j in eachindex(Ws[1])
-            overlaps[wi] *= w[j] * itensor(psc[j], inds(w[j])[1])
+            overlaps[wi] *= (w[j] * itensor(conj(pss[:,i,j]), inds(w[j])[1]))[1]
         end
-        overlaps = abs2.(first.(overlaps))
+        overlaps = abs2.(overlaps)
         pred = argmax(overlaps)
         preds[i] = labels[pred]
 
@@ -170,13 +169,12 @@ function classify(mps::TrainedMPS, X_test::AbstractMatrix)
     sites = get_siteinds(mps.mps)
     pss_train = mps.train_data.timeseries
 
-    y_train = [ps.label for ps in pss_train]
-    classes = sort(unique(y_train))
+    classes = sort(unique(keys(mps.train_data.class_distribution)))
     num_classes = length(classes)
     
-    sort!(classes)
     class_keys = Dict(zip(classes, 1:num_classes))
     n_tests = size(X_test_scaled,2)
+    y_train = fill(-1, size(X_train,1))
 
     s = EncodeSeparate{opts.encode_classes_separately}()
     _, enc_args_tr = encode_dataset(s, X_train, X_train_scaled, y_train, "train", sites; opts=opts, class_keys=class_keys)

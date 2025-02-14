@@ -46,28 +46,23 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
     """Function to pre-compute tensor contractions between the MPS and the product states. """
 
     # get the num of training samples to pre-allocate a caching matrix
-    N_train = length(training_pstates) 
-    # get the number of MPS sites
-    N = length(W)
-
-    sinds = siteinds(W)
-    linds = linkinds(W)
+    N_train, N = size(training_pstates)[2:3] 
 
     # pre-allocate left and right environment matrices 
-    LE = PCache(undef, N, N_train) 
-    RE = PCache(undef, N, N_train)
+    LE = PCache(undef, N_train, N) 
+    RE = PCache(undef, N_train, N)
 
     if going_left
         # backward direction - initialise the LE with the first site
         w_1 = matrix(W[1])
         for i = 1:N_train
-            LE[1,i] = transpose(training_pstates[i].pstate[1]' * w_1)
+            LE[i,1] = transpose(training_pstates[:,i,1]' * w_1)
         end
 
         for j = 2:N-1
             t = tensor(W[j])
             for i = 1:N_train
-                LE[j,i] = [ (training_pstates[i].pstate[j]' * sl) * LE[j-1, i] for sl in eachslice(t, dims=3)]
+                LE[i,j] = [ (training_pstates[:,i,j]' * sl) * LE[i,j-1] for sl in eachslice(t, dims=3)]
             end
         end
     
@@ -76,7 +71,7 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
         # initialise RE cache with the terminal site and work backwards
         w_end = matrix(W[N])
         for i = 1:N_train
-            RE[N,i] = transpose(training_pstates[i].pstate[N]' * w_end)
+            RE[i,N] = transpose(training_pstates[:,i,N]' * w_end)
         end
 
         for j = (N-1):-1:2
@@ -85,7 +80,7 @@ function construct_caches(W::MPS, training_pstates::TimeSeriesIterable; going_le
 
 
             for i = 1:N_train
-                RE[j,i] =  [(training_pstates[i].pstate[j]' * sl) * RE[j+1,i] for sl in eachslice(t, dims=3) ] 
+                RE[i,j] =  [(training_pstates[:,i,j]' * sl) * RE[i,j+1] for sl in eachslice(t, dims=3) ] 
             end
         end
         
@@ -102,8 +97,7 @@ end
 function update_caches!(left_site_new::ITensor, right_site_new::ITensor, 
     LE::PCache, RE::PCache, lid::Int, rid::Int, training_pstates::TimeSeriesIterable; going_left::Bool=true)
     """Given a newly updated bond tensor, update the caches."""
-    num_train = length(training_pstates)
-    num_sites = size(LE)[1]
+    num_train, num_sites = size(training_pstates)[2:3]
 
     # @show inds(right_site_new)
     # @show inds(left_site_new)
@@ -111,9 +105,9 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
     if going_left
         for i = 1:num_train
             if rid == num_sites
-                RE[num_sites,i] = (training_pstates[i].pstate[rid]' * matrix(right_site_new))'
+                RE[i,num_sites] = (training_pstates[:,i,rid]' * matrix(right_site_new))'
             else
-                RE[rid,i] = [(training_pstates[i].pstate[rid]' * sl) * RE[rid+1,i] for sl in eachslice(tensor(right_site_new), dims=3) ]
+                RE[i,rid] = [(training_pstates[:,i,rid]' * sl) * RE[i,rid+1] for sl in eachslice(tensor(right_site_new), dims=3) ]
             end
         end
     else
@@ -121,9 +115,9 @@ function update_caches!(left_site_new::ITensor, right_site_new::ITensor,
         for i = 1:num_train
             if lid == 1
                 m = matrix(left_site_new)
-                LE[1,i] = (training_pstates[i].pstate[lid]' * m)'
+                LE[i,1] = (training_pstates[:,i,lid]' * m)'
             else
-                LE[lid,i] = [(training_pstates[i].pstate[lid]' * sl) * LE[lid-1,i] for sl in eachslice(tensor(left_site_new), dims=3) ]
+                LE[i,lid] = [(training_pstates[:,i,lid]' * sl) * LE[i,lid-1] for sl in eachslice(tensor(left_site_new), dims=3) ]
             end
         end
     end
@@ -238,21 +232,6 @@ function decomposeBT(
 
 end
 
-function flatten_bt!(bts, s1, s2, label_idx; going_left=true)
-
-    # infer the location of the site indices
-
-    for (ci,c) in enumerate(eachindval(label_idx))
-        if going_left
-            bt = tensor( s1 * (s2 * onehot(c)) )
-        else
-            bt = tensor((s1 * onehot(c)) * s2)
-
-        end
-        
-        bts[ci] = bt[:] # flatten
-    end
-end
 
 function flatten_bt(s1, s2, label_idx, dtype=Float64; going_left=true)
 
@@ -420,51 +399,53 @@ function apply_update(tsep::TrainSeparate, BT_init::BondTensor, LE::PCache, RE::
         end
     else
         # break down the bond tensor to feed into optimkit or optim
-        if iscomplex
-            C_index = Index(2, "C")
-            bt_re = realise(BT_init, C_index; dtype=dtype)
-        else
-            C_index = nothing
-            bt_re = BT_init
-        end
+        # if iscomplex
+        #     C_index = Index(2, "C")
+        #     bt_re = realise(BT_init, C_index; dtype=dtype)
+        # else
+        #     C_index = nothing
+        #     bt_re = BT_init
+        # end
 
-        if bbopt.name == "Optim" 
-             # flatten bond tensor into a vector and get the indices
-            bt_inds = inds(bt_re)
-            bt_flat = NDTensors.array(bt_re, bt_inds) # should return a view
+        # if bbopt.name == "Optim" 
+        #      # flatten bond tensor into a vector and get the indices
+        #     bt_inds = inds(bt_re)
+        #     bt_flat = NDTensors.array(bt_re, bt_inds) # should return a view
 
-            # create anonymous function to feed into optim, function of bond tensor only
-            fgcustom! = (F,G,B) -> loss_grad!(tsep, F, G, B, bt_inds, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
-            # set the optimisation manfiold
-            # apply optim using specified gradient descent algorithm and corresp. paramters 
-            # set the manifold to either flat, sphere or Stiefel 
-            if bbopt.fl == "CGD"
-                method = Optim.ConjugateGradient(eta=eta)
-            else
-                method = Optim.GradientDescent(alphaguess=eta)
-            end
-            #method = Optim.LBFGS()
-            res = Optim.optimize(Optim.only_fg!(fgcustom!), bt_flat; method=method, iterations = iters, 
-            show_trace = (verbosity >=1),  g_abstol=1e-20)
-            result_flattened = Optim.minimizer(res)
+        #     # create anonymous function to feed into optim, function of bond tensor only
+        #     fgcustom! = (F,G,B) -> loss_grad!(tsep, F, G, B, bt_inds, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
+        #     # set the optimisation manfiold
+        #     # apply optim using specified gradient descent algorithm and corresp. paramters 
+        #     # set the manifold to either flat, sphere or Stiefel 
+        #     if bbopt.fl == "CGD"
+        #         method = Optim.ConjugateGradient(eta=eta)
+        #     else
+        #         method = Optim.GradientDescent(alphaguess=eta)
+        #     end
+        #     #method = Optim.LBFGS()
+        #     res = Optim.optimize(Optim.only_fg!(fgcustom!), bt_flat; method=method, iterations = iters, 
+        #     show_trace = (verbosity >=1),  g_abstol=1e-20)
+        #     result_flattened = Optim.minimizer(res)
 
-            BT_new = itensor(real(dtype), result_flattened, bt_inds)
-
-
-        elseif bbopt.name == "OptimKit"
-
-            lg = BT -> loss_grad_enforce_real(tsep, BT, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
-            if bbopt.fl == "CGD"
-                alg = OptimKit.ConjugateGradient(; verbosity=verbosity, maxiter=iters)
-            else
-                alg = OptimKit.GradientDescent(; verbosity=verbosity, maxiter=iters)
-            end
-            BT_new, fx, _ = OptimKit.optimize(lg, bt_re, alg)
+        #     BT_new = itensor(real(dtype), result_flattened, bt_inds)
 
 
-        else
-            error("Unknown Black Box Optimiser $bbopt, options are [CustomGD, Optim, OptimKit]")
-        end
+        # elseif bbopt.name == "OptimKit"
+
+        #     lg = BT -> loss_grad_enforce_real(tsep, BT, LE, RE, ETSs, lid, rid, C_index; dtype=dtype, loss_grad=loss_grad)
+        #     if bbopt.fl == "CGD"
+        #         alg = OptimKit.ConjugateGradient(; verbosity=verbosity, maxiter=iters)
+        #     else
+        #         alg = OptimKit.GradientDescent(; verbosity=verbosity, maxiter=iters)
+        #     end
+        #     BT_new, fx, _ = OptimKit.optimize(lg, bt_re, alg)
+
+
+        # else
+            # error("Unknown Black Box Optimiser $bbopt, options are [CustomGD, Optim, OptimKit]")
+        error("Unknown Black Box Optimiser $bbopt, options are [CustomGD, TSGO]")
+
+        # end
 
         if iscomplex # convert back to a complex itensor
             BT_new = complexify(BT_new, C_index; dtype=dtype)
@@ -726,70 +707,8 @@ function fitMPS(::DataIsRescaled{true}, W::MPS, X_train::Matrix, X_train_scaled:
     training_states, enc_args_tr = encode_dataset(s, X_train, X_train_scaled, y_train, "train", sites; opts=opts, class_keys=class_keys)
     testing_states, enc_args_test = encode_dataset(s, X_test, X_test_scaled, y_test, "test", sites; opts=opts, class_keys=class_keys, training_encoding_args=enc_args_tr)
     
-    enc_args = vcat(enc_args_tr, enc_args_test)
 
-    if return_sample_encoding || test_run
-        num_ts = 500
-        test_encs = encoding_test(s, X_train_scaled, y_train, sites; opts=opts, num_ts=num_ts)
-    end
-
-    if test_run
-
-        a,b = opts.encoding.range
-        stp = (b-a)/(num_ts-1)
-        xs = collect(a:stp:b)
-
-        num_plts = opts.encoding.istimedependent ? 3 : 1
-        opts.verbosity > -1 && println("Choosing $num_plts timepoints to plot the basis of at random")
-
-        plotinds = Vector{Vector{Integer}}(undef, num_classes)
-        for ci in 1:num_classes
-            plotinds[ci] = [21,22,24]#sample(MersenneTwister(), 1:num_mps_sites, num_plts, replace=false)
-            plotinds[ci] = plotinds[ci][1:num_plts]
-            plotinds[ci]
-        end
-
-        if opts.encode_classes_separately
-            p1s = []
-            p2s = []
-            for (ci, encs) in enumerate(test_encs)
-                c = classes[ci]
-                cinds = findall(y_train .== c)
-                p1cs = [histogram(X_train_scaled[i,cinds]; bins=25, title="Timepoint $i/$num_mps_sites, class $c", legend=:none, xlims=opts.encoding.range) for i in plotinds[ci]]
-                p2cs = [plot(xs, real.(transpose(hcat(encs[i,:]...))); xlabel="x", ylabel="real{Encoding}", legend=:none) for i in plotinds[ci]]
-                push!(p1s, p1cs)
-                push!(p2s, p2cs)
-            end
-            ps = plot(vcat(p1s...,p2s...)..., layout=(2,num_classes*num_plts), size=(350*num_classes*num_plts,800))
-
-        else
-            if opts.encoding.istimedependent
-                p1s = [histogram(X_train_scaled[i,:]; bins=25, title="Timepoint $i/$num_mps_sites",ylabel="Frequency", legend=:none, xlims=opts.encoding.range, bottom_margin=5mm, left_margin=5mm, top_margin=5mm) for i in plotinds[1]]
-            else
-                p1s = [histogram(X_train_scaled[:]; bins=25, title="All Observations",ylabel="Frequency", legend=:none, xlims=opts.encoding.range, bottom_margin=5mm, left_margin=5mm, top_margin=5mm) for i in plotinds[1]]
-            end
-            p2s = [plot(xs, real.(transpose(hcat(test_encs[1][i,:]...))); xlabel="x", ylabel="real{Encoding}", legend=:none, bottom_margin=5mm, left_margin=5mm, top_margin=5mm,) for i in plotinds[1]]
-
-            ps = plot(vcat(p1s,p2s)..., layout=(2,num_plts), size=(1200,800), suptitle="Histogram and Basis: " * opts.encoding.name, bottom_margin=5mm, left_margin=5mm, top_margin=5mm)
-
-        end
-            
-        opts.verbosity > -1 && println("Encoding completed! Returning initial states without training.")
-        return W, [], training_states, testing_states, ps
-    end
-
-    extra_args = []
-
-    if return_sample_encoding
-        push!(extra_args,  xs)
-        push!(extra_args,  test_encs)
-    end
-
-    if opts.return_encoding_meta_info
-        push!(extra_args, enc_args)
-    end
-
-    return [fitMPS(W, training_states, testing_states, opts; test_run=test_run)..., extra_args... ]
+    return fitMPS(W, training_states, testing_states, opts; test_run=test_run)
 end
 
 function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta::EncodedTimeSeriesSet, opts::AbstractMPSOptions; test_run=false) # optimise bond tensor)
@@ -799,8 +718,8 @@ function fitMPS(training_states_meta::EncodedTimeSeriesSet, testing_states_meta:
 
     training_states = training_states_meta.timeseries
 
-    @assert opts.d == ITensors.dim(siteinds(training_states[1].pstate)[1]) "Dimension of site indices must match feature map dimension"
-    sites = siteinds(training_states[1].pstate)
+    @assert opts.d == length(training_states[1].data) "Dimension of site indices must match feature map dimension"
+    sites = siteinds(opts.d, size(training_states, 2))
 
     # generate the starting MPS with unfirom bond dimension chi_init and random values (with seed if provided)
     num_classes = length(unique([ps.label for ps in training_states]))
@@ -845,14 +764,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         @warn "Classes are trained separately, but not encoded separately"
     end
 
-    # check the training states are sorted
-    y_train = [ps.label for ps in training_states]
-    y_test = [ps.label for ps in testing_states]
-
-    @assert issorted(y_train) "Training data must be sorted by class!"
-    @assert issorted(y_test) "Testing data must be sorted by class!"
-
-    has_test = !isempty(y_test)
+    has_test = !isempty(testing_states_meta)
 
     verbosity > -1 && println("Using $(opts.update_iters) iterations per update.")
     # construct initial caches
@@ -952,7 +864,7 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
     cutoff=opts.cutoff
 
     pos, label_idx = find_label(W)
-    bts = Vector{BondTensor{dtype}}(undef, ITensors.dim(label_idx))
+    # bts = Vector{BondTensor{dtype}}(undef, ITensors.dim(label_idx))
     for itS = 1:opts.nsweeps        
         start = time()
         verbosity > -1 && println("Using optimiser $(bbopts[itS].name) with the \"$(bbopts[itS].fl)\" algorithm")
@@ -962,8 +874,6 @@ function fitMPS(W::MPS, training_states_meta::EncodedTimeSeriesSet, testing_stat
         for j = (length(sites)-1):-1:1
             # j tracks the LEFT site in the bond tensor (irrespective of sweep direction)
             bt, bt_inds = flatten_bt(W[j], W[(j+1)], label_idx, dtype; going_left=true) 
-
-
             bt_new = apply_update(
                 tsep, 
                 bt, 

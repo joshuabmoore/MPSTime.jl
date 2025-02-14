@@ -9,16 +9,16 @@ struct EncodeSeparate{Bool} end # value type for dispatching on whether to encod
 struct DataIsRescaled{Bool} end # Value type to tell fitMPS the data has already been rescaled. Do not use unless you know what you're doing!
 
 # data structures
-struct PState
-    """Create a custom structure to store product state objects, 
-    along with their associated label and type (i.e, train, test or valid)"""
-    pstate::Vector{Vector}
-    label::Any # TODO make this a fancy scientific type
-    label_index::UInt
-end
+# struct PState
+#     """Create a custom structure to store product state objects, 
+#     along with their associated label and type (i.e, train, test or valid)"""
+#     data::Vector
+#     label::Any # TODO make this a fancy scientific type
+#     label_index::UInt
+# end
 
 
-const TimeSeriesIterable = Vector{PState}
+const TimeSeriesIterable{D} = Array{D, 3} where D <: Number
 
 """
     EncodedTimeSeriesSet
@@ -32,7 +32,7 @@ struct EncodedTimeSeriesSet
 end
 
 function EncodedTimeSeriesSet(class_dtype::DataType=Int64) # empty version
-    tsi = TimeSeriesIterable(undef, 0)
+    tsi = TimeSeriesIterable{Number}(undef, 0,0,0)
     mtx = zeros(0,0)
     class_dist = Vector{class_dtype}(undef, 0) # pays to assume the worst and match types...
     return EncodedTimeSeriesSet(tsi, mtx, class_dist)
